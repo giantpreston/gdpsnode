@@ -1,4 +1,5 @@
 const express = require('express'); // im so excited
+const rateLimit = require('express-rate-limit');
 const fs = require('fs');
 const path = require('path');
 
@@ -8,7 +9,19 @@ const port = 10000
 // Don't change anything below unless you know what you're doing!
 
 const app = express();
+
+const limiter = rateLimit({
+    windowMs: 60 * 1000,
+    max: 100,
+    standardHeaders: true,
+    legacyHeaders: false,
+    message: '-1',
+    statusCode: 429,
+    validate: { xForwardedForHeader: false }
+});
+
 app.use(express.urlencoded({ extended: true }));
+app.use(limiter);
 
 const endpointsDir = path.join(__dirname, 'endpoints');
 
