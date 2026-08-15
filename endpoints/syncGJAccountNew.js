@@ -35,7 +35,7 @@ module.exports = {
 
         if (!saveData) {
             // no save data exists, return empty/default
-            return res.send(';21;30;a;a');
+            return res.send(';22;47;a;a');
         }
 
         return res.send(saveData + ';22;47;a;a');

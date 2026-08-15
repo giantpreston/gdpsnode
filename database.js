@@ -12,8 +12,9 @@ db.exec(`
     );
 
     CREATE TABLE IF NOT EXISTS profiles (
-        accountID TEXT NOT NULL,
+        accountID INTEGER NOT NULL,
         userName TEXT NOT NULL DEFAULT 'undefined',
+        modLevel INTEGER NOT NULL DEFAULT 0,
         stars INTEGER NOT NULL DEFAULT 0,
         demons INTEGER NOT NULL DEFAULT 0,
         icon INTEGER NOT NULL DEFAULT 0,
