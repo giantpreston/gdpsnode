@@ -7,7 +7,7 @@ module.exports = {
     path: '/getAccountURL.php',
     middleware: [commonSecret],
     handler: (req, res) => {
-        const accountID = req.body?.accountID;
+        const accountID = parseInt(req.body?.accountID, 10);
         
         if (!accountID) return res.send('-1');
         if (isNaN(accountID)) return res.send('-1');

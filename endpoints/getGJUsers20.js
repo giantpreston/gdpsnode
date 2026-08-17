@@ -13,12 +13,16 @@ module.exports = {
 
         // db lookup
         let prepare;
-        if (isNaN(str)) { prepare = db.prepare('SELECT * FROM profiles WHERE userName = ?'); } else { prepare = db.prepare('SELECT * FROM profiles WHERE accountID = ?'); }
+        if (isNaN(parseInt(str))) { prepare = db.prepare('SELECT * FROM profiles WHERE userName = ?'); } else { prepare = db.prepare('SELECT * FROM profiles WHERE accountID = ?'); }
         const account = prepare.get(str);
 
         if (!account) return res.send('-1');
         
         const usrcount = db.prepare('SELECT COUNT(*) as count FROM profiles').get().count;
-        return res.send(`1:${account.userName}:2:${account.accountID + 1}:3:${account.stars}:13:${account.coins}:17:${account.userCoins}:9:${account.icon}:10:${account.color1}:11:${account.color2}:51:${account.color3}:14:${account.iconType}:15:${account.special}:16:${account.accountID}:3:${account.stars}:8:${account.creatorPoints}:4:${account.demons}:46:${account.diamonds}:52:${account.moons}#${usrcount}:0:1`);
+
+        // note that the GD client can handle and render more than one user profile at getGJUsers20, but i intentionally chose to mimic the original RobTop server configuration.
+        // you can do that by separating each account with a pipe character (|) and sending the data for the second user, and in that order it'll show up.
+        
+        return res.send(`1:${account.userName}:2:${account.accountID + 1}:3:${account.stars}:13:${account.coins}:17:${account.userCoins}:9:${account.icon}:10:${account.color1}:11:${account.color2}:51:${account.color3}:14:${account.iconType}:15:${account.special}:16:${account.accountID}:8:${account.creatorPoints}:4:${account.demons}:46:${account.diamonds}:52:${account.moons}#${usrcount}:0:1`);
     }
 };

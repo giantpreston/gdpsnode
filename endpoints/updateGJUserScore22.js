@@ -6,7 +6,6 @@ module.exports = {
     path: '/updateGJUserScore22.php',
     middleware: [commonSecret],
     handler: (req, res) => {
-        const secret = req.body?.secret;
         const stars = parseInt(req.body?.stars) || 0;
         const demons = parseInt(req.body?.demons) || 0;
         const icon = parseInt(req.body?.icon) || 0;
@@ -16,9 +15,7 @@ module.exports = {
         const udid = req.body?.udid;
 
         // sanity checks
-        if (!secret || !accountID) {
-            return res.send('-1');
-        }
+        if (!accountID) return res.send('-1');
 
         // db checks
         const getProfile = db.prepare('SELECT * FROM profiles WHERE accountID = ?');

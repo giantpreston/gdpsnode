@@ -7,7 +7,7 @@ module.exports = {
     path: '/database/accounts/syncGJAccountNew.php',
     middleware: [accountSecret],
     handler: (req, res) => {
-        const accountId = req.body?.accountID;
+        const accountId = parseInt(req.body?.accountID);
         const gjp2 = req.body?.gjp2;
         const userName = req.body?.userName;
 

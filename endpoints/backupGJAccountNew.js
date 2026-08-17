@@ -7,7 +7,7 @@ module.exports = {
     path: '/database/accounts/backupGJAccountNew.php',
     middleware: [accountSecret],
     handler: (req, res) => {
-        const accountId = req.body?.accountID;
+        const accountId = parseInt(req.body?.accountID, 10);
         const gjp2 = req.body?.gjp2;
         const saveData = req.body?.saveData;
 
