@@ -1,0 +1,9 @@
+This file contains ALL the levels on your brand-new GDPS!
+
+They are stored in a .gdcs (Geometry Dash Compressed String) format, which consists of URL-Safe Base64 decoding the levelString sent by the client, and storing the bytes in the file.
+The names match the level's levelID, for example: 1.gdcs would be Level ID 1, stored using the GDCS format.
+Each level gets its own file, and as levels are deleted, they're completely removed from this folder by the server automatically.
+If you wish to delete a level, simply removing it from here isn't enough, it'll just cause a broken link since the DB doesn't store the levelString there.
+Instead, delete the level from the levels table and then remove it from here.
+
+Thank you for reading!

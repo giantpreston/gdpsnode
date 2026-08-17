@@ -51,16 +51,14 @@ db.exec(`
     );
 
     CREATE TABLE IF NOT EXISTS levels (
-        userName TEXT NOT NULL,
         levelID INTEGER PRIMARY KEY AUTOINCREMENT,
+        accountID INTEGER NOT NULL,
         levelName TEXT NOT NULL,
         levelDesc TEXT NOT NULL,
-        levelVersion INTEGER NOT NULL,
+        levelVersion INTEGER NOT NULL DEFAULT 0,
         levelLength INTEGER NOT NULL DEFAULT 0,
         audioTrack INTEGER NOT NULL,
-        auto INTEGER NOT NULL,
         password INTEGER NOT NULL,
-        original INTEGER NOT NULL,
         twoPlayer INTEGER NOT NULL DEFAULT 0,
         songID INTEGER NOT NULL DEFAULT 0,
         songIDs TEXT DEFAULT '',
@@ -68,9 +66,7 @@ db.exec(`
         objects INTEGER NOT NULL DEFAULT 0,
         coins INTEGER NOT NULL DEFAULT 0,
         requestedStars INTEGER NOT NULL DEFAULT 0,
-        extraString TEXT NOT NULL,
-        levelString TEXT,
-        levelInfo TEXT NOT NULL,
+        extraString TEXT NOT NULL DEFAULT '',
         starDifficulty INTEGER NOT NULL DEFAULT 0,
         downloads INTEGER NOT NULL DEFAULT 0,
         likes INTEGER NOT NULL DEFAULT 0,
@@ -79,21 +75,14 @@ db.exec(`
         starStars INTEGER NOT NULL DEFAULT 0,
         uploadDate BIGINT NOT NULL,
         updateDate BIGINT NOT NULL,
-        rateDate BIGINT NOT NULL DEFAULT 0,
         starCoins INTEGER NOT NULL DEFAULT 0,
-        starFeatured INTEGER NOT NULL DEFAULT 0,
         starHall INTEGER NOT NULL DEFAULT 0,
         starEpic INTEGER NOT NULL DEFAULT 0,
         starDemonDiff INTEGER NOT NULL DEFAULT 0,
-        accountID INTEGER NOT NULL,
-        unlisted INTEGER NOT NULL,
+        unlisted INTEGER NOT NULL DEFAULT 0,
         originalReup INTEGER NOT NULL DEFAULT 0,
-        hostname TEXT NOT NULL,
         isLDM INTEGER NOT NULL DEFAULT 0,
-        wt INTEGER NOT NULL DEFAULT 0,
-        wt2 INTEGER NOT NULL DEFAULT 0,
-        ts INTEGER NOT NULL DEFAULT 0,
-        settingsString TEXT NOT NULL
+        gameVersion INTEGER NOT NULL DEFAULT 22
     );
 `);
 
