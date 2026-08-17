@@ -11,8 +11,8 @@ module.exports = {
         const icon = parseInt(req.body?.icon) || 0;
         const color1 = parseInt(req.body?.color1) || 0;
         const color2 = parseInt(req.body?.color2) || 0;
-        const accountID = req.body?.accountID;
-        const udid = req.body?.udid;
+        const accountID = utils.number(req.body?.accountID || '');
+        const udid = utils.remove(req.body?.udid || '');
 
         // sanity checks
         if (!accountID) return res.send('-1');
@@ -43,8 +43,8 @@ module.exports = {
         const diamonds = parseInt(req.body?.diamonds) || 0;
         const moons = parseInt(req.body?.moons) || 0;
         const color3 = parseInt(req.body?.color3) || 0;
-        const dinfo = req.body?.dinfo || '';
-        const sinfo = req.body?.sinfo || '';
+        const dinfo = utils.numbercolon(req.body?.dinfo || '');
+        const sinfo = utils.numbercolon(req.body?.sinfo || '');
 
         let processedDinfo = dinfo;
         if (dinfo) {

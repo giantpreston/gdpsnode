@@ -7,8 +7,8 @@ module.exports = {
     path: '/accounts/registerGJAccount.php',
     middleware: [accountSecret],
     handler: (req, res) => {
-        const username = req.body?.userName
-        const password = req.body?.password
+        const username = utils.remove(req.body?.userName || '')
+        const password = utils.remove(req.body?.password || '')
         
         // sanity checks
         if (!username || !password) return res.send('-1');

@@ -6,7 +6,7 @@ module.exports = {
     path: '/getGJUsers20.php',
     middleware: [commonSecret],
     handler: (req, res) => {
-        const str = req.body?.str;
+        const str = utils.remove(req.body?.str || '');
 
         // sanity check
         if (!str) return res.send('-1'); // bro what u wanna search for!1!!

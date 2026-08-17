@@ -7,8 +7,8 @@ module.exports = {
     path: '/accounts/loginGJAccount.php',
     middleware: [accountSecret],
     handler: (req, res) => {
-        const username = req.body?.userName;
-        const gjp2 = req.body?.gjp2;
+        const username = utils.remove(req.body?.userName || '');
+        const gjp2 = utils.remove(req.body?.gjp2 || '');
 
         // sanity checks
         if (!username || !gjp2) return res.send('-1'); // generic error

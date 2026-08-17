@@ -6,8 +6,8 @@ module.exports = {
     path: '/requestUserAccess.php',
     middleware: [commonSecret],
     handler: (req, res) => {
-        const accountId = parseInt(req.body?.accountID);
-        const gjp2 = req.body?.gjp2;
+        const accountId = parseInt(utils.number(req.body?.accountID || ''), 10);
+        const gjp2 = utils.remove(req.body?.gjp2 || '');
 
         // sanity checks
         if (!accountId || !gjp2) return res.send('-1'); // not getting in buddy nuh uh

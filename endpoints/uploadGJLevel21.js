@@ -55,16 +55,22 @@ module.exports = {
         const unlisted = parseInt(body.unlisted, 10);
         const ldm = parseInt(body.ldm, 10);
         const {
-            gjp2,
-            levelName,
-            levelDesc,
-            levelString,
-            seed2
+            gjp2: rawGjp2,
+            levelName: rawLevelName,
+            levelDesc: rawLevelDesc,
+            levelString: rawLevelString,
+            seed2: rawSeed2
         } = body;
 
-        const songIDs = body.songIDs?.trim() || '';
-        const sfxIDs = body.sfxIDs?.trim() || '';
-        const extraString = body.extraString?.trim() || '';
+        const gjp2 = utils.remove(rawGjp2 || '');
+        const levelName = utils.charclean(rawLevelName || '');
+        const levelDesc = (rawLevelDesc || '').trim();
+        const levelString = (rawLevelString || '').trim();
+        const seed2 = (rawSeed2 || '').trim();
+
+        const songIDs = utils.numbercolon(body.songIDs?.trim() || '');
+        const sfxIDs = utils.numbercolon(body.sfxIDs?.trim() || '');
+        const extraString = utils.remove(body.extraString?.trim() || '');
 
         if (
             isNaN(gameVersion) || isNaN(accountID) || isNaN(levelID) || isNaN(levelVersion) ||

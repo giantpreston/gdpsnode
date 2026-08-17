@@ -7,9 +7,9 @@ module.exports = {
     path: '/database/accounts/backupGJAccountNew.php',
     middleware: [accountSecret],
     handler: (req, res) => {
-        const accountId = parseInt(req.body?.accountID, 10);
-        const gjp2 = req.body?.gjp2;
-        const saveData = req.body?.saveData;
+        const accountId = parseInt(utils.number(req.body?.accountID || ''), 10);
+        const gjp2 = utils.remove(req.body?.gjp2 || '');
+        const saveData = utils.remove(req.body?.saveData || '');
 
         // sanity checks
         if (!accountId || !gjp2 || !saveData || !req.body.gameVersion || !req.body.binaryVersion || !req.body.udid || !req.body.uuid) return res.send('-1'); // cut off like 99% of the wrong reqsts
