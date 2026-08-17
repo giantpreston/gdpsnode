@@ -39,29 +39,29 @@ module.exports = {
 
         if (!gameVersion || !accountID || !gjp2 || !levelID || !levelName ||
             levelDesc === undefined || levelDesc === null || !levelVersion || !levelLength || !audioTrack ||
-            !auto || !password || !unlisted || !ldm || !levelString || !original || !songID || !seed2) return res.send('-1 a');
-        if (gameVersion > 22) return res.send('-1 b'); // bro does NOT have 2.3 sob
-        if (isNaN(accountID)) return res.send('-1 c');
-        if (gjp2.length !== 40) return res.send('-1 d');
+            !auto || !password || !unlisted || !ldm || !levelString || !original || !songID || !seed2) return res.send('-1');
+        if (gameVersion > 22) return res.send('-1'); // bro does NOT have 2.3 sob
+        if (isNaN(accountID)) return res.send('-1');
+        if (gjp2.length !== 40) return res.send('-1');
         if (levelID === 0) levelVersion = 1;
-        if (levelName.length > 20 || levelName.length < 0) return res.send('-1 e');
-        if (levelDesc && !utils.isURLBase64(levelDesc)) return res.send('-1 f');
-        if (levelLength > 5 || levelLength < 0) return res.send('-1 g'); // all valid: 0 = tiny; 1 = short; 2 = medium; 3 = large (most common); 4 = XL; 5 = platformer;
-        if (auto > 1 || auto < 0) return res.send('-1 h');
-        if (twoPlayer > 1 || twoPlayer < 0) return res.send('-1 i');
-        if (objects < 0) return res.send('-1 j');
-        if (coins > 3 || coins < 0) return res.send('-1 k');
-        if (requestedStars > 10 || requestedStars < 1) return res.send('-1 l'); // 1: auto, 2: easy, 3: normal, 4-5: hard, 6-7 (haha 67): harder, 8-9: insane, 10: demon
-        if (unlisted < 0 || unlisted > 2) return res.send('-1 m');
-        if (ldm > 1 || ldm < 0) return res.send('-1 n');
-        if (!utils.isURLBase64(levelString)) return res.send('-1 o');
+        if (levelName.length > 20 || levelName.length < 0) return res.send('-1');
+        if (levelDesc && !utils.isURLBase64(levelDesc)) return res.send('-1');
+        if (levelLength > 5 || levelLength < 0) return res.send('-1'); // all valid: 0 = tiny; 1 = short; 2 = medium; 3 = large (most common); 4 = XL; 5 = platformer;
+        if (auto > 1 || auto < 0) return res.send('-1');
+        if (twoPlayer > 1 || twoPlayer < 0) return res.send('-1');
+        if (objects < 0) return res.send('-1');
+        if (coins > 3 || coins < 0) return res.send('-1');
+        if (requestedStars > 10 || requestedStars < 1) return res.send('-1'); // 1: auto, 2: easy, 3: normal, 4-5: hard, 6-7 (haha 67): harder, 8-9: insane, 10: demon
+        if (unlisted < 0 || unlisted > 2) return res.send('-1');
+        if (ldm > 1 || ldm < 0) return res.send('-1');
+        if (!utils.isURLBase64(levelString)) return res.send('-1');
 
         // db checks
         const checkacc = db.prepare('SELECT * FROM accounts WHERE accountID = ?');
         const account = checkacc.get(accountID);
 
-        if (!account) return res.send('-1 p');
-        if (account.gjp2 !== gjp2) return res.send('-1 q');
+        if (!account) return res.send('-1');
+        if (account.gjp2 !== gjp2) return res.send('-1');
 
         const columns = [
             'accountID', 'levelName', 'levelDesc', 'levelVersion', 'levelLength',
@@ -111,7 +111,7 @@ module.exports = {
             fs.writeFileSync(filePath, decoded);
         } catch (err) {
             console.error('\x1b[1;31m✗ Failed to save level string:', err);
-            return res.send('-1 r');
+            return res.send('-1');
         }
 
         res.send(String(newLevelID));
