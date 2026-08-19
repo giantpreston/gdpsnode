@@ -1,4 +1,5 @@
 const { commonSecret } = require('../middleware/secrets');
+const utils = require('../utils');
 
 // literally just returns our own endpoint because robtop thought itd be a good idea to separate the servers game servers and backup servers on real gd
 

@@ -1,5 +1,6 @@
 const { accountSecret } = require('../middleware/secrets');
 const db = require('../database');
+const utils = require('../utils');
 const zlib = require('zlib');
 
 module.exports = {

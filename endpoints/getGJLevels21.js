@@ -18,10 +18,11 @@ module.exports = {
             const accountID = int('accountID');
             const type = int('type');
             const strProvided = has('str');
+            const isNumericStr = strProvided && /^\d+$/.test(String(body.str));
             let str;
             if (!strProvided) { str = ''; }
-            else if (typeof body.str === 'string' && isNaN(body.str)) { str = utils.remove(body.str); }
-            else { str = int('str'); }
+            else if (isNumericStr) { str = int('str'); }
+            else { str = utils.remove(String(body.str)); }
             const diff = utils.numbercolon(body.diff || '');
             const len = has('len') ? utils.numbercolon(body.len) : '-';
             const page = int('page');
@@ -96,8 +97,13 @@ module.exports = {
         if (epicFilter) conditions.push(epicFilter);
 
         if (type === 0) {
-            conditions.push('levelName LIKE ?');
-            params.push(`%${str}%`);
+            if (isNumericStr) {
+                conditions.push('levelID = ?');
+                params.push(str);
+            } else {
+                conditions.push('levelName LIKE ?');
+                params.push(`%${str}%`);
+            }
         }
         if (type === 1) order = 'downloads DESC';
         if (type === 2) order = 'likes DESC';
@@ -156,7 +162,8 @@ module.exports = {
             conditions.push(`levelLength IN (${placeholders})`);
             params.push(...lenValues);
         }
-        if (str && !isNaN(str)) conditions.push('unlisted = 0');
+        const searchedByID = (type === 0 && isNumericStr) || type === 10;
+        if (!searchedByID) conditions.push('unlisted = 0'); // friends unlisted levels behave the same as normal ones. will implement friends soon, so i'll add that later!
 
         let whereClause = '';
         if (conditions.length > 0) {
