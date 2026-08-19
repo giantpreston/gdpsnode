@@ -70,6 +70,7 @@ db.exec(`
         starDifficulty INTEGER NOT NULL DEFAULT 0,
         downloads INTEGER NOT NULL DEFAULT 0,
         likes INTEGER NOT NULL DEFAULT 0,
+        dislikes INTEGER NOT NULL DEFAULT 0,
         starDemon INTEGER NOT NULL DEFAULT 0,
         starAuto INTEGER NOT NULL DEFAULT 0,
         starStars INTEGER NOT NULL DEFAULT 0,
@@ -77,12 +78,32 @@ db.exec(`
         updateDate BIGINT NOT NULL,
         starCoins INTEGER NOT NULL DEFAULT 0,
         starHall INTEGER NOT NULL DEFAULT 0,
+        isSent INTEGET NOT NULL DEFAULT 0,
+        featured INTEGER NOT NULL DEFAULT 0,
         starEpic INTEGER NOT NULL DEFAULT 0,
         starDemonDiff INTEGER NOT NULL DEFAULT 0,
         unlisted INTEGER NOT NULL DEFAULT 0,
         originalReup INTEGER NOT NULL DEFAULT 0,
         isLDM INTEGER NOT NULL DEFAULT 0,
         gameVersion INTEGER NOT NULL DEFAULT 22
+    );
+
+    CREATE TABLE IF NOT EXISTS songs (
+        ID INTEGER PRIMARY KEY AUTOINCREMENT,
+        name TEXT NOT NULL,
+        artistID INTEGER NOT NULL,
+        artistName TEXT NOT NULL,
+        videoID TEXT DEFAULT '',
+        youtubeURL TEXT DEFAULT '',
+        isVerified INTEGER NOT NULL DEFAULT 0,
+        songPriority INTEGER,
+        link TEXT NOT NULL,
+        nongEnum INTEGER NOT NULL DEFAULT 0,
+        extraArtistIDs TEXT DEFAULT '',
+        isNew INTEGER NOT NULL DEFAULT 0,
+        newType INTEGER NOT NULL DEFAULT 0, -- 0 for yellow icon, 1 for blue
+        extraArtistNames TEXT DEFAULT '',
+        downloadSoundtrackOverride TEXT NOT NULL
     );
 `);
 
