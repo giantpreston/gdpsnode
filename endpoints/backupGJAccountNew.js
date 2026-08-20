@@ -7,7 +7,7 @@ module.exports = {
     method: 'post',
     path: '/database/accounts/backupGJAccountNew.php',
     middleware: [accountSecret],
-    handler: (req, res) => {
+    handler: async (req, res) => {
         const accountId = parseInt(utils.number(req.body?.accountID || ''), 10);
         const gjp2 = utils.remove(req.body?.gjp2 || '');
         const saveData = utils.remove(req.body?.saveData || '');
@@ -38,7 +38,7 @@ module.exports = {
             const buffer = Buffer.from(decodedSave, 'base64');
             let decompressed;
             try {
-                decompressed = zlib.gunzipSync(buffer).toString();
+                decompressed = (await zlib.promises.gunzip(buffer)).toString();
             } catch (err) {
                 return res.send('-3'); // invalid save data
             }
@@ -55,7 +55,7 @@ module.exports = {
             const saveDataReplaced = decompressed.replace(/<k>GJA_002<\/k><s>.*?<\/s>/, '<k>GJA_002</k><s>password</s>');
             
             // recompress and re-encode
-            const compressed = zlib.gzipSync(saveDataReplaced);
+            const compressed = await zlib.promises.gzip(saveDataReplaced);
             let encodedSave = compressed.toString('base64')
                 .replace(/\+/g, '-')
                 .replace(/\//g, '_');

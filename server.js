@@ -1,6 +1,6 @@
 const express = require('express'); // im so excited
 const rateLimit = require('express-rate-limit');
-const fs = require('fs');
+const fs = require('fs/promises');
 const path = require('path');
 
 // Change this parameter to start the server at a different port.
@@ -31,15 +31,24 @@ app.use(limiter);
 
 const endpointsDir = path.join(__dirname, 'endpoints');
 
-fs.readdirSync(endpointsDir).forEach(file => {
-    if (!file.endsWith('.js')) return;
+async function registerEndpoints() {
+    const files = await fs.readdir(endpointsDir);
 
-    const endpoint = require(path.join(endpointsDir, file));
-    const middleware = endpoint.middleware || [];
+    for (const file of files) {
+        if (!file.endsWith('.js')) continue;
 
-    app[endpoint.method](endpoint.path, ...middleware, endpoint.handler);
-});
+        const endpoint = require(path.join(endpointsDir, file));
+        const middleware = endpoint.middleware || [];
 
-app.listen(port, () => {
-    console.log(`\x1b[1;32m✓ GDPS Running Successfully! Port: ${port}\x1b[0m`);
+        app[endpoint.method](endpoint.path, ...middleware, endpoint.handler);
+    }
+}
+
+registerEndpoints().then(() => {
+    app.listen(port, () => {
+        console.log(`\x1b[1;32m✓ GDPS Running Successfully! Port: ${port}\x1b[0m`);
+    });
+}).catch(err => {
+    console.error('\x1b[1;31m✗ Failed to load endpoints:', err);
+    process.exit(1);
 });

@@ -2,7 +2,7 @@ const { commonSecret } = require('../middleware/secrets');
 const crypto = require('crypto');
 const db = require('../database');
 const path = require('path');
-const fs = require('fs');
+const fs = require('fs/promises');
 const utils = require('../utils');
 
 function generateUploadSeed(levelString) {
@@ -36,7 +36,7 @@ module.exports = {
     method: 'post',
     path: '/uploadGJLevel21.php',
     middleware: [commonSecret],
-    handler: (req, res) => {
+    handler: async (req, res) => {
         const body = req.body || {};
         const gameVersion = parseInt(body.gameVersion, 10);
         const accountID = parseInt(body.accountID, 10);
@@ -160,12 +160,10 @@ module.exports = {
                 }
                 const decoded = Buffer.from(base64, 'base64');
                 const levelsDir = path.join(__dirname, '..', 'levels');
-                if (!fs.existsSync(levelsDir)) {
-                    fs.mkdirSync(levelsDir, { recursive: true });
-                }
+                await fs.access(levelsDir).catch(() => fs.mkdir(levelsDir, { recursive: true }));
 
                 const filePath = path.join(levelsDir, `${levelID}.gdcs`);
-                fs.writeFileSync(filePath, decoded);
+                await fs.writeFile(filePath, decoded);
             } catch (err) {
                 console.error('\x1b[1;31m✗ Failed to save level string:', err);
                 return res.send('-1');
@@ -199,12 +197,10 @@ module.exports = {
                 }
                 const decoded = Buffer.from(base64, 'base64');
                 const levelsDir = path.join(__dirname, '..', 'levels');
-                if (!fs.existsSync(levelsDir)) {
-                    fs.mkdirSync(levelsDir, { recursive: true });
-                }
+                await fs.access(levelsDir).catch(() => fs.mkdir(levelsDir, { recursive: true }));
 
                 const filePath = path.join(levelsDir, `${newLevelID}.gdcs`);
-                fs.writeFileSync(filePath, decoded);
+                await fs.writeFile(filePath, decoded);
             } catch (err) {
                 console.error('\x1b[1;31m✗ Failed to save level string:', err);
                 return res.send('-1');

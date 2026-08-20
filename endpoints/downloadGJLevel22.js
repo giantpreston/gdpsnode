@@ -3,7 +3,7 @@ const db = require('../database');
 const utils = require('../utils');
 const crypto = require('crypto');
 const path = require('path');
-const fs = require('fs');
+const fs = require('fs/promises');
 
 function xorAndEncode(value, key) {
     const xorResult = Buffer.alloc(value.length);
@@ -34,7 +34,7 @@ module.exports = {
     method: 'post',
     path: '/downloadGJLevel22.php',
     middleware: [commonSecret],
-    handler: (req, res) => {
+    handler: async (req, res) => {
         const levelID = parseInt(utils.remove(req.body.levelID), 10);
         const accountID = parseInt(utils.number(req.body.accountID), 10);
         const gjp2 = utils.remove(req.body.gjp2);
@@ -59,15 +59,21 @@ module.exports = {
 
         // get level string steps:
         const levelsdir = path.join(__dirname, '..', 'levels');
-        if (!fs.existsSync(levelsdir)) {
-            fs.mkdirSync(levelsdir, { recursive: true });
+        try {
+            await fs.access(levelsdir);
+        } catch {
+            await fs.mkdir(levelsdir, { recursive: true });
         }
 
         const filePath = path.join(levelsdir, `${levelID}.gdcs`);
-        if (!fs.existsSync(filePath)) return res.send('-1');
+        try {
+            await fs.access(filePath);
+        } catch {
+            return res.send('-1');
+        }
         
         // read the raw bytes
-        const rawData = fs.readFileSync(filePath);
+        const rawData = await fs.readFile(filePath);
         const levelString = rawData.toString('base64')
             .replace(/\+/g, '-')
             .replace(/\//g, '_');
@@ -119,13 +125,13 @@ module.exports = {
             `43:${level.starDemonDiff || 0}`,
             `44:${level.inGauntlet || 0}`,
             `45:${level.objects || 0}`,
-            `46:${level.wt || 0}`,
-            `47:${level.wt2 || 0}`,
-            `48:${level.settingsString || ''}`,
+            `46:0`,
+            `47:0`,
+            `48:`,
             `52:${level.songIDs || ''}`,
             `53:${level.sfxIDs || ''}`,
             `54:0`,
-            `57:${level.ts || 0}`,
+            `57:0`,
             `62:${level.uploadDate}`,
             `63:${level.updateDate}`
         ].join(':');
