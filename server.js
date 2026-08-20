@@ -10,6 +10,8 @@ const port = 10000
 
 const app = express();
 
+const bodyLimit = '25mb'; // levels rarely if ever reach this
+
 const limiter = rateLimit({
     windowMs: 60 * 1000,
     max: 100,
@@ -20,7 +22,11 @@ const limiter = rateLimit({
     validate: { xForwardedForHeader: false }
 });
 
-app.use(express.urlencoded({ extended: true }));
+app.use(express.urlencoded({
+    extended: true,
+    limit: bodyLimit,
+    parameterLimit: 100000
+}));
 app.use(limiter);
 
 const endpointsDir = path.join(__dirname, 'endpoints');
