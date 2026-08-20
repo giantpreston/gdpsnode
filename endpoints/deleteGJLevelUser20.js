@@ -20,6 +20,8 @@ module.exports = {
         // db checks
         const check = db.prepare("SELECT * FROM accounts WHERE accountID = ?");
         const account = check.get(accountID);
+        const check2 = db.prepare("SELECT * FROM profiles WHERE accountID = ?");
+        const profile = check2.get(accountID);
 
         if (!account) return res.send('-1'); // account doesn't exist
 
@@ -28,7 +30,7 @@ module.exports = {
 
         if (!level) return res.send('-1'); // level doesn't exist
         if (gjp2 !== account.gjp2) return res.send('-1'); // doesn't own account
-        if (level.accountID !== accountID) return res.send('-1'); // doesn't own level
+        if (level.accountID !== accountID && profile.modLevel !== 2) return res.send('-1'); // doesn't own level/isn't elder mod
 
         // level deletion
         const levelsDir = path.join(__dirname, '..', 'levels');
