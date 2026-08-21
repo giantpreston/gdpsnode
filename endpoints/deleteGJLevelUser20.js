@@ -20,8 +20,8 @@ module.exports = {
         // db checks
         const check = db.prepare("SELECT * FROM accounts WHERE accountID = ?");
         const account = check.get(accountID);
-        const check2 = db.prepare("SELECT * FROM profiles WHERE accountID = ?");
-        const profile = check2.get(accountID);
+        const checkac = db.prepare("SELECT * FROM profiles WHERE accountID = ?");
+        const profile = checkac.get(accountID);
 
         if (!account) return res.send('-1'); // account doesn't exist
 
