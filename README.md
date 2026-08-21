@@ -5,6 +5,8 @@
 
 GDPSnode is a ground-up, modern replacement for *[GMDPrivateServer](https://github.com/cvolton/gmdprivateserver)*, built from scratch using documentation from [gd-docs](https://github.com/rifct/gd-docs) ([boomlings.dev](https://boomlings.dev/)).
 
+[![View Video Demo](https://www.youtube.com/watch?v=2F5ZYpTTSGM)](https://www.youtube.com/watch?v=2F5ZYpTTSGM)
+
 Instead of relying on heavy, legacy web server stacks like Apache or Nginx, GDPSnode runs on a clean, lightweight **Node.js + Express + better-sqlite3** setup. Making deployment fast, reliable, and painless for sysadmins. Every endpoint is thoroughly tested as it's built to keep things stable.
 
 ### Main features
