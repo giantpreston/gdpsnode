@@ -97,7 +97,7 @@ db.exec(`
         artistName TEXT NOT NULL,
         videoID TEXT DEFAULT '',
         youtubeURL TEXT DEFAULT '',
-        isVerified INTEGER NOT NULL DEFAULT 0,
+        allowedForUse INTEGER NOT NULL DEFAULT 1,
         songPriority INTEGER,
         link TEXT NOT NULL,
         nongEnum INTEGER NOT NULL DEFAULT 0,
@@ -105,7 +105,7 @@ db.exec(`
         isNew INTEGER NOT NULL DEFAULT 0,
         newType INTEGER NOT NULL DEFAULT 0, -- 0 for yellow icon, 1 for blue
         extraArtistNames TEXT DEFAULT '',
-        downloadSoundtrackOverride TEXT NOT NULL
+        downloadSoundtrackOverride TEXT NOT NULL DEFAULT ''
     );
 `);
 

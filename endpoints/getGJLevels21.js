@@ -74,10 +74,10 @@ module.exports = {
         }
         if (customSong === 1 && songProvided) {
             song = song - 1;
-            conditions.push("audioTrack = ? AND songID = 0");
+            conditions.push("audioTrack = 0 AND songID = ?");
             params.push(song);
         } else if (songProvided) {
-            conditions.push("songID = ?");
+            conditions.push("audioTrack = ?");
             params.push(song);
         }
         if (twoPlayer === 1) conditions.push('twoPlayer = 1');
@@ -234,7 +234,7 @@ module.exports = {
                 8: level.starDifficulty > 0 ? 10 : 0,
                 9: level.starDifficulty ? level.starDifficulty * 10 : 0,
                 10: level.downloads || 0,
-                12: level.songID || 0,
+                12: level.audioTrack || 0,
                 13: level.gameVersion || 0,
                 14: level.likes || 0,
                 15: level.levelLength || 0,
@@ -245,7 +245,7 @@ module.exports = {
                 25: level.starAuto ? 1 : 0,
                 30: level.originalReup || 0,
                 31: level.twoPlayer ? 1 : 0,
-                35: level.customSongID || 0,
+                35: level.songID || 0,
                 36: level.extraString || '',
                 37: level.coins || 0,
                 38: level.starCoins ? 1 : 0,
