@@ -59,6 +59,8 @@ db.exec(`
         levelLength INTEGER NOT NULL DEFAULT 0,
         audioTrack INTEGER NOT NULL,
         password INTEGER NOT NULL,
+        levelReports INTEGER NOT NULL DEFAULT 0,
+        lastSent INTEGER NOT NULL DEFAULT 0,
         twoPlayer INTEGER NOT NULL DEFAULT 0,
         songID INTEGER NOT NULL DEFAULT 0,
         songIDs TEXT DEFAULT '',
@@ -88,6 +90,13 @@ db.exec(`
         originalReup INTEGER NOT NULL DEFAULT 0,
         isLDM INTEGER NOT NULL DEFAULT 0,
         gameVersion INTEGER NOT NULL DEFAULT 22
+    );
+
+    CREATE TABLE IF NOT EXISTS modSuggest (
+        accountID INTEGER NOT NULL,
+        levelID INTEGER NOT NULL,
+        stars INTEGER NOT NULL,
+        feature INTEGER NOT NULL
     );
 
     CREATE TABLE IF NOT EXISTS songs (

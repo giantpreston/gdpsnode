@@ -92,7 +92,7 @@ module.exports = {
         if (twoPlayer > 1 || twoPlayer < 0) return res.send('-1');
         if (objects < 0) return res.send('-1');
         if (coins > 3 || coins < 0) return res.send('-1');
-        if (requestedStars > 10 || requestedStars < 1) return res.send('-1');
+        if (requestedStars > 10 || requestedStars < 0) return res.send('-1');
         if (unlisted < 0 || unlisted > 2) return res.send('-1');
         if (ldm > 1 || ldm < 0) return res.send('-1');
         if (!utils.isURLBase64(levelString)) return res.send('-1');

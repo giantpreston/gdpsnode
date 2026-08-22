@@ -125,7 +125,10 @@ module.exports = {
             conditions.push('objects > ?');
             params.push(9999); // nice job github.com/Cvolton/GMDprivateServer/blob/master/incl/levels/getGJLevels.php (line 205)
         }
-        if (type === 27) conditions.push('isSent = 1');
+        if (type === 27) {
+            conditions.push('isSent = 1');
+            order = 'lastSent DESC'; // yay
+        }
         if (type === 10) {
             conditions.push(`levelID IN (${str})`);
         }
