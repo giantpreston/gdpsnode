@@ -17,4 +17,17 @@ Instead of relying on heavy, legacy web server stacks like Apache or Nginx, GDPS
 * **GDPS Switcher Support:** Native integration with [GDPS Switcher](https://geode-sdk.org/mods/km7dev.gdps-switcher), including custom MOTD and icon support.
 * **Modern Stack:** Built for better performance, easier maintainability, and simpler hosting compared to traditional PHP backends.
 
+### Elder moderator dashboard
+
+The moderation dashboard runs alongside the game server at the path configured by `DASHBOARD_PATH` (default: `/dashboard`). It is disabled until credentials are configured, so set these environment variables before starting the server:
+
+Copy `.env.example` to `.env`, fill in the dashboard values, and start the server:
+
+```sh
+cp .env.example .env
+npm start
+```
+
+The dashboard provides server statistics, pending mod suggestions, recent level activity, rating, and rejection actions.
+
 Since the project is still in development, many endpoints are still being ported over. Thanks for checking it out and hanging in there as we build this out! ❤️

@@ -96,6 +96,7 @@ db.exec(`
         accountID INTEGER NOT NULL,
         levelID INTEGER NOT NULL,
         stars INTEGER NOT NULL,
+        demonDiff INTEGER NOT NULL,
         feature INTEGER NOT NULL
     );
 

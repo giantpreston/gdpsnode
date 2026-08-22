@@ -1,0 +1,34 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>GDPS Dashboard</title>
+<link rel="stylesheet" href="dashboard.css?v=2">
+</head>
+<body>
+<main class="shell">
+  <section id="login-view" class="login-panel">
+    <div class="brand-mark">GDPSnode <span>DASH</span></div>
+    <h1>Easy level management for moderators.</h1>
+    <p class="muted">Elder mod access</p>
+    <form id="login-form">
+      <label>Username<input name="username" autocomplete="username" required></label>
+      <label>Password<input name="password" type="password" autocomplete="current-password" required></label>
+      <button type="submit">Sign in</button>
+      <p id="login-error" class="error" role="alert"></p>
+    </form>
+  </section>
+  <section id="app-view" hidden>
+    <header class="topbar"><div><div class="brand-mark">GDPSnode <span>DASH</span></div><p class="muted">Your server</p></div><button id="logout" class="ghost">Sign out</button></header>
+    <div id="stats" class="stats-grid"></div>
+    <section class="content-grid">
+      <div class="panel queue-panel"><div class="panel-heading"><div><p class="eyebrow">Needs review</p><h2>Pending suggestions</h2></div><span id="queue-count" class="count"></span></div><div id="queue" class="queue"></div></div>
+      <div class="panel"><div class="panel-heading"><div><p class="eyebrow">Latest uploads</p><h2>Level activity</h2></div></div><div id="recent" class="recent"></div></div>
+    </section>
+    <p id="app-error" class="error" role="alert"></p>
+  </section>
+</main>
+<script src="dashboard.js"></script>
+</body>
+</html>

@@ -1,11 +1,14 @@
+require('dotenv').config();
 const express = require('express'); // im so excited
 const rateLimit = require('express-rate-limit');
 const fs = require('fs/promises');
 const path = require('path');
+const dashboard = require('./dashboard');
 
 // Change this parameter to start the server at a different port.
 // To not require typing in a port, use port 80 (requires root/admin usually), or port 443 in case of https.
 const port = 10000
+const dashboardPath = (process.env.DASHBOARD_PATH || '/dashboard').replace(/\/+$/, '').replace(/^([^/])/, '/$1') || '/dashboard';
 // Don't change anything below unless you know what you're doing!
 
 const app = express();
@@ -28,6 +31,11 @@ app.use(express.urlencoded({
     parameterLimit: 100000
 }));
 app.use(limiter);
+app.get(dashboardPath, (req, res, next) => {
+    if (req.path === dashboardPath) return res.redirect(308, `${dashboardPath}/`);
+    next();
+});
+app.use(dashboardPath, dashboard);
 
 const endpointsDir = path.join(__dirname, 'endpoints');
 

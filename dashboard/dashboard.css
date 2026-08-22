@@ -1,0 +1,81 @@
+@import url('https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Space+Grotesk:wght@400;500;600;700&display=swap');
+
+:root {
+    --ink: #f5f1dc;
+    --muted: #92998d;
+    --line: #35413b;
+    --bg: #0e1311;
+    --panel: #171e1a;
+    --lime: #c3f36b;
+    --pink: #ff6d87;
+    --orange: #ffb454;
+}
+
+* { box-sizing: border-box; }
+body {
+    margin: 0;
+    color: var(--ink);
+    font-family: 'Space Grotesk', sans-serif;
+    background-color: var(--bg);
+    background-image: linear-gradient(115deg, rgba(195,243,107,.06) 1px, transparent 1px), linear-gradient(25deg, rgba(255,109,135,.04) 1px, transparent 1px);
+    background-size: 42px 42px, 71px 71px;
+    min-height: 100vh;
+}
+.shell { max-width: 1240px; margin: auto; padding: 32px 24px 64px; }
+.brand-mark { font: 600 13px 'DM Mono', monospace; letter-spacing: 1px; }
+.brand-mark span { color: var(--lime); font-size: 10px; margin-left: 8px; }
+.muted { color: var(--muted); margin: .5rem 0 0; }
+.login-panel {
+    background: var(--panel); max-width: 430px; margin: 12vh auto 0; padding: 40px;
+    border: 1px solid var(--line); border-left: 4px solid var(--pink);
+    box-shadow: 12px 12px 0 #26332a; transform: rotate(-1deg);
+}
+.login-panel h1 { font-size: 34px; line-height: 1.05; margin: 48px 0 8px; }
+.login-panel form { display: grid; gap: 16px; margin-top: 32px; }
+label { font-size: 12px; font-weight: 600; display: grid; gap: 7px; }
+input, select { width: 100%; border: 1px solid var(--line); background: #0a0e0c; padding: 11px 12px; font: inherit; color: var(--ink); border-radius: 0; }
+button { border: 0; background: var(--lime); color: #111a12; padding: 12px 17px; font: 600 13px inherit; cursor: pointer; border-radius: 0; }
+button:hover { background: var(--orange); }
+.ghost { background: transparent; color: var(--ink); border: 1px solid var(--line); }
+.topbar { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 32px; }
+.stats-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 12px; margin-bottom: 24px; }
+.stat, .panel { background: rgba(23,30,26,.94); border: 1px solid var(--line); }
+.stat { padding: 18px 20px; }
+.stat strong { display: block; font-size: 30px; margin-top: 8px; color: var(--lime); }
+.stat span, .eyebrow { font: 500 11px 'DM Mono', monospace; text-transform: uppercase; letter-spacing: .6px; color: var(--muted); }
+.content-grid { display: grid; grid-template-columns: 1.35fr 1fr; gap: 24px; }
+.panel { padding: 24px; }
+.panel-heading { display: flex; justify-content: space-between; align-items: start; border-bottom: 1px dashed var(--line); padding-bottom: 16px; margin-bottom: 4px; }
+.panel h2 { font-size: 22px; margin: 4px 0 0; }
+.count { background: var(--pink); color: #260f17; padding: 6px 9px; font: 500 12px 'DM Mono', monospace; }
+.queue-item, .recent-item { padding: 17px 0; border-bottom: 1px dashed var(--line); }
+.queue-item:last-child, .recent-item:last-child { border-bottom: 0; }
+.level-line { display: flex; justify-content: space-between; gap: 12px; }
+.level-name { font-weight: 600; }
+.level-id { font: 11px 'DM Mono', monospace; color: var(--muted); }
+.details { font-size: 12px; color: var(--muted); margin: 7px 0 13px; }
+.suggestions { display: grid; gap: 5px; margin: 10px 0 14px; }
+.suggestion { border-left: 2px solid var(--orange); padding: 6px 9px; background: #111713; color: var(--muted); font: 11px 'DM Mono', monospace; }
+.actions { display: flex; gap: 8px; align-items: end; }
+.actions label { flex: 1; font-size: 10px; }
+.actions button { padding: 9px 12px; font-size: 12px; }
+.reject { background: transparent; border: 1px solid var(--line); color: var(--ink); }
+.recent-item { display: flex; justify-content: space-between; align-items: center; gap: 10px; }
+.recent-meta { text-align: right; color: var(--muted); font: 11px 'DM Mono', monospace; }
+.badge { display: inline-block; background: var(--lime); color: #152014; padding: 4px 6px; font: 10px 'DM Mono', monospace; }
+.empty { padding: 30px 0; color: var(--muted); font-size: 13px; }
+.error { color: var(--pink); font-size: 12px; min-height: 18px; }
+@media (max-width: 800px) {
+    .shell { padding: 20px 14px 40px; }
+    .stats-grid { grid-template-columns: repeat(2, 1fr); }
+    .content-grid { grid-template-columns: 1fr; }
+    .topbar { gap: 16px; }
+    .login-panel { margin-top: 8vh; padding: 28px; }
+    .login-panel h1 { font-size: 29px; }
+}
+@media (max-width: 420px) {
+    .stat { padding: 14px; }
+    .stat strong { font-size: 24px; }
+    .actions { flex-wrap: wrap; }
+    .actions label { min-width: 30%; }
+}

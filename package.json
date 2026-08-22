@@ -4,12 +4,14 @@
   "description": "",
   "main": "server.js",
   "scripts": {
-    "test": "echo \"GDPSnode has no test scripts!\nRun the server with npm start or node server.js\" && exit 1"
+    "start": "node server.js",
+    "test": "node --check server.js && node --check dashboard.js && node --check dashboard/dashboard.js"
   },
   "keywords": [],
   "type": "commonjs",
   "dependencies": {
     "better-sqlite3": "^13.0.3",
+    "dotenv": "^17.4.2",
     "express": "^5.2.1",
     "express-rate-limit": "^8.6.2"
   }

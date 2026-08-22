@@ -50,27 +50,45 @@ module.exports = {
                 
                 if (stars === 1) {
                     updates.push('starAuto = 1');
+                    updates.push('starDifficulty = 1');
+                    updates.push('starDemon = 0');
                 } else if (stars === 2) {
+                    updates.push('starAuto = 0');
+                    updates.push('starDemon = 0');
                     updates.push('starDifficulty = 1');
                 } else if (stars === 3) {
+                    updates.push('starAuto = 0');
+                    updates.push('starDemon = 0');
                     updates.push('starDifficulty = 2');
                 } else if (stars >= 4 && stars <= 5) {
+                    updates.push('starAuto = 0');
+                    updates.push('starDemon = 0');
                     updates.push('starDifficulty = 3');
                 } else if (stars >= 6 && stars <= 7) {
+                    updates.push('starAuto = 0');
+                    updates.push('starDemon = 0');
                     updates.push('starDifficulty = 4');
                 } else if (stars >= 8 && stars <= 9) {
+                    updates.push('starAuto = 0');
+                    updates.push('starDemon = 0');
                     updates.push('starDifficulty = 5');
                 } else if (stars === 10) {
+                    updates.push('starAuto = 0');
+                    updates.push('starDifficulty = 5');
                     updates.push('starDemon = 1');
                 }
         
                 if (feature === 1) {
                     updates.push('featured = 1');
+                    updates.push('starEpic = 0');
                 } else if (feature === 2) {
+                    updates.push('featured = 1');
                     updates.push('starEpic = 1');
                 } else if (feature === 3) {
+                    updates.push('featured = 1');
                     updates.push('starEpic = 2');
                 } else if (feature === 4) {
+                    updates.push('featured = 1');
                     updates.push('starEpic = 3');
                 }
                 
@@ -80,8 +98,11 @@ module.exports = {
                 const action = db.prepare(query);
                 const inf = action.run(...params);
 
+                // clean up any old records sent by mods since the level is now rated and no longer pending a rating
                 const action2 = db.prepare('UPDATE levels SET isSent = 0, lastSent = 0 WHERE levelID = ?');
                 action2.run(levelID);
+                const action3 = db.prepare('DELETE FROM modsuggest WHERE levelID = ?');
+                action3.run(levelID);
                 
                 if (inf.changes > 0) return res.send('1');
             }

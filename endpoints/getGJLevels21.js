@@ -254,7 +254,7 @@ module.exports = {
                 38: level.starCoins ? 1 : 0,
                 39: level.requestedStars || 0,
                 42: level.starEpic || 0,
-                43: level.demonDifficulty || 0,
+                43: level.starDemonDiff || 0,
                 45: level.objects || 0,
                 54: 0,
                 62: level.uploadDate || 0,
