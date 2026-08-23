@@ -26,6 +26,7 @@ module.exports = {
 
         if (!account || !level) return res.send('-1');
         if (gjp2 !== account.gjp2) return res.send('-1');
+        if (account.isDisabled === 1) return res.send('-1');
         if (level.accountID !== accountID) return res.send('-1');
 
         // operation

@@ -30,6 +30,7 @@ module.exports = {
 
         if (!level) return res.send('-1'); // level doesn't exist
         if (gjp2 !== account.gjp2) return res.send('-1'); // doesn't own account
+        if (account.isDisabled === 1) return res.send('-1');
         if (level.accountID !== accountID && profile.modLevel !== 2) return res.send('-1'); // doesn't own level/isn't elder mod
 
         // level deletion

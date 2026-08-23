@@ -7,44 +7,49 @@ module.exports = {
     path: '/updateGJUserScore22.php',
     middleware: [commonSecret],
     handler: (req, res) => {
-        const stars = parseInt(req.body?.stars) || 0;
-        const demons = parseInt(req.body?.demons) || 0;
-        const icon = parseInt(req.body?.icon) || 0;
-        const color1 = parseInt(req.body?.color1) || 0;
-        const color2 = parseInt(req.body?.color2) || 0;
-        const accountID = utils.number(req.body?.accountID || '');
+        const body = req.body || {};
+        const stars = parseInt(body.stars, 10) || 0;
+        const demons = parseInt(body.demons, 10) || 0;
+        const icon = parseInt(body.icon, 10) || 0;
+        const color1 = parseInt(body.color1, 10) || 0;
+        const color2 = parseInt(body.color2, 10) || 0;
+        const accountID = parseInt(utils.number(body.accountID || ''), 10);
+        const gjp2 = utils.remove(body.gjp2 || '');
 
         // sanity checks
-        if (!accountID) return res.send('-1');
+        if (!accountID || !gjp2) return res.send('-1');
+        if (gjp2.length !== 40) return res.send('-1');
 
         // db checks
-        const getProfile = db.prepare('SELECT * FROM profiles WHERE accountID = ?');
-        const profile = getProfile.get(accountID);
+        const check = db.prepare('SELECT * FROM profiles WHERE accountID = ?');
+        const profile = check.get(accountID);
+        const checkAccount = db.prepare('SELECT * FROM accounts WHERE accountID = ?');
+        const account = checkAccount.get(accountID);
 
-        if (!profile) {
-            return res.send('-1');
-        }
+        if (!profile || !account) return res.send('-1');
+        if (gjp2 !== account.gjp2) return res.send('-1');
+        if (account.isDisabled === 1) return res.send('-1');
 
-        const coins = parseInt(req.body?.coins) || 0;
-        const iconType = parseInt(req.body?.iconType) || 0;
-        const userCoins = parseInt(req.body?.userCoins) || 0;
-        const special = parseInt(req.body?.special) || 0;
-        const accIcon = parseInt(req.body?.accIcon) || 0;
-        const accShip = parseInt(req.body?.accShip) || 0;
-        const accBall = parseInt(req.body?.accBall) || 0;
-        const accBird = parseInt(req.body?.accBird) || 0;
-        const accDart = parseInt(req.body?.accDart) || 0;
-        const accRobot = parseInt(req.body?.accRobot) || 0;
-        const accGlow = parseInt(req.body?.accGlow) || 0;
-        const accSpider = parseInt(req.body?.accSpider) || 0;
-        const accExplosion = parseInt(req.body?.accExplosion) || 0;
-        const accSwing = parseInt(req.body?.accSwing) || 0;
-        const accJetpack = parseInt(req.body?.accJetpack) || 0;
-        const diamonds = parseInt(req.body?.diamonds) || 0;
-        const moons = parseInt(req.body?.moons) || 0;
-        const color3 = parseInt(req.body?.color3) || 0;
-        const dinfo = utils.numbercolon(req.body?.dinfo || '');
-        const sinfo = utils.numbercolon(req.body?.sinfo || '');
+        const coins = parseInt(body.coins, 10) || 0;
+        const iconType = parseInt(body.iconType, 10) || 0;
+        const userCoins = parseInt(body.userCoins, 10) || 0;
+        const special = parseInt(body.special, 10) || 0;
+        const accIcon = parseInt(body.accIcon, 10) || 0;
+        const accShip = parseInt(body.accShip, 10) || 0;
+        const accBall = parseInt(body.accBall, 10) || 0;
+        const accBird = parseInt(body.accBird, 10) || 0;
+        const accDart = parseInt(body.accDart, 10) || 0;
+        const accRobot = parseInt(body.accRobot, 10) || 0;
+        const accGlow = parseInt(body.accGlow, 10) || 0;
+        const accSpider = parseInt(body.accSpider, 10) || 0;
+        const accExplosion = parseInt(body.accExplosion, 10) || 0;
+        const accSwing = parseInt(body.accSwing, 10) || 0;
+        const accJetpack = parseInt(body.accJetpack, 10) || 0;
+        const diamonds = parseInt(body.diamonds, 10) || 0;
+        const moons = parseInt(body.moons, 10) || 0;
+        const color3 = parseInt(body.color3, 10) || 0;
+        const dinfo = utils.numbercolon(body.dinfo || '');
+        const sinfo = utils.numbercolon(body.sinfo || '');
 
         let processedDinfo = dinfo;
         if (dinfo) {
@@ -81,8 +86,8 @@ module.exports = {
                 demonCounts.hardPlatformer,
                 demonCounts.insanePlatformer,
                 demonCounts.extremePlatformer,
-                parseInt(req.body?.dinfow) || 0,
-                parseInt(req.body?.dinfog) || 0
+                parseInt(body.dinfow, 10) || 0,
+                parseInt(body.dinfog, 10) || 0
             ].join(',');
         }
 
@@ -91,8 +96,8 @@ module.exports = {
         if (sinfo) {
             const sinfoArr = sinfo.split(',');
             const starsCount = sinfoArr.slice(0, 6).concat([
-                parseInt(req.body?.sinfod) || 0,
-                parseInt(req.body?.sinfog) || 0
+                parseInt(body.sinfod, 10) || 0,
+                parseInt(body.sinfog, 10) || 0
             ]).join(',');
             
             const platformerCount = sinfoArr.slice(6, 12).concat([0]).join(',');
@@ -161,6 +166,6 @@ module.exports = {
             accountID
         );
 
-        return res.send(String(accountID));
+        return res.send(String(accountID + 1));
     }
 };

@@ -30,6 +30,7 @@ module.exports = {
 
         if (!level || !account) return res.send('-1');
         if (account.gjp2 !== gjp2) return res.send('-1');
+        if (account.isDisabled === 1) return res.send('-1');
 
         db.prepare(`
             INSERT INTO level_ratings (levelID, accountID, stars)
