@@ -30,8 +30,8 @@ module.exports = {
 
         if (!account || !profile || !level) return res.send('-1');
         if (account.gjp2 !== gjp2) return res.send('-1');
-        if (profile.modLevel === 0) return res.send('-2'); // not a mod
-        if (profile.modLevel === 3) return res.send('-1'); // is a mod, but cant change ratings
+        if (profile.modLevel === 0) return res.send('1'); // not a mod
+        if (profile.modLevel === 3) return res.send('1'); // is a mod, but cant change ratings
         if (level.starDemon !== 1) return res.send('-1'); // level isn't demon
 
         const ratingMap = {

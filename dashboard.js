@@ -54,15 +54,22 @@ function requireCsrf(req, res, next) {
 
 function applyRating(levelId, stars, feature, demonDiff) {
     const values = [stars];
-    const updates = ['starStars = ?', 'starAuto = 0', 'starDemon = 0', 'starDifficulty = 0'];
-    if (stars === 1) updates.push('starAuto = 1', 'starDifficulty = 1');
-    else if (stars === 2) updates.push('starDifficulty = 1');
-    else if (stars === 3) updates.push('starDifficulty = 2');
-    else if (stars <= 5) updates.push('starDifficulty = 3');
-    else if (stars <= 7) updates.push('starDifficulty = 4');
-    else if (stars <= 9) updates.push('starDifficulty = 5');
-    else {
-        updates.push('starDemon = 1', 'starDifficulty = 5');
+    const updates = ['starStars = ?', 'starAuto = 0', 'starDemon = 0', 'starDemonDiff = 0'];
+    if (stars === 1) {
+        updates.push('starAuto = 1', 'starDifficulty = 1');
+    } else if (stars === 2) {
+        updates.push('starDifficulty = 1');
+    } else if (stars === 3) {
+        updates.push('starDifficulty = 2');
+    } else if (stars <= 5) {
+        updates.push('starDifficulty = 3');
+    } else if (stars <= 7) {
+        updates.push('starDifficulty = 4');
+    } else if (stars <= 9) {
+        updates.push('starDifficulty = 5');
+    } else {
+        updates.push('starDemon = 1');
+        updates.push('starDifficulty = 0');
         updates.push('starDemonDiff = ?');
         values.push(demonDiff);
     }
@@ -79,6 +86,30 @@ function applyRating(levelId, stars, feature, demonDiff) {
         return result.changes;
     });
     return transaction();
+}
+
+function clearRating(levelId) {
+    const result = db.prepare(`UPDATE levels SET starStars = 0,
+        starAuto = 0, starDemon = 0, featured = 0, starEpic = 0, starDemonDiff = 0,
+        isSent = 0, lastSent = 0 WHERE levelID = ?`).run(levelId);
+    db.prepare('DELETE FROM modSuggest WHERE levelID = ?').run(levelId);
+    return result.changes;
+}
+
+function applyDifficulty(levelId, difficulty) {
+    return db.prepare('UPDATE levels SET starDifficulty = ? WHERE levelID = ?').run(difficulty, levelId).changes;
+}
+
+function refreshUserRatingStats(levelId) {
+    const ratings = db.prepare('SELECT stars FROM level_ratings WHERE levelID = ?').all(levelId).map(row => row.stars);
+    const average = ratings.length ? Math.round(ratings.reduce((sum, stars) => sum + stars, 0) / ratings.length) : 0;
+    const filtered = ratings.filter(stars => stars > 1 && stars < 10);
+    const filteredAverage = filtered.length ? Math.round(filtered.reduce((sum, stars) => sum + stars, 0) / filtered.length) : 0;
+    db.prepare(`UPDATE levels SET userRates = ?, avgUserRate = ?, noMinMaxAvgUserRate = ?,
+        noMinMaxMinUserRate = ?, noMinMaxMaxUserRate = ? WHERE levelID = ?`).run(
+        ratings.length, average, filteredAverage, filtered.length ? Math.min(...filtered) : 0,
+        filtered.length ? Math.max(...filtered) : 0, levelId
+    );
 }
 
 router.use((req, res, next) => {
@@ -121,11 +152,41 @@ router.get('/api/bootstrap', requireAuth, (req, res) => {
         FROM modSuggest m JOIN levels l ON l.levelID = m.levelID
         LEFT JOIN profiles p ON p.accountID = m.accountID
         ORDER BY l.lastSent DESC, l.levelID DESC LIMIT 100`).all();
-    const recent = db.prepare(`SELECT l.levelID, l.levelName, l.starStars, l.starDemon,
-        l.starDemonDiff, l.featured, l.starEpic, l.uploadDate, p.userName AS creator
+    const recent = db.prepare(`SELECT l.levelID, l.levelName, l.starStars, l.starDifficulty, l.starDemon,
+        l.starDemonDiff, l.featured, l.starEpic, l.starAuto, l.userRates, l.avgUserRate,
+        l.uploadDate, p.userName AS creator
         FROM levels l LEFT JOIN profiles p ON p.accountID = l.accountID
         ORDER BY l.uploadDate DESC LIMIT 25`).all();
     res.json({ stats, pending, recent, csrf: req.dashboardSession.csrf });
+});
+
+router.get('/api/levels', requireAuth, (req, res) => {
+    const query = typeof req.query.q === 'string' ? req.query.q.trim().slice(0, 80) : '';
+    const limit = Math.min(Math.max(Number(req.query.limit) || 25, 1), 50);
+    const offset = Math.max(Number(req.query.offset) || 0, 0);
+    const like = `%${query.replace(/[\\%_]/g, '\\$&')}%`;
+    const levels = db.prepare(`SELECT l.levelID, l.levelName, l.levelDesc, l.levelLength,
+        l.starStars, l.starDifficulty, l.starAuto, l.starDemon, l.starDemonDiff,
+        l.featured, l.starEpic, l.userRates, l.avgUserRate, l.downloads, l.likes,
+        l.dislikes, l.isSent, l.uploadDate, p.userName AS creator
+        FROM levels l LEFT JOIN profiles p ON p.accountID = l.accountID
+        WHERE (? = '' OR l.levelName LIKE ? ESCAPE '\\' OR CAST(l.levelID AS TEXT) = ?)
+        ORDER BY l.uploadDate DESC, l.levelID DESC LIMIT ? OFFSET ?`).all(query, like, query, limit, offset);
+    res.json({ levels, query, offset, limit });
+});
+
+router.get('/api/levels/:levelId', requireAuth, (req, res) => {
+    const levelId = Number(req.params.levelId);
+    if (!Number.isInteger(levelId) || levelId < 1) return res.status(400).json({ error: 'Invalid level' });
+    const level = db.prepare(`SELECT l.*, p.userName AS creator FROM levels l
+        LEFT JOIN profiles p ON p.accountID = l.accountID WHERE l.levelID = ?`).get(levelId);
+    if (!level) return res.status(404).json({ error: 'Level not found' });
+    const suggestions = db.prepare(`SELECT m.stars, m.demonDiff, m.feature, p.userName AS moderator
+        FROM modSuggest m LEFT JOIN profiles p ON p.accountID = m.accountID
+        WHERE m.levelID = ? ORDER BY p.userName`).all(levelId);
+    const ratings = db.prepare(`SELECT r.accountID, r.stars, p.userName FROM level_ratings r
+        LEFT JOIN profiles p ON p.accountID = r.accountID WHERE r.levelID = ? ORDER BY r.accountID`).all(levelId);
+    res.json({ level, suggestions, ratings });
 });
 
 router.post('/api/rate', requireAuth, requireCsrf, (req, res) => {
@@ -137,6 +198,7 @@ router.post('/api/rate', requireAuth, requireCsrf, (req, res) => {
         return res.status(400).json({ error: 'Invalid rating' });
     }
     if (stars === 10 && ![0, 3, 4, 5, 6].includes(demonDiff)) return res.status(400).json({ error: 'Invalid demon difficulty' });
+    if (stars !== 10 && demonDiff !== 0) return res.status(400).json({ error: 'Demon difficulty requires a 10-star rating' });
     try {
         if (!applyRating(levelId, stars, feature, demonDiff)) return res.status(404).json({ error: 'Level not found' });
         res.status(204).end();
@@ -144,6 +206,38 @@ router.post('/api/rate', requireAuth, requireCsrf, (req, res) => {
         console.error('Dashboard rating failed:', error);
         res.status(500).json({ error: 'Could not rate level' });
     }
+});
+
+router.post('/api/levels/:levelId/unrate', requireAuth, requireCsrf, (req, res) => {
+    const levelId = Number(req.params.levelId);
+    if (!Number.isInteger(levelId) || levelId < 1) return res.status(400).json({ error: 'Invalid level' });
+    if (!clearRating(levelId)) return res.status(404).json({ error: 'Level not found' });
+    res.status(204).end();
+});
+
+router.post('/api/levels/:levelId/difficulty', requireAuth, requireCsrf, (req, res) => {
+    const levelId = Number(req.params.levelId);
+    const difficulty = Number(req.body?.difficulty);
+    if (!Number.isInteger(levelId) || levelId < 1 || !Number.isInteger(difficulty) || difficulty < 0 || difficulty > 5) {
+        return res.status(400).json({ error: 'Invalid difficulty' });
+    }
+    const level = db.prepare('SELECT starStars FROM levels WHERE levelID = ?').get(levelId);
+    if (!level) return res.status(404).json({ error: 'Level not found' });
+    if (level.starStars !== 0) return res.status(409).json({ error: 'Unrate the level before changing its difficulty' });
+    if (!applyDifficulty(levelId, difficulty)) return res.status(404).json({ error: 'Level not found' });
+    res.status(204).end();
+});
+
+router.delete('/api/levels/:levelId/user-ratings/:accountId', requireAuth, requireCsrf, (req, res) => {
+    const levelId = Number(req.params.levelId);
+    const accountId = Number(req.params.accountId);
+    if (!Number.isInteger(levelId) || levelId < 1 || !Number.isInteger(accountId) || accountId < 1) {
+        return res.status(400).json({ error: 'Invalid rating' });
+    }
+    const result = db.prepare('DELETE FROM level_ratings WHERE levelID = ? AND accountID = ?').run(levelId, accountId);
+    if (!result.changes) return res.status(404).json({ error: 'Rating not found' });
+    refreshUserRatingStats(levelId);
+    res.status(204).end();
 });
 
 router.post('/api/reject', requireAuth, requireCsrf, (req, res) => {

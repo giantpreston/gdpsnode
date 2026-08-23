@@ -55,6 +55,11 @@ db.exec(`
         accountID INTEGER NOT NULL,
         levelName TEXT NOT NULL,
         levelDesc TEXT NOT NULL,
+        userRates INTEGER NOT NULL DEFAULT 0,
+        noMinMaxAvgUserRate INTEGER NOT NULL DEFAULT 0,
+        avgUserRate INTEGER NOT NULL DEFAULT 0,
+        noMinMaxMinUserRate INTEGER NOT NULL DEFAULT 0,
+        noMinMaxMaxUserRate INTEGER NOT NULL DEFAULT 0,
         levelVersion INTEGER NOT NULL DEFAULT 0,
         levelLength INTEGER NOT NULL DEFAULT 0,
         audioTrack INTEGER NOT NULL,
@@ -82,7 +87,7 @@ db.exec(`
         updateDate BIGINT NOT NULL,
         starCoins INTEGER NOT NULL DEFAULT 0,
         starHall INTEGER NOT NULL DEFAULT 0,
-        isSent INTEGET NOT NULL DEFAULT 0,
+        isSent INTEGER NOT NULL DEFAULT 0,
         featured INTEGER NOT NULL DEFAULT 0,
         starEpic INTEGER NOT NULL DEFAULT 0,
         starDemonDiff INTEGER NOT NULL DEFAULT 0,
@@ -90,6 +95,13 @@ db.exec(`
         originalReup INTEGER NOT NULL DEFAULT 0,
         isLDM INTEGER NOT NULL DEFAULT 0,
         gameVersion INTEGER NOT NULL DEFAULT 22
+    );
+
+    CREATE TABLE IF NOT EXISTS level_ratings (
+        levelID INTEGER NOT NULL,
+        accountID INTEGER NOT NULL,
+        stars INTEGER NOT NULL,
+        PRIMARY KEY (levelID, accountID)
     );
 
     CREATE TABLE IF NOT EXISTS modSuggest (
@@ -113,7 +125,7 @@ db.exec(`
         nongEnum INTEGER NOT NULL DEFAULT 0,
         extraArtistIDs TEXT DEFAULT '',
         isNew INTEGER NOT NULL DEFAULT 0,
-        newType INTEGER NOT NULL DEFAULT 0, -- 0 for yellow icon, 1 for blue
+        newType INTEGER NOT NULL DEFAULT 0,
         extraArtistNames TEXT DEFAULT '',
         downloadSoundtrackOverride TEXT NOT NULL DEFAULT ''
     );
