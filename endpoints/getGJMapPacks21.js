@@ -24,7 +24,7 @@ module.exports = {
                 const lastDigit = packID[packID.length - 1];
                 
                 hashSegments += `${firstDigit}${lastDigit}${pack.stars}${pack.coins}`;
-                return `1:${pack.packID}:2:${pack.packName}:3:${pack.levels}:4:${pack.stars}:5:${pack.coins}:6:${pack.difficulty}:7:${pack.textColor}:8:${pack.barColor}`;
+                return `1:${pack.packID}:2:${pack.packName}:3:${pack.levels}:4:${pack.stars}:5:${pack.coins}:6:${pack.difficulty}:7:${pack.barColor}:8:${pack.textColor}`;
             });
 
             const packsString = packStrings.join('|');
