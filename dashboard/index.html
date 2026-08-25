@@ -21,12 +21,16 @@
   </section>
   <section id="app-view" hidden>
     <header class="topbar"><div><div class="brand-mark">GDPSnode <span>DASH</span></div><p class="muted">Your server</p></div><button id="logout" class="ghost">Sign out</button></header>
+    <nav class="tabbar" aria-label="Dashboard sections"><button class="tab active" data-tab="levels">Levels</button><button class="tab" data-tab="collections">Collections</button></nav>
     <div id="stats" class="stats-grid"></div>
-    <section class="panel level-browser"><div class="panel-heading"><div><p class="eyebrow">Find anything</p><h2>Level browser</h2></div></div><form id="level-search" class="search-bar"><input name="query" placeholder="Search by level name or ID"><button type="submit">Search</button></form><div id="level-results" class="level-results"></div><div id="level-detail" class="level-detail" hidden></div></section>
-    <section class="content-grid">
+    <div id="levels-tab">
+      <section class="panel level-browser"><div class="panel-heading"><div><p class="eyebrow">Find anything</p><h2>Level browser</h2></div></div><form id="level-search" class="search-bar"><input name="query" placeholder="Search by level name or ID"><button type="submit">Search</button></form><div id="level-results" class="level-results"></div><div id="level-detail" class="level-detail" hidden></div></section>
+      <section class="content-grid">
       <div class="panel queue-panel"><div class="panel-heading"><div><p class="eyebrow">Needs review</p><h2>Pending suggestions</h2></div><span id="queue-count" class="count"></span></div><div id="queue" class="queue"></div></div>
       <div class="panel"><div class="panel-heading"><div><p class="eyebrow">Latest uploads</p><h2>Level activity</h2></div></div><div id="recent" class="recent"></div></div>
-    </section>
+      </section>
+    </div>
+    <section id="collections-tab" class="collections" hidden><div class="panel"><div class="panel-heading"><div><p class="eyebrow">Client progression</p><h2>Gauntlets</h2></div></div><div id="gauntlet-list" class="collection-list"></div></div><div class="panel"><div class="panel-heading"><div><p class="eyebrow">Client challenges</p><h2>Map packs</h2></div></div><form id="map-pack-form" class="collection-form map-pack-form"><input name="packName" placeholder="Pack name" required><input name="levels" placeholder="1,2,3,..." pattern="[0-9]+(,[0-9]+)*" required><input name="stars" type="number" min="0" placeholder="Stars" required><input name="coins" type="number" min="0" placeholder="Coins" required><input name="difficulty" type="number" min="0" max="5" value="1" placeholder="Difficulty" required><span class="color-control"><input class="color-picker" type="color" value="#c3f36b" aria-label="Bar color picker"><input name="barColor" placeholder="255,0,0" pattern="[0-9]+,[0-9]+,[0-9]+" value="195,243,107" aria-label="Bar color RGB" required></span><span class="color-control"><input class="color-picker" type="color" value="#111713" aria-label="Text color picker"><input name="textColor" placeholder="255,255,255" pattern="[0-9]+,[0-9]+,[0-9]+" value="17,23,19" aria-label="Text color RGB" required></span><button type="submit">Add pack</button></form><div id="map-pack-list" class="collection-list"></div></div></section>
     <p id="app-error" class="error" role="alert"></p>
   </section>
 </main>

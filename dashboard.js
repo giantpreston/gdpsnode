@@ -112,6 +112,23 @@ function refreshUserRatingStats(levelId) {
     );
 }
 
+function collectionLevelIds(value, count = null) {
+    if (typeof value !== 'string' || !/^\d+(,\d+)*$/.test(value)) return null;
+    const values = value.split(',');
+    if ((count !== null && values.length !== count) || values.length < 1) return null;
+    const ids = values.map(Number);
+    if (ids.some(id => !Number.isInteger(id) || id < 1) || new Set(ids).size !== ids.length) return null;
+    const placeholders = ids.map(() => '?').join(',');
+    const existing = db.prepare(`SELECT levelID FROM levels WHERE levelID IN (${placeholders})`).all(...ids);
+    return existing.length === ids.length ? ids : null;
+}
+
+function collectionColor(value) {
+    if (typeof value !== 'string' || !/^\d+,\d+,\d+$/.test(value)) return null;
+    const channels = value.split(',').map(Number);
+    return channels.every(channel => channel >= 0 && channel <= 255) ? value : null;
+}
+
 router.use((req, res, next) => {
     res.setHeader('X-Content-Type-Options', 'nosniff');
     res.setHeader('X-Frame-Options', 'DENY');
@@ -158,6 +175,67 @@ router.get('/api/bootstrap', requireAuth, (req, res) => {
         FROM levels l LEFT JOIN profiles p ON p.accountID = l.accountID
         ORDER BY l.uploadDate DESC LIMIT 25`).all();
     res.json({ stats, pending, recent, csrf: req.dashboardSession.csrf });
+});
+
+router.get('/api/collections', requireAuth, (req, res) => {
+    const gauntlets = db.prepare('SELECT * FROM gauntlets WHERE ID BETWEEN 1 AND 60 ORDER BY ID').all();
+    const mapPacks = db.prepare('SELECT * FROM mapPacks ORDER BY packID').all();
+    res.json({ gauntlets, mapPacks });
+});
+
+router.put('/api/gauntlets/:id', requireAuth, requireCsrf, (req, res) => {
+    const id = Number(req.params.id);
+    const levels = collectionLevelIds(req.body?.levels, 5);
+    if (!Number.isInteger(id) || id < 1 || id > 60 || !levels) return res.status(400).json({ error: 'Gauntlets require five existing, unique level IDs' });
+    db.prepare(`INSERT INTO gauntlets (ID, level1, level2, level3, level4, level5) VALUES (?, ?, ?, ?, ?, ?)
+        ON CONFLICT(ID) DO UPDATE SET level1 = excluded.level1, level2 = excluded.level2,
+        level3 = excluded.level3, level4 = excluded.level4, level5 = excluded.level5`).run(id, ...levels);
+    res.status(204).end();
+});
+
+router.delete('/api/gauntlets/:id', requireAuth, requireCsrf, (req, res) => {
+    const id = Number(req.params.id);
+    if (!Number.isInteger(id) || id < 1 || id > 60) return res.status(400).json({ error: 'Invalid gauntlet' });
+    if (!db.prepare('DELETE FROM gauntlets WHERE ID = ?').run(id).changes) return res.status(404).json({ error: 'Gauntlet not found' });
+    res.status(204).end();
+});
+
+function mapPackInput(body) {
+    const packName = typeof body?.packName === 'string' ? body.packName.trim() : '';
+    const levels = collectionLevelIds(body?.levels);
+    const stars = Number(body?.stars);
+    const coins = Number(body?.coins);
+    const difficulty = Number(body?.difficulty);
+    const barColor = collectionColor(body?.barColor);
+    const textColor = collectionColor(body?.textColor);
+    if (!packName || packName.length > 64 || !levels || !Number.isInteger(stars) || stars < 0 ||
+        !Number.isInteger(coins) || coins < 0 || !Number.isInteger(difficulty) || difficulty < 0 || difficulty > 5 || !barColor || !textColor) return null;
+    return { packName, levels: levels.join(','), stars, coins, difficulty, barColor, textColor };
+}
+
+router.post('/api/map-packs', requireAuth, requireCsrf, (req, res) => {
+    const pack = mapPackInput(req.body);
+    if (!pack) return res.status(400).json({ error: 'Invalid map pack details' });
+    const result = db.prepare(`INSERT INTO mapPacks (packName, levels, stars, coins, difficulty, barColor, textColor)
+        VALUES (?, ?, ?, ?, ?, ?, ?)`).run(pack.packName, pack.levels, pack.stars, pack.coins, pack.difficulty, pack.barColor, pack.textColor);
+    res.status(201).json({ pack: db.prepare('SELECT * FROM mapPacks WHERE packID = ?').get(result.lastInsertRowid) });
+});
+
+router.put('/api/map-packs/:id', requireAuth, requireCsrf, (req, res) => {
+    const id = Number(req.params.id);
+    const pack = mapPackInput(req.body);
+    if (!Number.isInteger(id) || id < 1 || !pack) return res.status(400).json({ error: 'Invalid map pack details' });
+    const result = db.prepare(`UPDATE mapPacks SET packName = ?, levels = ?, stars = ?, coins = ?, difficulty = ?,
+        barColor = ?, textColor = ? WHERE packID = ?`).run(pack.packName, pack.levels, pack.stars, pack.coins, pack.difficulty, pack.barColor, pack.textColor, id);
+    if (!result.changes) return res.status(404).json({ error: 'Map pack not found' });
+    res.status(204).end();
+});
+
+router.delete('/api/map-packs/:id', requireAuth, requireCsrf, (req, res) => {
+    const id = Number(req.params.id);
+    if (!Number.isInteger(id) || id < 1) return res.status(400).json({ error: 'Invalid map pack' });
+    if (!db.prepare('DELETE FROM mapPacks WHERE packID = ?').run(id).changes) return res.status(404).json({ error: 'Map pack not found' });
+    res.status(204).end();
 });
 
 router.get('/api/levels', requireAuth, (req, res) => {

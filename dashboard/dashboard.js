@@ -4,6 +4,7 @@ const escapeHtml = value => String(value ?? '').replace(/[&<>"']/g, character =>
 const demonNames = { 3: 'Easy Demon', 4: 'Medium Demon', 0: 'Hard Demon', 5: 'Insane Demon', 6: 'Extreme Demon' };
 const featureNames = { 1: 'Featured', 2: 'Epic', 3: 'Legendary', 4: 'Mythic' };
 const difficultyNames = { 1: 'Easy', 2: 'Normal', 3: 'Hard', 4: 'Harder', 5: 'Insane' };
+const gauntletNames = ['Fire', 'Ice', 'Poison', 'Shadow', 'Lava', 'Bonus', 'Chaos', 'Demon', 'Time', 'Crystal', 'Magic', 'Spike', 'Monster', 'Doom', 'Death', 'Forest', 'Rune', 'Force', 'Spooky', 'Dragon', 'Water', 'Haunted', 'Acid', 'Witch', 'Power', 'Potion', 'Snake', 'Toxic', 'Halloween', 'Treasure', 'Ghost', 'Spider', 'Gem', 'Inferno', 'Portal', 'Strange', 'Fantasy', 'Christmas', 'Surprise', 'Mystery', 'Cursed', 'Cyborg', 'Castle', 'Grave', 'Temple', 'World', 'Galaxy', 'Universe', 'Discord', 'Split', 'NCS I', 'NCS II', 'Space', 'Cosmos', 'Random', 'Chance', 'Future', 'Utopia', 'Cinema', 'Love', 'Duality'];
 const selected = (current, value) => Number(current) === Number(value) ? ' selected' : '';
 function syncDemonControl(container) {
     const stars = container.querySelector('.stars, .detail-stars');
@@ -61,8 +62,51 @@ function renderLevelDetail(data) {
     syncDemonControl($('#level-detail'));
 }
 
+function renderCollections(data) {
+    $('#gauntlet-list').innerHTML = Array.from({ length: 61 }, (_, index) => {
+        const id = index + 1;
+        const gauntlet = data.gauntlets.find(item => item.ID === id);
+        const levels = gauntlet ? [1, 2, 3, 4, 5].map(slot => gauntlet[`level${slot}`]).join(',') : '';
+        return `<form class="collection-form gauntlet-form" data-id="${id}"><strong>${id}. ${gauntletNames[index]}</strong><input name="levels" value="${levels}" placeholder="Five level IDs" aria-label="${gauntletNames[index]} level IDs" required><button type="submit">${gauntlet ? 'Save' : 'Create'}</button>${gauntlet ? '<button type="button" class="reject delete-gauntlet">Delete</button>' : ''}</form>`;
+    }).join('');
+    $('#map-pack-list').innerHTML = data.mapPacks.length ? data.mapPacks.map(pack => `<form class="collection-form map-pack-row" data-id="${pack.packID}"><input name="packName" value="${escapeHtml(pack.packName)}" required><input name="levels" value="${escapeHtml(pack.levels)}" required><input name="stars" type="number" min="0" value="${pack.stars}" required><input name="coins" type="number" min="0" value="${pack.coins}" required><input name="difficulty" type="number" min="0" max="5" value="${pack.difficulty}" required><span class="color-control"><input class="color-picker" type="color" value="${rgbToHex(pack.barColor) || '#000000'}" aria-label="Bar color picker"><input name="barColor" value="${escapeHtml(pack.barColor)}" pattern="[0-9]+,[0-9]+,[0-9]+" required></span><span class="color-control"><input class="color-picker" type="color" value="${rgbToHex(pack.textColor) || '#000000'}" aria-label="Text color picker"><input name="textColor" value="${escapeHtml(pack.textColor)}" pattern="[0-9]+,[0-9]+,[0-9]+" required></span><button type="submit">Save</button><button type="button" class="reject delete-pack">Delete</button></form>`).join('') : '<p class="empty">No map packs yet.</p>';
+    syncColorControls($('#map-pack-list'));
+}
+
+function formBody(form) {
+    return Object.fromEntries(new FormData(form).entries());
+}
+
+function rgbToHex(value) {
+    if (typeof value !== 'string' || !/^\d+,\d+,\d+$/.test(value)) return null;
+    const channels = value.split(',').map(Number);
+    if (channels.some(channel => channel < 0 || channel > 255)) return null;
+    return `#${channels.map(channel => channel.toString(16).padStart(2, '0')).join('')}`;
+}
+
+function hexToRgb(value) {
+    const match = /^#([0-9a-f]{6})$/i.exec(value);
+    if (!match) return null;
+    return match[1].match(/.{2}/g).map(channel => parseInt(channel, 16)).join(',');
+}
+
+function syncColorControl(control, fromPicker = false) {
+    const picker = control.querySelector('.color-picker');
+    const input = control.querySelector('input[name="barColor"], input[name="textColor"]');
+    if (!picker || !input) return;
+    if (fromPicker) input.value = hexToRgb(picker.value);
+    else {
+        const hex = rgbToHex(input.value);
+        if (hex) picker.value = hex;
+    }
+}
+
+function syncColorControls(root = document) {
+    root.querySelectorAll('.color-control').forEach(control => syncColorControl(control));
+}
+
 async function load() {
-    try { const data = await request('api/bootstrap'); csrf = data.csrf; render(data); $('#login-view').hidden = true; $('#app-view').hidden = false; }
+    try { const data = await request('api/bootstrap'); csrf = data.csrf; render(data); renderCollections(await request('api/collections')); $('#login-view').hidden = true; $('#app-view').hidden = false; }
     catch (error) { if (!$('#app-view').hidden) $('#app-error').textContent = error.message; }
 }
 
@@ -125,4 +169,39 @@ $('#level-detail').addEventListener('click', async event => {
 });
 
 $('#logout').addEventListener('click', async () => { try { await request('api/logout', { method: 'POST', body: '{}' }); location.reload(); } catch (error) { $('#app-error').textContent = error.message; } });
+
+document.querySelectorAll('.tab').forEach(tab => tab.addEventListener('click', () => {
+    document.querySelectorAll('.tab').forEach(item => item.classList.toggle('active', item === tab));
+    $('#levels-tab').hidden = tab.dataset.tab !== 'levels';
+    $('#collections-tab').hidden = tab.dataset.tab !== 'collections';
+}));
+
+document.addEventListener('submit', async event => {
+    const form = event.target;
+    if (form.id === 'map-pack-form' || form.classList.contains('map-pack-row')) {
+        event.preventDefault();
+        try { await request(form.dataset.id ? `api/map-packs/${form.dataset.id}` : 'api/map-packs', { method: form.dataset.id ? 'PUT' : 'POST', body: JSON.stringify(formBody(form)) }); await load(); }
+        catch (error) { $('#app-error').textContent = error.message; }
+    } else if (form.classList.contains('gauntlet-form')) {
+        event.preventDefault();
+        try { await request(`api/gauntlets/${form.dataset.id}`, { method: 'PUT', body: JSON.stringify(formBody(form)) }); await load(); }
+        catch (error) { $('#app-error').textContent = error.message; }
+    }
+});
+
+document.addEventListener('input', event => {
+    const control = event.target.closest('.color-control');
+    if (!control) return;
+    if (event.target.classList.contains('color-picker')) syncColorControl(control, true);
+    else if (event.target.name === 'barColor' || event.target.name === 'textColor') syncColorControl(control);
+});
+
+document.addEventListener('click', async event => {
+    const form = event.target.closest('.collection-form');
+    if (!form) return;
+    const isGauntlet = form.classList.contains('gauntlet-form');
+    if (!event.target.classList.contains(isGauntlet ? 'delete-gauntlet' : 'delete-pack')) return;
+    try { await request(`api/${isGauntlet ? 'gauntlets' : 'map-packs'}/${form.dataset.id}`, { method: 'DELETE' }); await load(); }
+    catch (error) { $('#app-error').textContent = error.message; }
+});
 load();

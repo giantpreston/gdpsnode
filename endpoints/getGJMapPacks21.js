@@ -1,7 +1,12 @@
 const { commonSecret } = require('../middleware/secrets');
 const db = require('../database');
 const crypto = require('crypto');
-const utils = require('../utils');
+
+function isValidMapPack(pack) {
+    const levels = typeof pack.levels === 'string' && /^\d+(,\d+)*$/.test(pack.levels);
+    const color = value => typeof value === 'string' && /^\d+,\d+,\d+$/.test(value) && value.split(',').every(channel => Number(channel) >= 0 && Number(channel) <= 255);
+    return levels && color(pack.barColor) && color(pack.textColor);
+}
 
 module.exports = {
     method: 'post',
@@ -9,14 +14,12 @@ module.exports = {
     middleware: [commonSecret],
     handler: (req, res) => {
         try {
-            const page = parseInt(req.body?.page || 0, 10); // optional, so a or 0 here works;
+            const page = Math.max(parseInt(req.body?.page || 0, 10) || 0, 0);
             const pageSize = 10;
             const offset = page * pageSize;
 
-            const countResult = db.prepare('SELECT COUNT(*) as total FROM mapPacks').get();
-            const total = countResult.total;
-
-            const packs = db.prepare('SELECT * FROM mapPacks LIMIT ? OFFSET ?').all(pageSize, offset);
+            const packs = db.prepare('SELECT * FROM mapPacks ORDER BY packID').all().filter(isValidMapPack).slice(offset, offset + pageSize);
+            const total = db.prepare('SELECT * FROM mapPacks').all().filter(isValidMapPack).length;
             let hashSegments = '';
             const packStrings = packs.map(pack => {
                 const packID = String(pack.packID);

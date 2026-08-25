@@ -38,6 +38,9 @@ button { border: 0; background: var(--lime); color: #111a12; padding: 12px 17px;
 button:hover { background: var(--orange); }
 .ghost { background: transparent; color: var(--ink); border: 1px solid var(--line); }
 .topbar { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 32px; }
+.tabbar { display: flex; gap: 2px; border-bottom: 1px solid var(--line); margin-bottom: 24px; }
+.tab { background: transparent; color: var(--muted); border-bottom: 2px solid transparent; }
+.tab.active { color: var(--lime); border-bottom-color: var(--lime); }
 .stats-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 12px; margin-bottom: 24px; }
 .stat, .panel { background: rgba(23,30,26,.94); border: 1px solid var(--line); }
 .stat { padding: 18px 20px; }
@@ -88,6 +91,18 @@ button:hover { background: var(--orange); }
 .badge { display: inline-block; background: var(--lime); color: #152014; padding: 4px 6px; font: 10px 'DM Mono', monospace; }
 .empty { padding: 30px 0; color: var(--muted); font-size: 13px; }
 .error { color: var(--pink); font-size: 12px; min-height: 18px; }
+.collections { display: grid; gap: 24px; }
+.collection-list { display: grid; gap: 8px; }
+.collection-form { display: grid; grid-template-columns: 130px minmax(160px, 1fr) auto auto; gap: 8px; align-items: end; padding: 8px 0; border-bottom: 1px dashed var(--line); }
+.collection-form strong { align-self: center; font-size: 13px; }
+.collection-form input { min-width: 0; padding: 9px 10px; font-size: 12px; }
+.collection-form button { padding: 9px 12px; white-space: nowrap; }
+.map-pack-form, .map-pack-row { grid-template-columns: 1.2fr 1.4fr 70px 70px 90px 1fr 1fr auto auto; }
+.map-pack-form { border-bottom: 1px solid var(--line); margin-bottom: 10px; padding-bottom: 16px; }
+.map-pack-row { grid-template-columns: 1.2fr 1.4fr 55px 55px 70px 1fr 1fr auto auto; }
+.color-control { display: flex; gap: 6px; min-width: 0; }
+.color-control .color-picker { width: 42px; min-width: 42px; height: 39px; padding: 3px; cursor: pointer; }
+.color-control input[name="barColor"], .color-control input[name="textColor"] { min-width: 0; }
 @media (max-width: 800px) {
     .shell { padding: 20px 14px 40px; }
     .stats-grid { grid-template-columns: repeat(2, 1fr); }
@@ -96,6 +111,8 @@ button:hover { background: var(--orange); }
     .topbar { gap: 16px; }
     .login-panel { margin-top: 8vh; padding: 28px; }
     .login-panel h1 { font-size: 29px; }
+    .collection-form, .map-pack-form, .map-pack-row { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    .collection-form strong { grid-column: 1 / -1; }
 }
 @media (max-width: 420px) {
     .stat { padding: 14px; }

@@ -122,6 +122,15 @@ db.exec(`
         feature INTEGER NOT NULL
     );
 
+    CREATE TABLE IF NOT EXISTS gauntlets (
+        ID INTEGER PRIMARY KEY, -- official gauntlet IDs are 1 through 61
+        level1 INTEGER NOT NULL,
+        level2 INTEGER NOT NULL,
+        level3 INTEGER NOT NULL,
+        level4 INTEGER NOT NULL,
+        level5 INTEGER NOT NULL
+    );
+
     CREATE TABLE IF NOT EXISTS songs (
         ID INTEGER PRIMARY KEY AUTOINCREMENT,
         name TEXT NOT NULL,
