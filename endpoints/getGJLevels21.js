@@ -122,8 +122,8 @@ module.exports = {
             order = 'likes DESC';
         }
         if (type === 7) {
-            conditions.push('objects > ?');
-            params.push(9999); // nice job github.com/Cvolton/GMDprivateServer/blob/master/incl/levels/getGJLevels.php (line 205)
+            conditions.push('objects > 9999'); // nice job github.com/Cvolton/GMDprivateServer/blob/master/incl/levels/getGJLevels.php (line 205)
+            conditions.push('starStars = 0'); // typically only unrated lvls on magic
         }
         if (type === 27) {
             conditions.push('isSent = 1');

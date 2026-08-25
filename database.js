@@ -96,6 +96,16 @@ db.exec(`
         isLDM INTEGER NOT NULL DEFAULT 0,
         gameVersion INTEGER NOT NULL DEFAULT 22
     );
+    CREATE TABLE IF NOT EXISTS mapPacks (
+        packID INTEGER PRIMARY KEY AUTOINCREMENT,
+        packName TEXT NOT NULL,
+        levels TEXT NOT NULL, -- comma separated level list!
+        stars INTEGER NOT NULL DEFAULT 0,
+        coins INTEGER DEFAULT 0,
+        difficulty INTEGER NOT NULL DEFAULT 1,
+        textColor TEXT NOT NULL,
+        barColor TEXT NOT NULL
+    );
 
     CREATE TABLE IF NOT EXISTS level_ratings (
         levelID INTEGER NOT NULL,
