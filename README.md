@@ -2,6 +2,7 @@
 
 > [!WARNING]
 > **Work-in-progress!** GDPSnode is currently under active development. I'm actively porting endpoints over from the original PHP implementation (*GMDPrivateServer*).
+
 > [!WARNING]
 > **Elder mods have full control!** If you give somebody the Elder Moderator role, they'll be able to do virtually anything on your server, since there isn't a distinction made between elder mods and owners. This might change in the future, but for now, make sure to only give Elder to highly trusted members.
 
