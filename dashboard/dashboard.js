@@ -6,6 +6,19 @@ const featureNames = { 1: 'Featured', 2: 'Epic', 3: 'Legendary', 4: 'Mythic' };
 const difficultyNames = { 1: 'Easy', 2: 'Normal', 3: 'Hard', 4: 'Harder', 5: 'Insane' };
 const gauntletNames = ['Fire', 'Ice', 'Poison', 'Shadow', 'Lava', 'Bonus', 'Chaos', 'Demon', 'Time', 'Crystal', 'Magic', 'Spike', 'Monster', 'Doom', 'Death', 'Forest', 'Rune', 'Force', 'Spooky', 'Dragon', 'Water', 'Haunted', 'Acid', 'Witch', 'Power', 'Potion', 'Snake', 'Toxic', 'Halloween', 'Treasure', 'Ghost', 'Spider', 'Gem', 'Inferno', 'Portal', 'Strange', 'Fantasy', 'Christmas', 'Surprise', 'Mystery', 'Cursed', 'Cyborg', 'Castle', 'Grave', 'Temple', 'World', 'Galaxy', 'Universe', 'Discord', 'Split', 'NCS I', 'NCS II', 'Space', 'Cosmos', 'Random', 'Chance', 'Future', 'Utopia', 'Cinema', 'Love', 'Duality'];
 const selected = (current, value) => Number(current) === Number(value) ? ' selected' : '';
+function decodeBase64Url(value) {
+    if (!value) return '';
+    try {
+        const binary = atob(value.replace(/-/g, '+').replace(/_/g, '/'));
+        return new TextDecoder().decode(Uint8Array.from(binary, character => character.charCodeAt(0)));
+    } catch { return '[Invalid description encoding]'; }
+}
+function encodeBase64Url(value) {
+    const bytes = new TextEncoder().encode(value);
+    let binary = '';
+    bytes.forEach(byte => { binary += String.fromCharCode(byte); });
+    return btoa(binary).replace(/\+/g, '-').replace(/\//g, '_');
+}
 function syncDemonControl(container) {
     const stars = container.querySelector('.stars, .detail-stars');
     const demon = container.querySelector('.demon, .detail-demon');
@@ -70,11 +83,15 @@ function renderCollections(data) {
         return `<form class="collection-form gauntlet-form" data-id="${id}"><strong>${id}. ${gauntletNames[index]}</strong><input name="levels" value="${levels}" placeholder="Five level IDs" aria-label="${gauntletNames[index]} level IDs" required><button type="submit">${gauntlet ? 'Save' : 'Create'}</button>${gauntlet ? '<button type="button" class="reject delete-gauntlet">Delete</button>' : ''}</form>`;
     }).join('');
     $('#map-pack-list').innerHTML = data.mapPacks.length ? data.mapPacks.map(pack => `<form class="collection-form map-pack-row" data-id="${pack.packID}"><input name="packName" value="${escapeHtml(pack.packName)}" required><input name="levels" value="${escapeHtml(pack.levels)}" required><input name="stars" type="number" min="0" value="${pack.stars}" required><input name="coins" type="number" min="0" value="${pack.coins}" required><input name="difficulty" type="number" min="0" max="5" value="${pack.difficulty}" required><span class="color-control"><input class="color-picker" type="color" value="${rgbToHex(pack.barColor) || '#000000'}" aria-label="Bar color picker"><input name="barColor" value="${escapeHtml(pack.barColor)}" pattern="[0-9]+,[0-9]+,[0-9]+" required></span><span class="color-control"><input class="color-picker" type="color" value="${rgbToHex(pack.textColor) || '#000000'}" aria-label="Text color picker"><input name="textColor" value="${escapeHtml(pack.textColor)}" pattern="[0-9]+,[0-9]+,[0-9]+" required></span><button type="submit">Save</button><button type="button" class="reject delete-pack">Delete</button></form>`).join('') : '<p class="empty">No map packs yet.</p>';
+    const lists = data.lists || [];
+    $('#level-list-list').innerHTML = lists.length ? lists.map(list => `<form class="collection-form level-list-row" data-id="${list.listID}"><label>List name<input name="listName" maxlength="20" value="${escapeHtml(list.listName)}" required></label><label>Description<input name="listDesc" maxlength="1000" value="${escapeHtml(decodeBase64Url(list.listDesc))}"></label><label>Level IDs<input name="listLevels" value="${escapeHtml(list.listLevels)}" required></label><label>Difficulty<input name="starDifficulty" type="number" min="-1" max="10" value="${list.starDifficulty}" required></label><label>Stars reward<input name="starStars" type="number" min="0" max="10" value="${list.starStars}" required></label><label>Featured<select name="featured"><option value="0"${selected(list.featured, 0)}>Not featured</option><option value="1"${selected(list.featured, 1)}>Featured</option></select></label><label>Count for reward<input name="countForReward" type="number" min="0" max="1" value="${list.countForReward}" required></label><label>Original<select name="original"><option value="0"${selected(list.original, 0)}>Reupload</option><option value="1"${selected(list.original, 1)}>Original</option></select></label><label>Visibility<select name="unlisted"><option value="0"${selected(list.unlisted, 0)}>Listed</option><option value="1"${selected(list.unlisted, 1)}>Unlisted</option><option value="2"${selected(list.unlisted, 2)}>Friends</option></select></label><span class="list-meta">#${list.listID} · v${list.listVersion} · ${escapeHtml(list.creator || 'unknown')}</span><button type="submit">Save</button><button type="button" class="reject delete-list">Delete</button></form>`).join('') : '<p class="empty">No level lists yet.</p>';
     syncColorControls($('#map-pack-list'));
 }
 
 function formBody(form) {
-    return Object.fromEntries(new FormData(form).entries());
+    const body = Object.fromEntries(new FormData(form).entries());
+    if (form.id === 'level-list-form' || form.classList.contains('level-list-row')) body.listDesc = encodeBase64Url(body.listDesc || '');
+    return body;
 }
 
 function rgbToHex(value) {
@@ -170,17 +187,24 @@ $('#level-detail').addEventListener('click', async event => {
 
 $('#logout').addEventListener('click', async () => { try { await request('api/logout', { method: 'POST', body: '{}' }); location.reload(); } catch (error) { $('#app-error').textContent = error.message; } });
 
-document.querySelectorAll('.tab').forEach(tab => tab.addEventListener('click', () => {
-    document.querySelectorAll('.tab').forEach(item => item.classList.toggle('active', item === tab));
-    $('#levels-tab').hidden = tab.dataset.tab !== 'levels';
-    $('#collections-tab').hidden = tab.dataset.tab !== 'collections';
-}));
+function showTab(name) {
+    document.querySelectorAll('.tab').forEach(item => item.classList.toggle('active', item.dataset.tab === name));
+    $('#levels-tab').hidden = name !== 'levels';
+    $('#collections-tab').hidden = name !== 'collections';
+}
+
+document.querySelectorAll('.tab').forEach(tab => tab.addEventListener('click', () => showTab(tab.dataset.tab)));
+showTab('levels');
 
 document.addEventListener('submit', async event => {
     const form = event.target;
     if (form.id === 'map-pack-form' || form.classList.contains('map-pack-row')) {
         event.preventDefault();
         try { await request(form.dataset.id ? `api/map-packs/${form.dataset.id}` : 'api/map-packs', { method: form.dataset.id ? 'PUT' : 'POST', body: JSON.stringify(formBody(form)) }); await load(); }
+        catch (error) { $('#app-error').textContent = error.message; }
+    } else if (form.id === 'level-list-form' || form.classList.contains('level-list-row')) {
+        event.preventDefault();
+        try { await request(form.dataset.id ? `api/lists/${form.dataset.id}` : 'api/lists', { method: form.dataset.id ? 'PUT' : 'POST', body: JSON.stringify(formBody(form)) }); await load(); }
         catch (error) { $('#app-error').textContent = error.message; }
     } else if (form.classList.contains('gauntlet-form')) {
         event.preventDefault();
@@ -200,8 +224,9 @@ document.addEventListener('click', async event => {
     const form = event.target.closest('.collection-form');
     if (!form) return;
     const isGauntlet = form.classList.contains('gauntlet-form');
-    if (!event.target.classList.contains(isGauntlet ? 'delete-gauntlet' : 'delete-pack')) return;
-    try { await request(`api/${isGauntlet ? 'gauntlets' : 'map-packs'}/${form.dataset.id}`, { method: 'DELETE' }); await load(); }
+    const isList = form.classList.contains('level-list-row');
+    if (!event.target.classList.contains(isList ? 'delete-list' : isGauntlet ? 'delete-gauntlet' : 'delete-pack')) return;
+    try { await request(`api/${isList ? 'lists' : isGauntlet ? 'gauntlets' : 'map-packs'}/${form.dataset.id}`, { method: 'DELETE' }); await load(); }
     catch (error) { $('#app-error').textContent = error.message; }
 });
 load();

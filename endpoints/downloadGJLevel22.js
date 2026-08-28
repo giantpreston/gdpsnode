@@ -78,9 +78,10 @@ module.exports = {
             .replace(/\+/g, '-')
             .replace(/\//g, '_');
 
+        let incremented = false;
         if (gjp2 && accountID && gjp2 === account.gjp2 && inc === 1) {
-            const create = db.prepare('UPDATE levels SET downloads = downloads + 1 WHERE levelID = ?');
-            create.run(levelID);
+            const inf = db.prepare('UPDATE levels SET downloads = downloads + 1 WHERE levelID = ?').run(levelID);
+            incremented = inf.changes > 0;
         }
 
         const hash = generateDownloadHash(levelString);
@@ -99,7 +100,7 @@ module.exports = {
             `6:${level.accountID + 1}`,
             `8:10`,
             `9:${level.starDifficulty ? level.starDifficulty * 10 : 0}`,
-            `10:${level.downloads}`,
+            `10:${incremented ? level.downloads + 1 : level.downloads}`,
             `12:${level.audioTrack || 0}`,
             `13:${level.gameVersion || 22}`,
             `14:${level.likes || 0}`,

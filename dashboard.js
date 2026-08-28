@@ -180,7 +180,9 @@ router.get('/api/bootstrap', requireAuth, (req, res) => {
 router.get('/api/collections', requireAuth, (req, res) => {
     const gauntlets = db.prepare('SELECT * FROM gauntlets WHERE ID BETWEEN 1 AND 60 ORDER BY ID').all();
     const mapPacks = db.prepare('SELECT * FROM mapPacks ORDER BY packID').all();
-    res.json({ gauntlets, mapPacks });
+    const lists = db.prepare(`SELECT l.*, p.userName AS creator FROM lists l
+        LEFT JOIN profiles p ON p.accountID = l.accountID ORDER BY l.listID`).all();
+    res.json({ gauntlets, mapPacks, lists });
 });
 
 router.put('/api/gauntlets/:id', requireAuth, requireCsrf, (req, res) => {
@@ -235,6 +237,65 @@ router.delete('/api/map-packs/:id', requireAuth, requireCsrf, (req, res) => {
     const id = Number(req.params.id);
     if (!Number.isInteger(id) || id < 1) return res.status(400).json({ error: 'Invalid map pack' });
     if (!db.prepare('DELETE FROM mapPacks WHERE packID = ?').run(id).changes) return res.status(404).json({ error: 'Map pack not found' });
+    res.status(204).end();
+});
+
+function levelListInput(body) {
+    const listName = typeof body?.listName === 'string' ? body.listName.trim() : '';
+    const listDesc = typeof body?.listDesc === 'string' ? body.listDesc : '';
+    const levels = collectionLevelIds(body?.listLevels);
+    const difficulty = Number(body?.starDifficulty);
+    const stars = Number(body?.starStars);
+    const featured = Number(body?.featured);
+    const countForReward = Number(body?.countForReward);
+    const original = Number(body?.original);
+    const unlisted = Number(body?.unlisted);
+    if (!listName || listName.length > 20 || (listDesc && !/^(?:[A-Za-z0-9_-]{4})*(?:[A-Za-z0-9_-]{2}==|[A-Za-z0-9_-]{3}=)$/.test(listDesc)) || !levels ||
+        !Number.isInteger(difficulty) || difficulty < -1 || difficulty > 10 ||
+        !Number.isInteger(stars) || stars < 0 || stars > 10 ||
+        !Number.isInteger(featured) || featured < 0 || featured > 1 ||
+        !Number.isInteger(countForReward) || countForReward < 0 || countForReward > 1 ||
+        (stars > 0 && countForReward < 1) ||
+        !Number.isInteger(original) || original < 0 || original > 1 ||
+        !Number.isInteger(unlisted) || unlisted < 0 || unlisted > 2) return null;
+    return { listName, listDesc, listLevels: levels.join(','), difficulty, stars, featured, countForReward, original, unlisted };
+}
+
+router.post('/api/lists', requireAuth, requireCsrf, (req, res) => {
+    const list = levelListInput(req.body);
+    const accountID = dashboardAccountId;
+    if (!list || !Number.isInteger(accountID) || accountID < 1) return res.status(400).json({ error: 'Invalid level list details' });
+    const account = db.prepare('SELECT accountID FROM accounts WHERE accountID = ?').get(accountID);
+    if (!account) return res.status(400).json({ error: 'Dashboard account not found' });
+    const now = Math.floor(Date.now() / 1000);
+    const result = db.prepare(`INSERT INTO lists
+        (listName, listDesc, accountID, starDifficulty, starDemon, starStars, featured, listLevels,
+        countForReward, uploadDate, updateDate, original, unlisted)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`).run(
+        list.listName, list.listDesc, accountID, list.difficulty, list.difficulty > 5 ? 1 : 0, list.stars,
+        list.featured, list.listLevels, list.countForReward, now, now, list.original, list.unlisted
+    );
+    res.status(201).json({ list: db.prepare('SELECT * FROM lists WHERE listID = ?').get(result.lastInsertRowid) });
+});
+
+router.put('/api/lists/:id', requireAuth, requireCsrf, (req, res) => {
+    const id = Number(req.params.id);
+    const list = levelListInput(req.body);
+    if (!Number.isInteger(id) || id < 1 || !list) return res.status(400).json({ error: 'Invalid level list details' });
+    const result = db.prepare(`UPDATE lists SET listName = ?, listDesc = ?, listVersion = listVersion + 1,
+        listLevels = ?, starDifficulty = ?, starDemon = ?, starStars = ?, featured = ?, countForReward = ?,
+        updateDate = ?, original = ?, unlisted = ? WHERE listID = ?`).run(
+        list.listName, list.listDesc, list.listLevels, list.difficulty, list.difficulty > 5 ? 1 : 0,
+        list.stars, list.featured, list.countForReward, Math.floor(Date.now() / 1000), list.original, list.unlisted, id
+    );
+    if (!result.changes) return res.status(404).json({ error: 'Level list not found' });
+    res.status(204).end();
+});
+
+router.delete('/api/lists/:id', requireAuth, requireCsrf, (req, res) => {
+    const id = Number(req.params.id);
+    if (!Number.isInteger(id) || id < 1) return res.status(400).json({ error: 'Invalid level list' });
+    if (!db.prepare('DELETE FROM lists WHERE listID = ?').run(id).changes) return res.status(404).json({ error: 'Level list not found' });
     res.status(204).end();
 });
 

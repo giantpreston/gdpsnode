@@ -29,6 +29,6 @@ cp .env.example .env
 npm start
 ```
 
-The dashboard provides server statistics, pending mod suggestions, recent level activity, rating, and rejection actions.
+The dashboard provides server statistics, pending mod suggestions, recent level activity, rating, rejection actions, and management for gauntlets, map packs, and level lists.
 
 Since the project is still in development, many endpoints are still being ported over. Thanks for checking it out and hanging in there as we build this out! ❤️
