@@ -120,7 +120,7 @@ module.exports = {
             decoded = Buffer.from(base64, 'base64');
             await validateGzip(decoded);
         } catch (err) {
-            console.error('\x1b[1;31m✗ User sent an invalid level string. This might be a possible attempted attack at your server.');
+            console.error('\x1b[1;31m✗ User sent an invalid level string. This could possibly be an attacker targeting your server.');
             return res.send('-1');
         }
 
