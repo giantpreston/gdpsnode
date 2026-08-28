@@ -3,6 +3,11 @@ const commonSecret = (req, res, next) => {
     if (req.body?.secret !== "Wmfd2893gb7") return res.send("-1"); // haha idiot imagine forgetting Wmfd2893gb7 haha what a lsoer
     next();
 };
+const llMid = (req, res, next) => {
+    if (!req.body?.secret) return res.send("-100");
+    if (req.body?.secret !== "Wmfd2893gb7") return res.send("-100");
+    next();
+}
 const accountSecret = (req, res, next) => {
     if (!req.body?.secret) return res.send("-1");
     if (req.body?.secret !== "Wmfv3899gc9") return res.send("-1");
@@ -19,4 +24,4 @@ const modSecret = (req, res, next) => {
     next();
 };
 
-module.exports = { commonSecret, accountSecret, levelSecret, modSecret };
+module.exports = { commonSecret, llMid, accountSecret, levelSecret, modSecret };

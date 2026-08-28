@@ -3,6 +3,7 @@ const crypto = require('crypto');
 const db = require('../database');
 const path = require('path');
 const fs = require('fs/promises');
+const zlib = require('zlib');
 const utils = require('../utils');
 
 function generateUploadSeed(levelString) {
@@ -30,6 +31,16 @@ function generateUploadSeed(levelString) {
     }
     
     return xorResult.toString('base64');
+}
+
+function validateGzip(buffer) {
+    return new Promise((resolve, reject) => {
+        const gunzip = zlib.createGunzip();
+        gunzip.once('error', reject);
+        gunzip.once('end', resolve);
+        gunzip.resume();
+        gunzip.end(buffer);
+    });
 }
 
 module.exports = {
@@ -100,6 +111,19 @@ module.exports = {
         const expectedSeed = generateUploadSeed(levelString);
         if (seed2 !== expectedSeed) return res.send('-1'); // seed2 implementation
 
+        let decoded;
+        try {
+            let base64 = levelString.replace(/-/g, '+').replace(/_/g, '/');
+            while (base64.length % 4) {
+                base64 += '=';
+            }
+            decoded = Buffer.from(base64, 'base64');
+            await validateGzip(decoded);
+        } catch (err) {
+            console.error('\x1b[1;31m✗ User sent an invalid level string. This might be a possible attempted attack at your server.');
+            return res.send('-1');
+        }
+
         // db checks
         const checkacc = db.prepare('SELECT * FROM accounts WHERE accountID = ?');
         const account = checkacc.get(accountID);
@@ -141,7 +165,7 @@ module.exports = {
                 WHERE levelID = ?
             `;
             const updateValues = [
-                levelName, levelDesc, levelVersion, levelLength,
+                levelName, levelDesc, existingLevel.levelVersion + 1, levelLength,
                 audioTrack, password, twoPlayer, songID, objects, coins,
                 requestedStars, Math.floor(Date.now() / 1000),
                 unlisted, original, ldm, gameVersion,
@@ -154,11 +178,6 @@ module.exports = {
             updateLvl.run(...updateValues);
 
             try {
-                let base64 = levelString.replace(/-/g, '+').replace(/_/g, '/');
-                while (base64.length % 4) {
-                    base64 += '=';
-                }
-                const decoded = Buffer.from(base64, 'base64');
                 const levelsDir = path.join(__dirname, '..', 'levels');
                 await fs.access(levelsDir).catch(() => fs.mkdir(levelsDir, { recursive: true }));
 
@@ -178,7 +197,7 @@ module.exports = {
                 'isLDM', 'gameVersion', 'songIDs', 'sfxIDs', 'extraString'
             ];
             const values = [
-                accountID, levelName, levelDesc, levelVersion, levelLength,
+                accountID, levelName, levelDesc, 1, levelLength,
                 audioTrack, password, twoPlayer, songID, objects, coins,
                 requestedStars, Math.floor(Date.now() / 1000), Math.floor(Date.now() / 1000),
                 unlisted, original, ldm, gameVersion, songIDs, sfxIDs, extraString
@@ -191,11 +210,6 @@ module.exports = {
 
             const newLevelID = info.lastInsertRowid;
             try {
-                let base64 = levelString.replace(/-/g, '+').replace(/_/g, '/');
-                while (base64.length % 4) {
-                    base64 += '=';
-                }
-                const decoded = Buffer.from(base64, 'base64');
                 const levelsDir = path.join(__dirname, '..', 'levels');
                 await fs.access(levelsDir).catch(() => fs.mkdir(levelsDir, { recursive: true }));
 

@@ -131,6 +131,26 @@ db.exec(`
         level5 INTEGER NOT NULL
     );
 
+    CREATE TABLE IF NOT EXISTS lists (
+        listID INTEGER PRIMARY KEY AUTOINCREMENT,
+        listName TEXT NOT NULL,
+        listDesc TEXT NOT NULL,
+        listVersion INTEGER NOT NULL DEFAULT 1,
+        accountID INTEGER NOT NULL,
+        downloads INTEGER NOT NULL DEFAULT 0,
+        starDifficulty INTEGER NOT NULL,
+        starDemon INTEGER NOT NULL DEFAULT 0,
+        likes INTEGER NOT NULL DEFAULT 0,
+        featured INTEGER NOT NULL DEFAULT 0,
+        starStars INTEGER NOT NULL DEFAULT 0,
+        listLevels TEXT NOT NULL,
+        countForReward INTEGER NOT NULL DEFAULT 0,
+        uploadDate INTEGER NOT NULL,
+        updateDate INTEGER NOT NULL,
+        original INTEGER NOT NULL DEFAULT 0,
+        unlisted INTEGER NOT NULL DEFAULT 0
+    );
+
     CREATE TABLE IF NOT EXISTS songs (
         ID INTEGER PRIMARY KEY AUTOINCREMENT,
         name TEXT NOT NULL,

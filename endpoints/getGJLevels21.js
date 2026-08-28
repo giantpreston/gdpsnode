@@ -53,7 +53,6 @@ module.exports = {
         // holy fuck that was a lot of writing..
         // sanity checks
         if (accountID && !gjp2) return res.send('-1');
-        if (type === 5 || type === 10 && !str) return res.send('-1');
         if (type === 12 && !followed) return res.send('-1');
         if (type === 10 && !str.includes(',')) return res.send('-1');
         if (uncompleted === 1 || onlyCompleted === 1 && !completedLevels) return res.send('-1');
