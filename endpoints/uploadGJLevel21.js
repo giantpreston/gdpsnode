@@ -78,13 +78,14 @@ module.exports = {
         const levelString = (rawLevelString || '').trim();
         const seed2 = (rawSeed2 || '').trim();
 
-        const rawPassword = String(body.password ?? '');
+        let rawPassword = String(body.password ?? '');
+        if (gameVersion == 22 && rawPassword == '0') rawPassword = '1';
         let normalizedPassword = parseInt(rawPassword, 10);
 
         if (rawPassword && rawPassword !== '1' && rawPassword !== '0' && !rawPassword.startsWith('1')) {
             return res.send('-1');
         }
-        if (rawPassword && rawPassword.startsWith('1') && rawPassword !== '1' && rawPassword !== '0' && (rawPassword.length < 5 || rawPassword.length > 7)) return res.send('-1');
+        if (rawPassword && rawPassword.startsWith('1') && rawPassword !== '1' && rawPassword !== '0' && rawPassword.length !== 5 && rawPassword.length !== 7) return res.send('-1');
 
         const songIDs = utils.numbercolon(body.songIDs?.trim() || '');
         const sfxIDs = utils.numbercolon(body.sfxIDs?.trim() || '');
