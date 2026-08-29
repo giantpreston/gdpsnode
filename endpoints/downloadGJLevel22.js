@@ -10,10 +10,7 @@ function xorAndEncode(value, key) {
     for (let i = 0; i < value.length; i++) {
         xorResult[i] = value.charCodeAt(i) ^ key.charCodeAt(i % key.length);
     }
-    return xorResult.toString('base64')
-        .replace(/\+/g, '-')
-        .replace(/\//g, '_')
-        .replace(/=+$/, '');
+    return Buffer.from(xorResult).toString('base64');
 }
 function generateDownloadHash(levelString) {
     if (levelString.length < 41) {
@@ -94,11 +91,12 @@ module.exports = {
 
         const hash = generateDownloadHash(levelString);
         const feaID = level.dailyNumber || 0;
-        const password = level.password || '1';
+        const storedPassword = level.password != null ? String(level.password) : '';
+        const password = storedPassword === '' || storedPassword === '1' ? '1' : storedPassword;
         const hash2String = `${level.accountID + 1},${level.starStars},${level.starDemon},${level.levelID},${level.starCoins},${level.featured},${password},${feaID}`;
         const hash2 = crypto.createHash('sha1').update(hash2String + "xI25fpAapCQg").digest('hex');
 
-        const passwordXor = level.password ? xorAndEncode(level.password, '26364') : 'Aw==';
+        const passwordXor = storedPassword === '' || storedPassword === '1' ? 'Aw==' : xorAndEncode(storedPassword, '26364');
         const response = [
             `1:${level.levelID}`,
             `2:${level.levelName}`,

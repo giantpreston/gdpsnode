@@ -56,7 +56,6 @@ module.exports = {
         const levelLength = parseInt(body.levelLength, 10);
         const audioTrack = parseInt(body.audioTrack, 10);
         const auto = parseInt(body.auto, 10);
-        const password = parseInt(body.password, 10);
         const original = parseInt(body.original, 10);
         const twoPlayer = parseInt(body.twoPlayer, 10);
         const songID = parseInt(body.songID, 10);
@@ -79,13 +78,20 @@ module.exports = {
         const levelString = (rawLevelString || '').trim();
         const seed2 = (rawSeed2 || '').trim();
 
+        const rawPassword = String(body.password ?? '');
+        let normalizedPassword = parseInt(rawPassword, 10);
+
+        if (rawPassword && rawPassword !== '1' && rawPassword !== '0' && !rawPassword.startsWith('1')) {
+            return res.send('-1');
+        }
+
         const songIDs = utils.numbercolon(body.songIDs?.trim() || '');
         const sfxIDs = utils.numbercolon(body.sfxIDs?.trim() || '');
         const extraString = utils.remove(body.extraString?.trim() || '');
 
         if (
             isNaN(gameVersion) || isNaN(accountID) || isNaN(levelID) || isNaN(levelVersion) ||
-            isNaN(levelLength) || isNaN(audioTrack) || isNaN(auto) || isNaN(password) ||
+            isNaN(levelLength) || isNaN(audioTrack) || isNaN(auto) || isNaN(normalizedPassword) ||
             isNaN(original) || isNaN(twoPlayer) || isNaN(songID) || isNaN(objects) ||
             isNaN(coins) || isNaN(requestedStars) || isNaN(unlisted) || isNaN(ldm) ||
             !gjp2 || !levelName || levelDesc === undefined || levelDesc === null ||
@@ -132,6 +138,14 @@ module.exports = {
         if (account.gjp2 !== gjp2) return res.send('-1');
         if (account.isDisabled === 1) return res.send('-1');
 
+        const existingOwnedLevelByName = db.prepare(
+            'SELECT * FROM levels WHERE accountID = ? AND levelName = ? ORDER BY levelID DESC LIMIT 1'
+        ).get(accountID, levelName);
+
+        if (existingOwnedLevelByName && levelID <= 0) {
+            levelID = existingOwnedLevelByName.levelID;
+        }
+
         const isUpdate = levelID > 0;
 
         if (isUpdate) {
@@ -166,7 +180,7 @@ module.exports = {
             `;
             const updateValues = [
                 levelName, levelDesc, existingLevel.levelVersion + 1, levelLength,
-                audioTrack, password, twoPlayer, songID, objects, coins,
+                audioTrack, normalizedPassword, twoPlayer, songID, objects, coins,
                 requestedStars, Math.floor(Date.now() / 1000),
                 unlisted, original, ldm, gameVersion,
                 songIDs,
@@ -198,7 +212,7 @@ module.exports = {
             ];
             const values = [
                 accountID, levelName, levelDesc, 1, levelLength,
-                audioTrack, password, twoPlayer, songID, objects, coins,
+                audioTrack, normalizedPassword, twoPlayer, songID, objects, coins,
                 requestedStars, Math.floor(Date.now() / 1000), Math.floor(Date.now() / 1000),
                 unlisted, original, ldm, gameVersion, songIDs, sfxIDs, extraString
             ];
