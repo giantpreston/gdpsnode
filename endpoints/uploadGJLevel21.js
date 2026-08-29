@@ -51,7 +51,7 @@ module.exports = {
         const body = req.body || {};
         const gameVersion = parseInt(body.gameVersion, 10);
         const accountID = parseInt(body.accountID, 10);
-        const levelID = parseInt(body.levelID, 10);
+        let levelID = parseInt(body.levelID, 10);
         const levelVersion = parseInt(body.levelVersion, 10);
         const levelLength = parseInt(body.levelLength, 10);
         const audioTrack = parseInt(body.audioTrack, 10);
@@ -84,6 +84,7 @@ module.exports = {
         if (rawPassword && rawPassword !== '1' && rawPassword !== '0' && !rawPassword.startsWith('1')) {
             return res.send('-1');
         }
+        if (rawPassword && rawPassword.startsWith('1') && rawPassword !== '1' && rawPassword !== '0' && (rawPassword.length < 5 || rawPassword.length > 7)) return res.send('-1');
 
         const songIDs = utils.numbercolon(body.songIDs?.trim() || '');
         const sfxIDs = utils.numbercolon(body.sfxIDs?.trim() || '');
