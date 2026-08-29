@@ -12,6 +12,14 @@ const dashboardPath = (process.env.DASHBOARD_PATH || '/dashboard').replace(/\/+$
 // Don't change anything below unless you know what you're doing!
 
 const app = express();
+app.disable('x-powered-by');
+
+// spoof robtop's version of apache lmaoooooo
+app.use((req, res, next) => {
+    res.setHeader('Server', 'Apache/2.4.52 (Ubuntu)');
+    res.setHeader('X-Powered-By', 'PHP/8.1.2-1ubuntu2.22');
+    next();
+});
 
 const bodyLimit = '25mb'; // levels rarely if ever reach this
 
@@ -48,11 +56,30 @@ async function registerEndpoints() {
         const endpoint = require(path.join(endpointsDir, file));
         const middleware = endpoint.middleware || [];
 
-        app[endpoint.method](endpoint.path, ...middleware, endpoint.handler);
+        app[endpoint.method](endpoint.path, ...middleware, async (req, res, next) => {
+            try {
+                await endpoint.handler(req, res, next);
+            } catch (err) {
+                next(err);
+            }
+        });
     }
 }
 
 registerEndpoints().then(() => {
+    app.use((err, req, res, next) => {
+        console.error(`\x1b[1;31m✗ Unhandled API error on ${req.method} ${req.originalUrl}\x1b[0m`, err);
+        if (!res.headersSent) {
+            res.status(200).type('text/plain').send('-1');
+        }
+    });
+
+    app.use((req, res) => {
+        if (!res.headersSent) {
+            res.status(200).type('text/plain').send('-1');
+        }
+    });
+
     app.listen(port, () => {
         console.log(`\x1b[1;32m✓ GDPS Running Successfully! Port: ${port}\x1b[0m`);
     });
