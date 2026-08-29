@@ -1,6 +1,7 @@
 gd_server.db
 gd_server.db-shm
 gd_server.db-wal
-package-lock.json
 node_modules/
+plan.txt
+levels/*.gdcs
 .env

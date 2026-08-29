@@ -168,6 +168,13 @@ db.exec(`
         extraArtistNames TEXT DEFAULT '',
         downloadSoundtrackOverride TEXT NOT NULL DEFAULT ''
     );
+
+    CREATE TABLE IF NOT EXISTS content_increments (
+        accountID INTEGER NOT NULL,
+        contentID INTEGER NOT NULL,
+        contentType TEXT NOT NULL,
+        PRIMARY KEY (accountID, contentID, contentType)
+    );
 `);
 
 module.exports = db;

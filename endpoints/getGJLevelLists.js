@@ -30,6 +30,7 @@ module.exports = {
     handler: (req, res) => {
         try {
             const body = req.body || {};
+            const accountID = body.accountID ? parseInt(utils.number(body.accountID), 10) : 0;
             const type = integer(body.type);
             const page = Math.max(integer(body.page), 0);
             const offset = page * pageSize;
@@ -151,7 +152,16 @@ module.exports = {
             ].join(':')).join('|');
 
             if (/^\d+$/.test(str) && type === 0 && lists.length === 1) {
-                db.prepare('UPDATE lists SET downloads = downloads + 1 WHERE listID = ?').run(Number(str));
+                const listID = Number(str);
+                if (accountID) {
+                    const existingIncrement = db.prepare('SELECT * FROM content_increments WHERE accountID = ? AND contentID = ? AND contentType = ?').get(accountID, listID, 'list');
+                    if (!existingIncrement) {
+                        const inf = db.prepare('UPDATE lists SET downloads = downloads + 1 WHERE listID = ?').run(listID);
+                        if (inf.changes > 0) {
+                            db.prepare('INSERT OR IGNORE INTO content_increments (accountID, contentID, contentType) VALUES (?, ?, ?)').run(accountID, listID, 'list');
+                        }
+                    }
+                }
             }
 
             const responseHash = generateMulti(lists);

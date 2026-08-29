@@ -80,8 +80,16 @@ module.exports = {
 
         let incremented = false;
         if (gjp2 && accountID && gjp2 === account.gjp2 && inc === 1) {
-            const inf = db.prepare('UPDATE levels SET downloads = downloads + 1 WHERE levelID = ?').run(levelID);
-            incremented = inf.changes > 0;
+            const existingIncrement = db.prepare('SELECT * FROM content_increments WHERE accountID = ? AND contentID = ? AND contentType = ?').get(accountID, levelID, 'level');
+            
+            if (!existingIncrement) {
+                const inf = db.prepare('UPDATE levels SET downloads = downloads + 1 WHERE levelID = ?').run(levelID);
+                incremented = inf.changes > 0;
+                
+                if (incremented) {
+                    db.prepare('INSERT OR IGNORE INTO content_increments (accountID, contentID, contentType) VALUES (?, ?, ?)').run(accountID, levelID, 'level');
+                }
+            }
         }
 
         const hash = generateDownloadHash(levelString);
