@@ -139,8 +139,23 @@ module.exports = {
             conditions.push(`accountID IN (${followed})`);
         }
         // type 13 = friends, not implemented
-        // type 21 = daily history; 22 = weekly history; 23 = event history; not yet implemented
-        // type 25 = LISTS, not yet implemented
+        if (type === 21) {
+            conditions.push('NOT dailyNumber = 0');
+            conditions.push('dailyNumber < 100001'); // exclude weekly
+            order = 'uploadDate DESC';
+        }
+        if (type === 22) {
+            conditions.push('NOT dailyNumber = 0');
+            conditions.push('dailyNumber > 100000'); // exclude daily
+            order = 'uploadDate DESC';
+        }
+        if (type === 23) {
+            conditions.push('NOT eventNumber = 0');
+            order = 'uploadDate DESC';
+        }
+        if (type === 25) {
+            conditions.push(`levelID IN (${str})`);
+        }
         if (diff === -1) {
             conditions.push('starDifficulty = 0');
         } else if (diff === -3) {

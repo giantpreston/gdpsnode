@@ -49,10 +49,22 @@ module.exports = {
 
         if (accountID && gjp2 && !account) return res.send('-1');
         if (gjp2 && accountID && gjp2 !== account.gjp2) return res.send('-1');
+        let level;
 
-        const lvcheck = db.prepare('SELECT * FROM levels WHERE levelID = ?');
-        const level = lvcheck.get(levelID);
-        if (!level) return res.send('-1');
+        if (levelID === -1) {
+            level = db.prepare('SELECT * FROM levels WHERE dailyNumber != 0 AND dailyNumber < 100001 ORDER BY uploadDate DESC LIMIT 1').get();
+            if (!level) return res.send('-1');
+        } else if (levelID === -2) {
+            level = db.prepare('SELECT * FROM levels WHERE dailyNumber != 0 AND dailyNumber > 100000 ORDER BY uploadDate DESC LIMIT 1').get();
+            if (!level) return res.send('-1');
+        } else if (levelID === -3) {
+            level = db.prepare('SELECT * FROM levels WHERE eventNumber != 0 ORDER BY uploadDate DESC LIMIT 1').get();
+            if (!level) return res.send('-1');
+        } else {
+            const lvcheck = db.prepare('SELECT * FROM levels WHERE levelID = ?');
+            level = lvcheck.get(levelID);
+            if (!level) return res.send('-1');
+        }
 
         // get level string steps:
         const levelsdir = path.join(__dirname, '..', 'levels');
@@ -62,7 +74,7 @@ module.exports = {
             await fs.mkdir(levelsdir, { recursive: true });
         }
 
-        const filePath = path.join(levelsdir, `${levelID}.gdcs`);
+        const filePath = path.join(levelsdir, `${level.levelID}.gdcs`);
         try {
             await fs.access(filePath);
         } catch {
@@ -77,14 +89,14 @@ module.exports = {
 
         let incremented = false;
         if (gjp2 && accountID && gjp2 === account.gjp2 && inc === 1) {
-            const existingIncrement = db.prepare('SELECT * FROM content_increments WHERE accountID = ? AND contentID = ? AND contentType = ?').get(accountID, levelID, 'level');
+            const existingIncrement = db.prepare('SELECT * FROM content_increments WHERE accountID = ? AND contentID = ? AND contentType = ?').get(accountID, level.levelID, 'level');
             
             if (!existingIncrement) {
-                const inf = db.prepare('UPDATE levels SET downloads = downloads + 1 WHERE levelID = ?').run(levelID);
+                const inf = db.prepare('UPDATE levels SET downloads = downloads + 1 WHERE levelID = ?').run(level.levelID);
                 incremented = inf.changes > 0;
                 
                 if (incremented) {
-                    db.prepare('INSERT OR IGNORE INTO content_increments (accountID, contentID, contentType) VALUES (?, ?, ?)').run(accountID, levelID, 'level');
+                    db.prepare('INSERT OR IGNORE INTO content_increments (accountID, contentID, contentType) VALUES (?, ?, ?)').run(accountID, level.levelID, 'level');
                 }
             }
         }
@@ -92,6 +104,7 @@ module.exports = {
         const hash = generateDownloadHash(levelString);
         const feaID = level.dailyNumber || 0;
         const storedPassword = level.password != null ? String(level.password) : '';
+        const owner = db.prepare('SELECT * FROM profiles WHERE accountID = ?').get(level.accountID);
         const password = storedPassword === '' || storedPassword === '1' ? '1' : storedPassword;
         const hash2String = `${level.accountID + 1},${level.starStars},${level.starDemon},${level.levelID},${level.starCoins},${level.featured},${password},${feaID}`;
         const hash2 = crypto.createHash('sha1').update(hash2String + "xI25fpAapCQg").digest('hex');
@@ -143,7 +156,11 @@ module.exports = {
             `63:${level.updateDate}`
         ].join(':');
 
-        res.send(`${response}#${hash}#${hash2}`);
+        if (levelID === -1 || levelID === -2 || levelID === -3) {
+            res.send(`${response}#${hash}#${hash2}#${owner.accountID + 1}:${owner.userName}:${owner.accountID}`);
+        } else {
+            res.send(`${response}#${hash}#${hash2}`);
+        }
     }
 };
 

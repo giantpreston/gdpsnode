@@ -80,6 +80,8 @@ db.exec(`
         dislikes INTEGER NOT NULL DEFAULT 0,
         starDemon INTEGER NOT NULL DEFAULT 0,
         dailyNumber INTEGER NOT NULL DEFAULT 0,
+        dailyTime INTEGER NOT NULL DEFAULT 0,
+        eventNumber INTEGER NOT NULL DEFAULT 0,
         inGauntlet INTEGER NOT NULL DEFAULT 0,
         starAuto INTEGER NOT NULL DEFAULT 0,
         starStars INTEGER NOT NULL DEFAULT 0,
