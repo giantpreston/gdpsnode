@@ -8,6 +8,9 @@ db.exec(`
         userName TEXT NOT NULL,
         gjp2 TEXT NOT NULL,
         isDisabled BOOLEAN NOT NULL,
+        commentBan INTEGER NOT NULL DEFAULT 0,
+        commentBanReason TEXT DEFAULT '',
+        permaCommentBan BOOLEAN NOT NULL DEFAULT 0,
         saveData TEXT
     );
 
@@ -98,6 +101,19 @@ db.exec(`
         isLDM INTEGER NOT NULL DEFAULT 0,
         gameVersion INTEGER NOT NULL DEFAULT 22
     );
+
+    CREATE TABLE IF NOT EXISTS comments (
+        accountID INTEGER NOT NULL,
+        userName INTEGER NOT NULL,
+        comment TEXT NOT NULL,
+        levelID INTEGER NOT NULL,
+        commentID INTEGER PRIMARY KEY AUTOINCREMENT,
+        timestamp INTEGER NOT NULL,
+        likes INTEGER NOT NULL DEFAULT 0,
+        percent INTEGER NOT NULL DEFAULT 0,
+        isSpam INTEGER NOT NULL DEFAULT 0
+    );
+
     CREATE TABLE IF NOT EXISTS mapPacks (
         packID INTEGER PRIMARY KEY AUTOINCREMENT,
         packName TEXT NOT NULL,
