@@ -129,14 +129,24 @@ module.exports = {
             order = 'lastSent DESC'; // yay
         }
         if (type === 10) {
-            conditions.push(`levelID IN (${str})`);
+            const levelIDs = str.split(',').map(Number).filter(n => !Number.isNaN(n));
+            if (levelIDs.length > 0) {
+                const placeholders = levelIDs.map(() => '?').join(',');
+                conditions.push(`levelID IN (${placeholders})`);
+                params.push(...levelIDs);
+            }
         }
         if (type === 11) {
             conditions.push('NOT starStars = 0');
             order = 'uploadDate DESC';
         }
         if (type === 12) {
-            conditions.push(`accountID IN (${followed})`);
+            const accountIDs = followed.split(',').map(Number).filter(n => !Number.isNaN(n));
+            if (accountIDs.length > 0) {
+                const placeholders = accountIDs.map(() => '?').join(',');
+                conditions.push(`accountID IN (${placeholders})`);
+                params.push(...accountIDs);
+            }
         }
         // type 13 = friends, not implemented
         if (type === 21) {
@@ -154,7 +164,12 @@ module.exports = {
             order = 'uploadDate DESC';
         }
         if (type === 25) {
-            conditions.push(`levelID IN (${str})`);
+            const levelIDs = str.split(',').map(Number).filter(n => !Number.isNaN(n));
+            if (levelIDs.length > 0) {
+                const placeholders = levelIDs.map(() => '?').join(',');
+                conditions.push(`levelID IN (${placeholders})`);
+                params.push(...levelIDs);
+            }
         }
         if (diff === -1) {
             conditions.push('starDifficulty = 0');
