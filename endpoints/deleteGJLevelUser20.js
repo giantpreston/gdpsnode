@@ -50,7 +50,7 @@ module.exports = {
 
             if (info.changes > 0) return res.send('1');
         } catch (err) {
-            console.error('\x1b[1;31m✗ Failed to delete level:', err);
+            console.error('\x1b[1;31m✗ Failed to delete level:\x1b[0m', err);
             return res.send('-1');
         }
         return res.send('-1'); // just in case something really gets fucked up so we still serve a response

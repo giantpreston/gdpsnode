@@ -19,7 +19,7 @@ module.exports = {
             const hash = crypto.createHash('sha1').update(`${hashInput}xI25fpAapCQg`).digest('hex');
             res.send(`${gauntletString}#${hash}`);
         } catch (error) {
-            console.error('Error in getGJGauntlets21:', error);
+            console.error('\x1b[1;31m✗ Error in getGJGauntlets21:\x1b[0m', error);
             res.send('-1');
         }
     }

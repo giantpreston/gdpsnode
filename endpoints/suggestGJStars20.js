@@ -108,7 +108,7 @@ module.exports = {
             }
             return res.send('-1');
         } catch (err) {
-            console.error('\x1b[1;31m✗ Failed to set level suggestion (mod):', err);
+            console.error('\x1b[1;31m✗ Failed to set level suggestion (mod):\x1b[0m', err);
             return res.send('-1');
         }
     }

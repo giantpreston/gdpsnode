@@ -1,15 +1,35 @@
-require('dotenv').config();
+// Change this parameter to start the server at a different port.
+// To not require typing in a port, use port 80 (requires root/admin usually), or port 443 in case of https.
+const port = 10000;
+const dashboardPath = (process.env.DASHBOARD_PATH || '/dashboard').replace(/\/+$/, '').replace(/^([^/])/, '/$1') || '/dashboard';
+// Don't change anything below unless you know what you're doing!
+
+
+// security check block
+try {
+    process.loadEnvFile();
+} catch (e) {
+    console.warn('\x1b[1;31m✗ No .env file found! Falling back to defaults...\x1b[0m');
+}
+const isDefaultPath = process.env.DASHBOARD_PATH === '/dashboard';
+const isDefaultPass = process.env.DASHBOARD_PASSWORD === 'replace-with-a-long-random-password';
+
+if (isDefaultPath || isDefaultPass) {
+    console.warn('\x1b[1;33m⚠ Default environment variables detected!\x1b[0m');
+    console.warn('\x1b[1;33m  Change your DASHBOARD_PASSWORD and DASHBOARD_PATH before exposing this server to the internet.\x1b[0m');
+    
+    if (process.env.DASHBOARD_SECURE_COOKIES !== '1' && port === 443) {
+        console.warn('\x1b[1;33m⚠ Running on port 443 without DASHBOARD_SECURE_COOKIES=1. HTTPS recommended!\x1b[0m');
+    }
+}
+
+// actual server code
 const express = require('express'); // im so excited
 const rateLimit = require('express-rate-limit');
 const fs = require('fs/promises');
 const path = require('path');
 const dashboard = require('./dashboard');
-
-// Change this parameter to start the server at a different port.
-// To not require typing in a port, use port 80 (requires root/admin usually), or port 443 in case of https.
-const port = 10000
-const dashboardPath = (process.env.DASHBOARD_PATH || '/dashboard').replace(/\/+$/, '').replace(/^([^/])/, '/$1') || '/dashboard';
-// Don't change anything below unless you know what you're doing!
+const { closeDB } = require('./database');
 
 const app = express();
 app.disable('x-powered-by');
@@ -80,10 +100,45 @@ registerEndpoints().then(() => {
         }
     });
 
-    app.listen(port, () => {
+    const server = app.listen(port, () => {
         console.log(`\x1b[1;32m✓ GDPS Running Successfully! Port: ${port}\x1b[0m`);
+
+        if (process.stdin.isTTY) {
+            process.stdin.setRawMode(true);
+            process.stdin.resume();
+            process.stdin.on('data', (key) => {
+                if (key.toString() === '\u0003') {
+                    process.emit('SIGINT');
+                }
+            });
+        }
     });
+
+    let isShuttingDown = false;
+    const handleShutdown = (signal) => {
+        if (isShuttingDown) return;
+        isShuttingDown = true;
+
+        console.log(`\x1b[1;33m⚠ Received ${signal}. Cleaning up...\x1b[0m`);
+
+        server.close(() => {
+            console.log('\x1b[1;32m✓ HTTP server closed.\x1b[0m');
+            closeDB();
+            process.exit(0);
+        });
+
+        setTimeout(() => {
+            console.error('\x1b[1;31m✗ Shutdown timed out, forcing exit.\x1b[0m');
+            closeDB();
+            process.exit(1);
+        }, 5000);
+    };
+
+    process.on('SIGINT', () => handleShutdown('SIGINT'));
+    process.on('SIGTERM', () => handleShutdown('SIGTERM'));
+    process.on('SIGBREAK', () => handleShutdown('SIGBREAK'));
+
 }).catch(err => {
-    console.error('\x1b[1;31m✗ Failed to load endpoints:', err);
+    console.error('\x1b[1;31m✗ Failed to load endpoints:\x1b[0m', err);
     process.exit(1);
 });

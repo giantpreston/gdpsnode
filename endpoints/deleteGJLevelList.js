@@ -29,7 +29,7 @@ module.exports = {
             const inf = db.prepare('DELETE FROM lists WHERE listID = ?').run(listID);
             if (inf.changes > 0) return res.send('1');
         } catch (err) {
-            console.error('\x1b[1;31m✗ Failed to delete list:', err);
+            console.error('\x1b[1;31m✗ Failed to delete list:\x1b[0m', err);
         }
         return res.send('-1');
     }

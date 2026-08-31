@@ -41,7 +41,7 @@ module.exports = {
         
         // db checks
         const level = db.prepare('SELECT * FROM levels WHERE levelID = ?').get(levelID);
-        const list = db.prepare('SELECT * FROM lists WHERE listID = ?').get(levelID);
+        const list = db.prepare('SELECT * FROM lists WHERE listID = ?').get(levelID * -1); // oops
         const profile = db.prepare('SELECT * FROM profiles WHERE accountID = ?').get(accountID);
         const account = db.prepare('SELECT * FROM accounts WHERE accountID = ?').get(accountID);
         
@@ -61,7 +61,7 @@ module.exports = {
             const inf = db.prepare('INSERT INTO comments (accountID, userName, comment, levelID, timestamp, percent) VALUES (?, ?, ?, ?, ?, ?)').run(accountID, userName, comment, levelID, Math.floor(Date.now() / 1000), percent);
             if (inf.changes > 0) return res.send(inf.lastInsertRowid);
         } catch (err) {
-            console.error('\x1b[1;31m✗ Failed to save level comment:', err);
+            console.error('\x1b[1;31m✗ Failed to save level comment:\x1b[0m', err);
         }
         return res.send('-1');
     }

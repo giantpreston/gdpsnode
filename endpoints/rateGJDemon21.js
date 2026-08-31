@@ -56,7 +56,7 @@ module.exports = {
 
                 if (inf.changes > 0 && inf2.changes > 0) return res.send('1');
             } catch (err) {
-                console.error('\x1b[1;31m✗ Failed to set demon rating (mod):', err);
+                console.error('\x1b[1;31m✗ Failed to set demon rating (mod):\x1b[0m', err);
                 return res.send('-1');
             }
 
@@ -69,7 +69,7 @@ module.exports = {
             if (inf.changes > 0) return res.send(levelID);
             return res.send('-1');
         } catch (err) {
-            console.error('\x1b[1;31m✗ Failed to set demon rating (mod):', err);
+            console.error('\x1b[1;31m✗ Failed to set demon rating (mod):\x1b[0m', err);
             return res.send('-1');
         }
     }

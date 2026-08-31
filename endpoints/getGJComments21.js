@@ -98,7 +98,7 @@ module.exports = {
 
             res.send(response);
         } catch (error) {
-            console.error('Error fetching comments:', error);
+            console.error('\x1b[1;31m✗ Error fetching comments:\x1b[0m', error);
             res.send('-1');
         }
     }

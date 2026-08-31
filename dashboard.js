@@ -342,7 +342,7 @@ router.post('/api/rate', requireAuth, requireCsrf, (req, res) => {
         if (!applyRating(levelId, stars, feature, demonDiff)) return res.status(404).json({ error: 'Level not found' });
         res.status(204).end();
     } catch (error) {
-        console.error('Dashboard rating failed:', error);
+        console.error('\x1b[1;31m✗ Dashboard rating failed:\x1b[0m', error);
         res.status(500).json({ error: 'Could not rate level' });
     }
 });

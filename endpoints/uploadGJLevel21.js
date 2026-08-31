@@ -128,7 +128,7 @@ module.exports = {
             decoded = Buffer.from(base64, 'base64');
             await validateGzip(decoded);
         } catch (err) {
-            console.error('\x1b[1;31m✗ User sent an invalid level string. This could possibly be an attacker targeting your server.');
+            console.error('\x1b[1;31m✗ User sent an invalid level string. This could possibly be an attacker targeting your server.\x1b[0m');
             return res.send('-1');
         }
 
@@ -200,7 +200,7 @@ module.exports = {
                 const filePath = path.join(levelsDir, `${levelID}.gdcs`);
                 await fs.writeFile(filePath, decoded);
             } catch (err) {
-                console.error('\x1b[1;31m✗ Failed to save level string:', err);
+                console.error('\x1b[1;31m✗ Failed to save level string:\x1b[0m', err);
                 return res.send('-1');
             }
 
@@ -232,7 +232,7 @@ module.exports = {
                 const filePath = path.join(levelsDir, `${newLevelID}.gdcs`);
                 await fs.writeFile(filePath, decoded);
             } catch (err) {
-                console.error('\x1b[1;31m✗ Failed to save level string:', err);
+                console.error('\x1b[1;31m✗ Failed to save level string:\x1b[0m', err);
                 return res.send('-1');
             }
 

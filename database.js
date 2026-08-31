@@ -195,4 +195,15 @@ db.exec(`
     );
 `);
 
+function closeDB() {
+    try {
+        db.pragma('wal_checkpoint(FULL)');
+        db.close();
+        console.log('\x1b[1;32m✓ SQLite database closed.\x1b[0m');
+    } catch (err) {
+        console.error('\x1b[1;31m✗ Error closing SQLite database:\x1b[0m', err);
+    }
+}
+
 module.exports = db;
+module.exports.closeDB = closeDB;

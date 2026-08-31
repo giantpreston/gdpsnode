@@ -87,7 +87,7 @@ module.exports = {
 
             return res.send(`${level.dailyNumber}|${timeLeft}`);
         } catch (error) {
-            console.error('[getGJDailyLevel] request failed:', error);
+            console.error('\x1b[1;31m✗ [getGJDailyLevel] request failed:\x1b[0m', error);
             if (!res.headersSent) res.send('-1');
         }
     }

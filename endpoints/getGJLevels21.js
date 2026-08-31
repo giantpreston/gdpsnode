@@ -345,7 +345,7 @@ module.exports = {
         const response = `${levelsStr}#${creatorsStr}#${songsStr}#${pageInfo}#${hash}`;
             res.send(response);
         } catch (error) {
-            console.error('[getGJLevels21] request failed:', error);
+            console.error('\x1b[1;31m✗ [getGJLevels21] request failed:\x1b[0m', error);
             if (!res.headersSent) res.send('-1');
         }
     }

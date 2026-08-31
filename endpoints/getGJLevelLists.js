@@ -167,7 +167,7 @@ module.exports = {
             const responseHash = generateMulti(lists);
             res.send(`${listString}#${userString}#${total}:${offset}:${pageSize}#${responseHash}`);
         } catch (error) {
-            console.error('[getGJLevelLists] request failed:', error);
+            console.error('\x1b[1;31m✗ [getGJLevelLists] request failed:\x1b[0m', error);
             if (!res.headersSent) res.send('-1');
         }
     }

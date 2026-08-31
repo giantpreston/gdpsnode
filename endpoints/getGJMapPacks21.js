@@ -37,7 +37,7 @@ module.exports = {
             const response = `${packsString}#${pageInfo}#${responseHash}`;
             res.send(response);
         } catch (error) {
-            console.error('Error in getGJMapPacks21:', error);
+            console.error('\x1b[1;31m✗ Error in getGJMapPacks21:\x1b[0m', error);
             res.send('-1');
         }
     }
