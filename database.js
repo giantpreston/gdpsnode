@@ -104,7 +104,7 @@ db.exec(`
 
     CREATE TABLE IF NOT EXISTS comments (
         accountID INTEGER NOT NULL,
-        userName INTEGER NOT NULL,
+        userName TEXT NOT NULL,
         comment TEXT NOT NULL,
         levelID INTEGER NOT NULL,
         commentID INTEGER PRIMARY KEY AUTOINCREMENT,
