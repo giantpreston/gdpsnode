@@ -90,6 +90,16 @@ button:hover { background: var(--orange); }
 .badge { display: inline-block; background: var(--lime); color: #152014; padding: 4px 6px; font: 10px 'DejaVu Sans Mono', monospace; }
 .empty { padding: 30px 0; color: var(--muted); font-size: 13px; }
 .error { color: var(--pink); font-size: 12px; min-height: 18px; }
+.account-results, .schedule-display { display: grid; gap: 12px; margin-top: 16px; }
+.account-row { display: grid; grid-template-columns: minmax(0, 1.5fr) 1fr 1fr auto; gap: 8px; align-items: end; padding: 12px 0; border-bottom: 1px dashed var(--line); }
+.account-main { display: grid; gap: 4px; }
+.account-main strong { font-size: 15px; }
+.account-main small { color: var(--muted); font: 11px 'DejaVu Sans Mono', monospace; }
+.schedule-form { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 8px; align-items: end; margin-top: 16px; }
+.schedule-display { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.schedule-item { display: grid; gap: 4px; background: #111713; border: 1px solid var(--line); padding: 12px; }
+.schedule-item strong { color: var(--lime); }
+.schedule-item span { color: var(--muted); font: 11px 'DejaVu Sans Mono', monospace; }
 .collections { display: grid; gap: 24px; }
 .collection-list { display: grid; gap: 8px; }
 .collection-form { display: grid; grid-template-columns: 130px minmax(160px, 1fr) auto auto; gap: 8px; align-items: end; padding: 8px 0; border-bottom: 1px dashed var(--line); }

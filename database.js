@@ -7,10 +7,11 @@ db.exec(`
         accountID INTEGER PRIMARY KEY AUTOINCREMENT,
         userName TEXT NOT NULL,
         gjp2 TEXT NOT NULL,
-        isDisabled BOOLEAN NOT NULL,
+        isDisabled INTEGER NOT NULL,
         commentBan INTEGER NOT NULL DEFAULT 0,
         commentBanReason TEXT DEFAULT '',
-        permaCommentBan BOOLEAN NOT NULL DEFAULT 0,
+        permaCommentBan INTEGER NOT NULL DEFAULT 0,
+        creatorBanned INTEGER NOT NULL DEFAULT 0,
         saveData TEXT
     );
 
@@ -38,6 +39,16 @@ db.exec(`
         accSwing INTEGER NOT NULL DEFAULT 0,
         accJetpack INTEGER NOT NULL DEFAULT 0,
         dinfo TEXT DEFAULT '',
+        mS INTEGER NOT NULL DEFAULT 0,
+        frS INTEGER NOT NULL DEFAULT 0,
+        cS INTEGER NOT NULL DEFAULT 0,
+        youtubeurl TEXT NOT NULL DEFAULT '',
+        twitter TEXT NOT NULL DEFAULT '',
+        twitch TEXT NOT NULL DEFAULT '',
+        discord TEXT NOT NULL DEFAULT '',
+        instagram TEXT NOT NULL DEFAULT '',
+        tiktok TEXT NOT NULL DEFAULT '',
+        custom TEXT NOT NULL DEFAULT '',
         sinfo TEXT DEFAULT '',
         pinfo TEXT DEFAULT '',
         creatorPoints INTEGER NOT NULL DEFAULT 0,
@@ -111,6 +122,16 @@ db.exec(`
         timestamp INTEGER NOT NULL,
         likes INTEGER NOT NULL DEFAULT 0,
         percent INTEGER NOT NULL DEFAULT 0,
+        isSpam INTEGER NOT NULL DEFAULT 0
+    );
+
+    CREATE TABLE IF NOT EXISTS acccomments (
+        accountID INTEGER NOT NULL,
+        userName TEXT NOT NULL,
+        comment TEXT NOT NULL,
+        commentID INTEGER PRIMARY KEY AUTOINCREMENT,
+        timestamp INTEGER NOT NULL,
+        likes INTEGER NOT NULL DEFAULT 0,
         isSpam INTEGER NOT NULL DEFAULT 0
     );
 
@@ -192,6 +213,41 @@ db.exec(`
         contentID INTEGER NOT NULL,
         contentType TEXT NOT NULL,
         PRIMARY KEY (accountID, contentID, contentType)
+    );
+    
+    CREATE TABLE IF NOT EXISTS friendships (
+        ID INTEGER PRIMARY KEY AUTOINCREMENT,
+        person1 INTEGER NOT NULL,
+        person2 INTEGER NOT NULL,
+        isNew1 INTEGER NOT NULL,
+        isNew2 INTEGER NOT NULL
+    );
+
+    CREATE TABLE IF NOT EXISTS blocks (
+        ID INTEGER PRIMARY KEY AUTOINCREMENT,
+        person1 INTEGER NOT NULL,
+        person2 INTEGER NOT NULL
+    );
+
+    CREATE TABLE IF NOT EXISTS friendreqs (
+        ID INTEGER PRIMARY KEY AUTOINCREMENT,
+        accountID INTEGER NOT NULL,
+        toAccountID INTEGER NOT NULL,
+        comment TEXT NOT NULL,
+        uploadDate INTEGER NOT NULL,
+        isNew INTEGER NOT NULL DEFAULT 1
+    );
+
+    CREATE TABLE IF NOT EXISTS messages (
+        ID INTEGER PRIMARY KEY AUTOINCREMENT,
+        subject TEXT NOT NULL,
+        body TEXT NOT NULL,
+        accID INTEGER NOT NULL,
+        userID INTEGER NOT NULL,
+        userName TEXT NOT NULL,
+        toAccountID INTEGER NOT NULL,
+        timestamp INTEGER NOT NULL,
+        isNew INTEGER NOT NULL DEFAULT 1
     );
 `);
 

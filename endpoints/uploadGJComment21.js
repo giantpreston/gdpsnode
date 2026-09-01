@@ -59,7 +59,7 @@ module.exports = {
 
         try {
             const inf = db.prepare('INSERT INTO comments (accountID, userName, comment, levelID, timestamp, percent) VALUES (?, ?, ?, ?, ?, ?)').run(accountID, userName, comment, levelID, Math.floor(Date.now() / 1000), percent);
-            if (inf.changes > 0) return res.send(inf.lastInsertRowid);
+            if (inf.changes > 0) return res.send(String(inf.lastInsertRowid));
         } catch (err) {
             console.error('\x1b[1;31m✗ Failed to save level comment:\x1b[0m', err);
         }

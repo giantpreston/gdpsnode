@@ -185,6 +185,97 @@ router.get('/api/collections', requireAuth, (req, res) => {
     res.json({ gauntlets, mapPacks, lists });
 });
 
+router.get('/api/users', requireAuth, (req, res) => {
+    const query = typeof req.query.q === 'string' ? req.query.q.trim().slice(0, 64) : '';
+    const limit = Math.min(Math.max(Number(req.query.limit) || 25, 1), 100);
+    const offset = Math.max(Number(req.query.offset) || 0, 0);
+    const like = `%${query.replace(/[\\%_]/g, '\\$&')}%`;
+    const users = db.prepare(`SELECT a.accountID, a.userName, a.isDisabled,
+        COALESCE(p.userName, '') AS profileName, COALESCE(p.modLevel, 0) AS modLevel,
+        COALESCE(p.stars, 0) AS stars, COALESCE(p.demons, 0) AS demons,
+        COALESCE(p.icon, 0) AS icon, COALESCE(p.iconType, 0) AS iconType,
+        COALESCE(p.special, 0) AS special
+        FROM accounts a
+        LEFT JOIN profiles p ON p.accountID = a.accountID
+        WHERE (? = '' OR a.userName LIKE ? ESCAPE '\\' OR COALESCE(p.userName, '') LIKE ? ESCAPE '\\' OR CAST(a.accountID AS TEXT) = ?)
+        ORDER BY a.accountID DESC
+        LIMIT ? OFFSET ?`).all(query, like, like, query, limit, offset);
+    res.json({ users, query, offset, limit });
+});
+
+router.put('/api/users/:accountId', requireAuth, requireCsrf, (req, res) => {
+    const accountId = Number(req.params.accountId);
+    const modLevel = Number(req.body?.modLevel);
+    const isDisabled = Number(req.body?.isDisabled);
+    if (!Number.isInteger(accountId) || accountId < 1) return res.status(400).json({ error: 'Invalid account' });
+    if (!Number.isInteger(modLevel) || modLevel < 0 || modLevel > 3) return res.status(400).json({ error: 'Invalid moderator level' });
+    if (!Number.isInteger(isDisabled) || (isDisabled !== 0 && isDisabled !== 1)) return res.status(400).json({ error: 'Invalid disabled flag' });
+
+    const account = db.prepare('SELECT userName FROM accounts WHERE accountID = ?').get(accountId);
+    if (!account) return res.status(404).json({ error: 'Account not found' });
+
+    const transaction = db.transaction(() => {
+        const profile = db.prepare('SELECT accountID FROM profiles WHERE accountID = ?').get(accountId);
+        if (!profile) {
+            db.prepare('INSERT INTO profiles (accountID, userName, modLevel) VALUES (?, ?, ?)').run(accountId, account.userName, modLevel);
+        } else {
+            db.prepare('UPDATE profiles SET modLevel = ?, userName = ? WHERE accountID = ?').run(modLevel, account.userName, accountId);
+        }
+        db.prepare('UPDATE accounts SET isDisabled = ? WHERE accountID = ?').run(isDisabled, accountId);
+        return { modLevel, isDisabled };
+    });
+
+    res.json(transaction());
+});
+
+router.get('/api/server-schedule', requireAuth, (req, res) => {
+    const daily = db.prepare(`SELECT l.levelID, l.levelName, l.dailyNumber, l.dailyTime,
+        p.userName AS creator FROM levels l LEFT JOIN profiles p ON p.accountID = l.accountID
+        WHERE l.dailyNumber > 0 AND l.dailyNumber < 100001 ORDER BY l.dailyNumber ASC, l.dailyTime DESC`).all();
+    const weekly = db.prepare(`SELECT l.levelID, l.levelName, l.dailyNumber, l.dailyTime,
+        p.userName AS creator FROM levels l LEFT JOIN profiles p ON p.accountID = l.accountID
+        WHERE l.dailyNumber >= 100001 ORDER BY l.dailyNumber ASC, l.dailyTime DESC`).all();
+    res.json({ daily, weekly, now: Math.floor(Date.now() / 1000) });
+});
+
+router.post('/api/server-schedule', requireAuth, requireCsrf, (req, res) => {
+    const levelId = Number(req.body?.levelId);
+    const slot = Number(req.body?.slot);
+    const expiresAt = Number(req.body?.expiresAt) || Math.floor(Date.now() / 1000) + 86400;
+    const type = String(req.body?.type || 'daily');
+    const isWeekly = type === 'weekly';
+
+    if (!Number.isInteger(levelId) || levelId < 1) return res.status(400).json({ error: 'Invalid level ID' });
+    if (!Number.isInteger(slot) || slot < 1) return res.status(400).json({ error: 'Invalid slot number' });
+    if (!Number.isFinite(expiresAt) || expiresAt <= 0) return res.status(400).json({ error: 'Invalid expiry time' });
+
+    const level = db.prepare('SELECT levelID FROM levels WHERE levelID = ?').get(levelId);
+    if (!level) return res.status(404).json({ error: 'Level not found' });
+
+    const targetNumber = isWeekly ? Math.max(100001, slot) : Math.max(1, slot);
+
+    db.transaction(() => {
+        if (isWeekly) {
+            db.prepare('UPDATE levels SET dailyNumber = 0, dailyTime = 0 WHERE dailyNumber >= 100001').run();
+        } else {
+            db.prepare('UPDATE levels SET dailyNumber = 0, dailyTime = 0 WHERE dailyNumber > 0 AND dailyNumber < 100001').run();
+        }
+        db.prepare('UPDATE levels SET dailyNumber = ?, dailyTime = ? WHERE levelID = ?').run(targetNumber, expiresAt, levelId);
+    })();
+
+    res.status(204).end();
+});
+
+router.post('/api/server-schedule/clear', requireAuth, requireCsrf, (req, res) => {
+    const type = String(req.body?.type || 'daily');
+    if (type === 'weekly') {
+        db.prepare('UPDATE levels SET dailyNumber = 0, dailyTime = 0 WHERE dailyNumber >= 100001').run();
+    } else {
+        db.prepare('UPDATE levels SET dailyNumber = 0, dailyTime = 0 WHERE dailyNumber > 0 AND dailyNumber < 100001').run();
+    }
+    res.status(204).end();
+});
+
 router.put('/api/gauntlets/:id', requireAuth, requireCsrf, (req, res) => {
     const id = Number(req.params.id);
     const levels = collectionLevelIds(req.body?.levels, 5);

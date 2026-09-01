@@ -88,6 +88,30 @@ function renderCollections(data) {
     syncColorControls($('#map-pack-list'));
 }
 
+function renderAccountResults(users) {
+    $('#account-results').innerHTML = users.length ? users.map(user => `
+        <form class="account-row" data-account="${user.accountID}">
+          <div class="account-main">
+            <strong>${escapeHtml(user.userName || user.profileName || `Account #${user.accountID}`)}</strong>
+            <small>#${user.accountID} · ${user.modLevel === 2 ? 'Elder' : user.modLevel === 1 ? 'Mod' : user.modLevel === 3 ? 'Leaderboard' : 'Player'} · ${user.isDisabled ? 'Disabled' : 'Active'}</small>
+          </div>
+          <label>Mod level<select name="modLevel"><option value="0"${selected(user.modLevel, 0)}>Player</option><option value="1"${selected(user.modLevel, 1)}>Mod</option><option value="2"${selected(user.modLevel, 2)}>Elder</option><option value="3"${selected(user.modLevel, 3)}>Leaderboard</option></select></label>
+          <label>Disabled<select name="isDisabled"><option value="0"${selected(user.isDisabled, 0)}>No</option><option value="1"${selected(user.isDisabled, 1)}>Yes</option></select></label>
+          <button type="submit">Save</button>
+        </form>
+    `).join('') : '<p class="empty">No matching accounts.</p>';
+}
+
+function renderSchedule(data) {
+    const daily = data.daily || [];
+    const weekly = data.weekly || [];
+    const display = [
+        daily.length ? daily.map(item => `<div class="schedule-item"><strong>Daily #${item.dailyNumber}</strong><span>${escapeHtml(item.levelName)} · #${item.levelID} · ${escapeHtml(item.creator || 'unknown')}</span></div>`).join('') : '<p class="empty">No daily level set.</p>',
+        weekly.length ? weekly.map(item => `<div class="schedule-item"><strong>Weekly #${item.dailyNumber}</strong><span>${escapeHtml(item.levelName)} · #${item.levelID} · ${escapeHtml(item.creator || 'unknown')}</span></div>`).join('') : '<p class="empty">No weekly level set.</p>'
+    ];
+    $('#schedule-display').innerHTML = display.join('');
+}
+
 function formBody(form) {
     const body = Object.fromEntries(new FormData(form).entries());
     if (form.id === 'level-list-form' || form.classList.contains('level-list-row')) body.listDesc = encodeBase64Url(body.listDesc || '');
@@ -123,8 +147,18 @@ function syncColorControls(root = document) {
 }
 
 async function load() {
-    try { const data = await request('api/bootstrap'); csrf = data.csrf; render(data); renderCollections(await request('api/collections')); $('#login-view').hidden = true; $('#app-view').hidden = false; }
-    catch (error) { if (!$('#app-view').hidden) $('#app-error').textContent = error.message; }
+    try {
+        const data = await request('api/bootstrap');
+        csrf = data.csrf;
+        render(data);
+        renderCollections(await request('api/collections'));
+        renderAccountResults((await request('api/users?limit=25')).users);
+        renderSchedule(await request('api/server-schedule'));
+        $('#login-view').hidden = true;
+        $('#app-view').hidden = false;
+    } catch (error) {
+        if (!$('#app-view').hidden) $('#app-error').textContent = error.message;
+    }
 }
 
 $('#login-form').addEventListener('submit', async event => {
@@ -187,10 +221,45 @@ $('#level-detail').addEventListener('click', async event => {
 
 $('#logout').addEventListener('click', async () => { try { await request('api/logout', { method: 'POST', body: '{}' }); location.reload(); } catch (error) { $('#app-error').textContent = error.message; } });
 
+$('#account-search').addEventListener('submit', async event => {
+    event.preventDefault();
+    const query = new FormData(event.currentTarget).get('query');
+    try {
+        const data = await request(`api/users?q=${encodeURIComponent(query)}`);
+        renderAccountResults(data.users);
+    } catch (error) { $('#app-error').textContent = error.message; }
+});
+
+$('#server-schedule-form').addEventListener('submit', async event => {
+    event.preventDefault();
+    const form = new FormData(event.currentTarget);
+    try {
+        const payload = {
+            levelId: Number(form.get('levelId')),
+            slot: Number(form.get('slot')),
+            type: form.get('type'),
+            expiresAt: Number(form.get('expiresAt')) || undefined
+        };
+        await request('api/server-schedule', { method: 'POST', body: JSON.stringify(payload) });
+        renderSchedule(await request('api/server-schedule'));
+    } catch (error) { $('#app-error').textContent = error.message; }
+});
+
+$('#clear-daily').addEventListener('click', async () => {
+    try { await request('api/server-schedule/clear', { method: 'POST', body: JSON.stringify({ type: 'daily' }) }); renderSchedule(await request('api/server-schedule')); }
+    catch (error) { $('#app-error').textContent = error.message; }
+});
+
+$('#clear-weekly').addEventListener('click', async () => {
+    try { await request('api/server-schedule/clear', { method: 'POST', body: JSON.stringify({ type: 'weekly' }) }); renderSchedule(await request('api/server-schedule')); }
+    catch (error) { $('#app-error').textContent = error.message; }
+});
+
 function showTab(name) {
     document.querySelectorAll('.tab').forEach(item => item.classList.toggle('active', item.dataset.tab === name));
     $('#levels-tab').hidden = name !== 'levels';
     $('#collections-tab').hidden = name !== 'collections';
+    $('#management-tab').hidden = name !== 'management';
 }
 
 document.querySelectorAll('.tab').forEach(tab => tab.addEventListener('click', () => showTab(tab.dataset.tab)));
@@ -210,6 +279,17 @@ document.addEventListener('submit', async event => {
         event.preventDefault();
         try { await request(`api/gauntlets/${form.dataset.id}`, { method: 'PUT', body: JSON.stringify(formBody(form)) }); await load(); }
         catch (error) { $('#app-error').textContent = error.message; }
+    } else if (form.classList.contains('account-row')) {
+        event.preventDefault();
+        try {
+            const accountId = form.dataset.account;
+            const payload = {
+                modLevel: Number(new FormData(form).get('modLevel')),
+                isDisabled: Number(new FormData(form).get('isDisabled'))
+            };
+            await request(`api/users/${accountId}`, { method: 'PUT', body: JSON.stringify(payload) });
+            await load();
+        } catch (error) { $('#app-error').textContent = error.message; }
     }
 });
 

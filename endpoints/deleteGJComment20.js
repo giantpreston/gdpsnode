@@ -26,7 +26,7 @@ module.exports = {
 
         if (((levelID < 0 && !list) || (levelID > 0 && !level)) || !profile || !account || !comment) return res.send('-1');
         if (account.gjp2 !== gjp2) return res.send('-1');
-        if (profile.modLevel !== 2 && comment.accountID !== accountID) return res.send('-1');
+        if (profile.modLevel !== 2 && accountID !== level.accountID && comment.accountID !== accountID) return res.send('-1');
         if (account.isDisabled === 1) return res.send('-1');
 
         try {

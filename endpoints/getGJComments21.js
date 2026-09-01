@@ -96,10 +96,10 @@ module.exports = {
 
             response += `#${totalCount}:${offset}:${comments.length}`;
 
-            res.send(response);
+            return res.send(response);
         } catch (error) {
             console.error('\x1b[1;31m✗ Error fetching comments:\x1b[0m', error);
-            res.send('-1');
+            return res.send('-1');
         }
     }
 };

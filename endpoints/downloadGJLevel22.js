@@ -66,7 +66,15 @@ module.exports = {
             if (!level) return res.send('-1');
         }
 
-        // get level string steps:
+        if (level.unlisted === 1) {
+            if (!accountID) {
+                return res.send('-1');
+            }
+            const areFriends = db.prepare('SELECT ID FROM friendships WHERE (person1 = ? AND person2 = ?) OR (person2 = ? AND person1 = ?)').get(accountID, level.accountID, accountID, level.accountID);
+            if (!areFriends && accountID !== level.accountID) {
+                return res.send('-1');
+            }
+        }
         const levelsdir = path.join(__dirname, '..', 'levels');
         try {
             await fs.access(levelsdir);

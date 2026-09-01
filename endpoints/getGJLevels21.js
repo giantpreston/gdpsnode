@@ -58,6 +58,11 @@ module.exports = {
         if (uncompleted === 1 || onlyCompleted === 1 && !completedLevels) return res.send('-1');
 
         // db
+        if (accountID !== null) {
+            const account = db.prepare('SELECT * FROM accounts WHERE accountID = ?').get(accountID);
+            if (!account) return res.send('-1');
+            if (account.gjp2 !== gjp2) return res.send('-1');
+        }
         let sql = 'SELECT * FROM levels';
         let order;
         let conditions = [];
@@ -148,7 +153,26 @@ module.exports = {
                 params.push(...accountIDs);
             }
         }
-        // type 13 = friends, not implemented
+        if (type === 13) {
+            if (!accountID) return res.send('-1');
+            const friendships = db.prepare('SELECT person1, person2 FROM friendships WHERE person1 = ? OR person2 = ?').all(accountID, accountID);
+            const friendIDs = new Set();
+            for (const friendship of friendships) {
+                if (friendship.person1 === accountID) {
+                    friendIDs.add(friendship.person2);
+                } else {
+                    friendIDs.add(friendship.person1);
+                }
+            }
+            if (friendIDs.size > 0) {
+                const friendArray = Array.from(friendIDs);
+                const placeholders = friendArray.map(() => '?').join(',');
+                conditions.push(`accountID IN (${placeholders})`);
+                params.push(...friendArray);
+            } else {
+                conditions.push('1 = 0');
+            }
+        }
         if (type === 21) {
             conditions.push('NOT dailyNumber = 0');
             conditions.push('dailyNumber < 100001'); // exclude weekly
@@ -194,9 +218,10 @@ module.exports = {
             conditions.push(`levelLength IN (${placeholders})`);
             params.push(...lenValues);
         }
-        const searchedByID = (type === 0 && isNumericStr) || type === 10;
-        if (!searchedByID) conditions.push('unlisted = 0'); // friends unlisted levels behave the same as normal ones. will implement friends soon, so i'll add that later!
-
+        const searchedByID = (type === 0 && isNumericStr) || type === 10 || type === 25;
+        if (!searchedByID) {
+            conditions.push('unlisted = 0');
+        }
         let whereClause = '';
         if (conditions.length > 0) {
             whereClause = ' WHERE ' + conditions.join(' AND ');
@@ -215,6 +240,26 @@ module.exports = {
         const mainSql = `SELECT * FROM levels${whereClause} ORDER BY ${order} LIMIT ? OFFSET ?`;
         const stmt = db.prepare(mainSql);
         const levels = stmt.all(...params, limit, offset);
+        
+        if (searchedByID && levels.length > 0) {
+            let friendIDs = new Set();
+            if (accountID) {
+                const friendships = db.prepare('SELECT person1, person2 FROM friendships WHERE person1 = ? OR person2 = ?').all(accountID, accountID);
+                for (const friendship of friendships) {
+                    if (friendship.person1 === accountID) {
+                        friendIDs.add(friendship.person2);
+                    } else {
+                        friendIDs.add(friendship.person1);
+                    }
+                }
+            }
+            levels = levels.filter(level => {
+                if (level.unlisted === 0 || level.unlisted === 2) return true;
+                if (level.unlisted === 1 && friendIDs.has(level.accountID)) return true;
+                return false;
+            });
+        }
+        
         if (levels.length === 0) {
             const pageInfo = `0:${offset}:10`;
             const hash = crypto.createHash('sha1').update('xI25fpAapCQg').digest('hex');
