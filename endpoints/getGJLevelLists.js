@@ -37,7 +37,8 @@ module.exports = {
             const str = hasValue(body, 'str') ? utils.remove(String(body.str)) : '';
             const diff = hasValue(body, 'diff') ? utils.numbercolon(String(body.diff)) : '-';
             const demonFilter = integer(body.demonFilter);
-            const conditions = ['unlisted = 0'];
+            const isIdSearch = type === 0 && /^\d+$/.test(str);
+            const conditions = [];
             const params = [];
             let order = 'likes DESC';
 
@@ -113,10 +114,23 @@ module.exports = {
                 params.push(...ids);
                 break;
             }
-            case 13:
-                // FRIENDS! not yet implemented.
+            case 13: {
+                const friendships = db.prepare('SELECT person1, person2 FROM friendships WHERE person1 = ? OR person2 = ?').all(accountID, accountID);
+                const friendIDs = new Set();
+                for (const friendship of friendships) {
+                    if (friendship.person1 === accountID) {
+                        friendIDs.add(friendship.person2);
+                    } else {
+                        friendIDs.add(friendship.person1);
+                    }
+                }
+                if (friendIDs.size === 0) return res.send('-1');
+                const ids = Array.from(friendIDs);
+                conditions.push(`accountID IN (${ids.map(() => '?').join(',')})`);
+                params.push(...ids);
                 order = 'likes DESC';
                 break;
+            }
             case 7:
                 order = 'likes DESC';
                 break;
@@ -128,10 +142,34 @@ module.exports = {
                 break;
             }
 
+            if (!isIdSearch) {
+                conditions.push('unlisted = 0');
+            }
+
             const where = ` WHERE ${conditions.join(' AND ')}`;
             const total = db.prepare(`SELECT COUNT(*) AS count FROM lists${where}`).get(...params).count;
-            const lists = db.prepare(`SELECT * FROM lists${where} ORDER BY ${order} LIMIT ? OFFSET ?`)
+            let lists = db.prepare(`SELECT * FROM lists${where} ORDER BY ${order} LIMIT ? OFFSET ?`)
                 .all(...params, pageSize, offset);
+
+            if (accountID) {
+                const friendships = db.prepare('SELECT person1, person2 FROM friendships WHERE person1 = ? OR person2 = ?').all(accountID, accountID);
+                const friendIDs = new Set();
+                for (const friendship of friendships) {
+                    if (friendship.person1 === accountID) {
+                        friendIDs.add(friendship.person2);
+                    } else {
+                        friendIDs.add(friendship.person1);
+                    }
+                }
+                lists = lists.filter(list => {
+                    if (list.unlisted === 0 || list.unlisted === 2) return true;
+                    if (list.unlisted === 1 && (list.accountID === accountID || friendIDs.has(list.accountID))) return true;
+                    return false;
+                });
+            } else {
+                lists = lists.filter(list => list.unlisted === 0 || list.unlisted === 2);
+            }
+
             if (lists.length === 0) return res.send('-1');
 
             const accountIDs = [...new Set(lists.map(list => list.accountID))];

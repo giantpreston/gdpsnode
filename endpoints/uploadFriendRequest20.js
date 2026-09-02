@@ -2,6 +2,8 @@ const { commonSecret } = require('../middleware/secrets');
 const db = require('../database');
 const utils = require('../utils');
 
+const MAX_FRIENDS = 400;
+
 module.exports = {
     method: 'post',
     path: '/uploadFriendRequest20.php',
@@ -37,6 +39,11 @@ module.exports = {
         // check if request already exists
         const existingRequest = db.prepare('SELECT COUNT(*) as count FROM friendreqs WHERE (accountID = ? AND toAccountID = ?) OR (toAccountID = ? AND accountID = ?)').get(accountID, toAccountID, accountID, toAccountID);
         if (existingRequest.count > 0) return res.send('-1');
+
+        // enforce max friend cap before creating a request
+        const senderFriendCount = db.prepare('SELECT COUNT(*) as count FROM friendships WHERE person1 = ? OR person2 = ?').get(accountID, accountID).count;
+        const targetFriendCount = db.prepare('SELECT COUNT(*) as count FROM friendships WHERE person1 = ? OR person2 = ?').get(toAccountID, toAccountID).count;
+        if (senderFriendCount >= MAX_FRIENDS || targetFriendCount >= MAX_FRIENDS) return res.send('-1');
 
         try {
             const uploadDate = Math.floor(Date.now() / 1000);

@@ -2,6 +2,8 @@ const { commonSecret } = require('../middleware/secrets');
 const db = require('../database');
 const utils = require('../utils');
 
+const MAX_FRIENDS = 400;
+
 module.exports = {
     method: 'post',
     path: '/acceptGJFriendRequest20.php',
@@ -30,6 +32,11 @@ module.exports = {
             const toAccountID = request.toAccountID;
 
             if (toAccountID !== accountID || reqAccountID === accountID) return res.send('-1');
+
+            const senderFriendCount = db.prepare('SELECT COUNT(*) as count FROM friendships WHERE person1 = ? OR person2 = ?').get(reqAccountID, reqAccountID).count;
+            const recipientFriendCount = db.prepare('SELECT COUNT(*) as count FROM friendships WHERE person1 = ? OR person2 = ?').get(toAccountID, toAccountID).count;
+            if (senderFriendCount >= MAX_FRIENDS || recipientFriendCount >= MAX_FRIENDS) return res.send('-1');
+
             const inf1 = db.prepare('INSERT INTO friendships (person1, person2, isNew1, isNew2) VALUES (?, ?, 1, 1)').run(reqAccountID, toAccountID);
             const inf2 = db.prepare('DELETE FROM friendreqs WHERE ID = ? LIMIT 1').run(requestID);
 

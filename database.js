@@ -91,7 +91,6 @@ db.exec(`
         starDifficulty INTEGER NOT NULL DEFAULT 0,
         downloads INTEGER NOT NULL DEFAULT 0,
         likes INTEGER NOT NULL DEFAULT 0,
-        dislikes INTEGER NOT NULL DEFAULT 0,
         starDemon INTEGER NOT NULL DEFAULT 0,
         dailyNumber INTEGER NOT NULL DEFAULT 0,
         dailyTime INTEGER NOT NULL DEFAULT 0,

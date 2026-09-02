@@ -239,7 +239,7 @@ module.exports = {
 
         const mainSql = `SELECT * FROM levels${whereClause} ORDER BY ${order} LIMIT ? OFFSET ?`;
         const stmt = db.prepare(mainSql);
-        const levels = stmt.all(...params, limit, offset);
+        let levels = stmt.all(...params, limit, offset);
         
         if (searchedByID && levels.length > 0) {
             let friendIDs = new Set();
@@ -255,7 +255,7 @@ module.exports = {
             }
             levels = levels.filter(level => {
                 if (level.unlisted === 0 || level.unlisted === 2) return true;
-                if (level.unlisted === 1 && friendIDs.has(level.accountID)) return true;
+                if (level.unlisted === 1 && (level.accountID === accountID || friendIDs.has(level.accountID))) return true;
                 return false;
             });
         }
