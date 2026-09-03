@@ -2,6 +2,25 @@ const { commonSecret } = require('../middleware/secrets');
 const db = require('../database');
 const utils = require('../utils');
 
+const welcomeMessageSender = {
+    accountID: 71,
+    userName: 'GDPSnode Notifications',
+    subject: 'V2VsY29tZSB0byBHRFBTbm9kZSE='
+};
+
+function getMessageProfile(message, accountID) {
+    const profile = db.prepare('SELECT userName, accountID FROM profiles WHERE accountID = ?').get(accountID);
+    if (profile) return profile;
+
+    if (message.accID === welcomeMessageSender.accountID &&
+        message.userName === welcomeMessageSender.userName &&
+        message.subject === welcomeMessageSender.subject) {
+        return welcomeMessageSender;
+    }
+
+    return null;
+}
+
 module.exports = {
     method: 'post',
     path: '/getGJMessages20.php',
@@ -46,7 +65,7 @@ module.exports = {
             for (const message of messages) {
                 if (message.ID) {
                     const senderID = getSent === 0 ? message.accID : message.toAccountID;
-                    const profile = db.prepare('SELECT userName, accountID FROM profiles WHERE accountID = ?').get(senderID);
+                    const profile = getMessageProfile(message, senderID);
 
                     if (profile) {
                         msgstring += `6:${profile.userName}:3:${profile.accountID + 1}:2:${profile.accountID}:1:${message.ID}:4:${message.subject}:8:${message.isNew}:9:${getSent}:7:${utils.getRelative(message.timestamp)}|`;

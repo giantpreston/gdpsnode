@@ -203,6 +203,7 @@ db.exec(`
         extraArtistIDs TEXT DEFAULT '',
         isNew INTEGER NOT NULL DEFAULT 0,
         newType INTEGER NOT NULL DEFAULT 0,
+        size INTEGER NOT NULL DEFAULT 0, -- size in MB, rounded to 2 decimal places
         extraArtistNames TEXT DEFAULT '',
         downloadSoundtrackOverride TEXT NOT NULL DEFAULT ''
     );
@@ -242,13 +243,24 @@ db.exec(`
         subject TEXT NOT NULL,
         body TEXT NOT NULL,
         accID INTEGER NOT NULL,
-        userID INTEGER NOT NULL,
         userName TEXT NOT NULL,
         toAccountID INTEGER NOT NULL,
         timestamp INTEGER NOT NULL,
         isNew INTEGER NOT NULL DEFAULT 1
     );
 `);
+
+function setInitialSequence(table, firstID) {
+    if (db.prepare(`SELECT 1 FROM ${table} LIMIT 1`).get()) return;
+
+    const sequence = db.prepare('UPDATE sqlite_sequence SET seq = ? WHERE name = ?');
+    if (sequence.run(firstID - 1, table).changes === 0) {
+        db.prepare('INSERT INTO sqlite_sequence (name, seq) VALUES (?, ?)').run(table, firstID - 1);
+    }
+}
+
+setInitialSequence('accounts', 72);
+setInitialSequence('levels', 128);
 
 function closeDB() {
     try {

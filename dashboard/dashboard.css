@@ -95,11 +95,17 @@ button:hover { background: var(--orange); }
 .account-main { display: grid; gap: 4px; }
 .account-main strong { font-size: 15px; }
 .account-main small { color: var(--muted); font: 11px 'DejaVu Sans Mono', monospace; }
-.schedule-form { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 8px; align-items: end; margin-top: 16px; }
+.schedule-form { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 8px; align-items: end; margin-top: 16px; }
 .schedule-display { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 .schedule-item { display: grid; gap: 4px; background: #111713; border: 1px solid var(--line); padding: 12px; }
 .schedule-item strong { color: var(--lime); }
 .schedule-item span { color: var(--muted); font: 11px 'DejaVu Sans Mono', monospace; }
+.song-form { display: grid; grid-template-columns: 1.2fr 1.2fr 90px 1.5fr auto; gap: 8px; align-items: end; margin-top: 16px; }
+.song-list { display: grid; gap: 8px; margin-top: 18px; }
+.song-row { display: grid; grid-template-columns: 1fr auto auto; gap: 12px; align-items: center; padding: 10px 0; border-bottom: 1px dashed var(--line); }
+.song-row div { display: grid; gap: 4px; }
+.song-row span, .song-row a { color: var(--muted); font: 11px 'DejaVu Sans Mono', monospace; }
+.song-row a { color: var(--lime); }
 .collections { display: grid; gap: 24px; }
 .collection-list { display: grid; gap: 8px; }
 .collection-form { display: grid; grid-template-columns: 130px minmax(160px, 1fr) auto auto; gap: 8px; align-items: end; padding: 8px 0; border-bottom: 1px dashed var(--line); }
@@ -123,8 +129,10 @@ button:hover { background: var(--orange); }
     .topbar { gap: 16px; }
     .login-panel { margin-top: 8vh; padding: 28px; }
     .login-panel h1 { font-size: 29px; }
-    .collection-form, .map-pack-form, .map-pack-row, .level-list-form, .level-list-row { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    .schedule-form, .collection-form, .map-pack-form, .map-pack-row, .level-list-form, .level-list-row, .song-form { grid-template-columns: repeat(2, minmax(0, 1fr)); }
     .collection-form strong { grid-column: 1 / -1; }
+    .song-row { grid-template-columns: 1fr auto; }
+    .song-row .delete-song { grid-column: 2; }
 }
 @media (max-width: 420px) {
     .stat { padding: 14px; }

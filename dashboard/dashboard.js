@@ -107,9 +107,13 @@ function renderSchedule(data) {
     const weekly = data.weekly || [];
     const display = [
         daily.length ? daily.map(item => `<div class="schedule-item"><strong>Daily #${item.dailyNumber}</strong><span>${escapeHtml(item.levelName)} · #${item.levelID} · ${escapeHtml(item.creator || 'unknown')}</span></div>`).join('') : '<p class="empty">No daily level set.</p>',
-        weekly.length ? weekly.map(item => `<div class="schedule-item"><strong>Weekly #${item.dailyNumber}</strong><span>${escapeHtml(item.levelName)} · #${item.levelID} · ${escapeHtml(item.creator || 'unknown')}</span></div>`).join('') : '<p class="empty">No weekly level set.</p>'
+        weekly.length ? weekly.map(item => `<div class="schedule-item"><strong>Weekly #${item.dailyNumber - 100000}</strong><span>${escapeHtml(item.levelName)} · #${item.levelID} · ${escapeHtml(item.creator || 'unknown')}</span></div>`).join('') : '<p class="empty">No weekly level set.</p>'
     ];
     $('#schedule-display').innerHTML = display.join('');
+}
+
+function renderSongs(songs) {
+    $('#song-list').innerHTML = songs.length ? songs.map(song => `<div class="song-row"><div><strong>${escapeHtml(song.name)}</strong><span>${escapeHtml(song.artistName)} · #${song.ID} · ${song.size} MB</span></div><a href="${escapeHtml(song.link)}" target="_blank" rel="noreferrer">Open file</a><button type="button" class="reject delete-song" data-song="${song.ID}">Delete</button></div>`).join('') : '<p class="empty">No songs uploaded.</p>';
 }
 
 function formBody(form) {
@@ -152,6 +156,7 @@ async function load() {
         csrf = data.csrf;
         render(data);
         renderCollections(await request('api/collections'));
+        renderSongs((await request('api/songs')).songs);
         renderAccountResults((await request('api/users?limit=25')).users);
         renderSchedule(await request('api/server-schedule'));
         $('#login-view').hidden = true;
@@ -290,6 +295,14 @@ document.addEventListener('submit', async event => {
             await request(`api/users/${accountId}`, { method: 'PUT', body: JSON.stringify(payload) });
             await load();
         } catch (error) { $('#app-error').textContent = error.message; }
+    } else if (form.id === 'song-form') {
+        event.preventDefault();
+        try {
+            const response = await fetch('api/songs', { method: 'POST', body: new FormData(form), headers: csrf ? { 'X-CSRF-Token': csrf } : {} });
+            if (!response.ok) throw new Error((await response.json().catch(() => ({}))).error || `Request failed (${response.status})`);
+            form.reset();
+            renderSongs((await request('api/songs')).songs);
+        } catch (error) { $('#app-error').textContent = error.message; }
     }
 });
 
@@ -301,6 +314,11 @@ document.addEventListener('input', event => {
 });
 
 document.addEventListener('click', async event => {
+    if (event.target.classList.contains('delete-song')) {
+        try { await request(`api/songs/${event.target.dataset.song}`, { method: 'DELETE' }); renderSongs((await request('api/songs')).songs); }
+        catch (error) { $('#app-error').textContent = error.message; }
+        return;
+    }
     const form = event.target.closest('.collection-form');
     if (!form) return;
     const isGauntlet = form.classList.contains('gauntlet-form');

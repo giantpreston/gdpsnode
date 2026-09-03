@@ -65,6 +65,11 @@ app.get(dashboardPath, (req, res, next) => {
 });
 app.use(dashboardPath, dashboard);
 
+app.use('/songs', express.static(path.join(__dirname, 'songs'), {
+    fallthrough: false,
+    index: false
+}));
+
 const endpointsDir = path.join(__dirname, 'endpoints');
 
 async function registerEndpoints() {

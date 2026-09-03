@@ -2,6 +2,7 @@ const crypto = require('crypto');
 const express = require('express');
 const rateLimit = require('express-rate-limit');
 const path = require('path');
+const fs = require('fs/promises');
 const db = require('./database');
 
 const router = express.Router();
@@ -12,6 +13,7 @@ const dashboardPassword = process.env.DASHBOARD_PASSWORD;
 const dashboardAccountId = Number(process.env.DASHBOARD_ACCOUNT_ID);
 const secureCookies = process.env.DASHBOARD_SECURE_COOKIES === '1';
 const dashboardPath = (process.env.DASHBOARD_PATH || '/dashboard').replace(/\/+$/, '').replace(/^([^/])/, '/$1') || '/dashboard';
+const songsDirectory = path.join(__dirname, 'songs');
 
 function sameSecret(left, right) {
     if (typeof left !== 'string' || typeof right !== 'string') return false;
@@ -129,6 +131,46 @@ function collectionColor(value) {
     return channels.every(channel => channel >= 0 && channel <= 255) ? value : null;
 }
 
+async function parseSongUpload(req) {
+    const contentType = req.get('content-type') || '';
+    const boundaryMatch = contentType.match(/boundary=(?:"([^"]+)"|([^;]+))/i);
+    if (!boundaryMatch) throw new Error('Song uploads must use multipart form data');
+    const boundary = Buffer.from(`--${boundaryMatch[1] || boundaryMatch[2]}`);
+    const chunks = [];
+    let size = 0;
+    for await (const chunk of req) {
+        size += chunk.length;
+        if (size > 25 * 1024 * 1024) throw new Error('Song file is too large');
+        chunks.push(chunk);
+    }
+    const body = Buffer.concat(chunks);
+    const fields = {};
+    let file = null;
+    let start = body.indexOf(boundary);
+    while (start !== -1) {
+        const partStart = start + boundary.length + 2;
+        const next = body.indexOf(boundary, partStart);
+        if (next === -1) break;
+        const part = body.subarray(partStart, Math.max(partStart, next - 2));
+        const separator = part.indexOf('\r\n\r\n');
+        if (separator !== -1) {
+            const headers = part.subarray(0, separator).toString('utf8');
+            const content = part.subarray(separator + 4);
+            const name = headers.match(/name="([^"]+)"/i)?.[1];
+            const filename = headers.match(/filename="([^"]*)"/i)?.[1];
+            if (name && filename !== undefined) file = { filename, content };
+            else if (name) fields[name] = content.toString('utf8');
+        }
+        start = next;
+    }
+    return { fields, file };
+}
+
+function songExtension(filename) {
+    const extension = path.extname(filename || '').toLowerCase();
+    return ['.mp3'].includes(extension) ? extension : null;
+}
+
 router.use((req, res, next) => {
     res.setHeader('X-Content-Type-Options', 'nosniff');
     res.setHeader('X-Frame-Options', 'DENY');
@@ -235,7 +277,7 @@ router.get('/api/server-schedule', requireAuth, (req, res) => {
     const weekly = db.prepare(`SELECT l.levelID, l.levelName, l.dailyNumber, l.dailyTime,
         p.userName AS creator FROM levels l LEFT JOIN profiles p ON p.accountID = l.accountID
         WHERE l.dailyNumber >= 100001 ORDER BY l.dailyNumber ASC, l.dailyTime DESC`).all();
-    res.json({ daily, weekly, now: Math.floor(Date.now() / 1000) });
+    res.json({ daily, weekly });
 });
 
 router.post('/api/server-schedule', requireAuth, requireCsrf, (req, res) => {
@@ -252,7 +294,7 @@ router.post('/api/server-schedule', requireAuth, requireCsrf, (req, res) => {
     const level = db.prepare('SELECT levelID FROM levels WHERE levelID = ?').get(levelId);
     if (!level) return res.status(404).json({ error: 'Level not found' });
 
-    const targetNumber = isWeekly ? Math.max(100001, slot) : Math.max(1, slot);
+    const targetNumber = isWeekly ? slot + 100000 : slot;
 
     db.transaction(() => {
         if (isWeekly) {
@@ -273,6 +315,63 @@ router.post('/api/server-schedule/clear', requireAuth, requireCsrf, (req, res) =
     } else {
         db.prepare('UPDATE levels SET dailyNumber = 0, dailyTime = 0 WHERE dailyNumber > 0 AND dailyNumber < 100001').run();
     }
+    res.status(204).end();
+});
+
+router.get('/api/songs', requireAuth, (req, res) => {
+    res.json({ songs: db.prepare('SELECT * FROM songs ORDER BY ID DESC').all() });
+});
+
+router.post('/api/songs', requireAuth, requireCsrf, async (req, res) => {
+    let upload;
+    try {
+        upload = await parseSongUpload(req);
+    } catch (error) {
+        return res.status(400).json({ error: error.message });
+    }
+    const fields = upload.fields;
+    const name = String(fields.name || '').trim();
+    const artistName = String(fields.artistName || '').trim();
+    const artistID = Number(fields.artistID || 0);
+    const extension = songExtension(upload.file?.filename);
+    if (!name || name.length > 64 || !artistName || artistName.length > 64 ||
+        !Number.isInteger(artistID) || artistID < 0 || !upload.file?.content.length || !extension) {
+        return res.status(400).json({ error: 'Song name, artist, artist ID, and a supported audio file are required' });
+    }
+
+    await fs.mkdir(songsDirectory, { recursive: true });
+    const result = db.prepare(`INSERT INTO songs
+        (name, artistID, artistName, videoID, youtubeURL, allowedForUse, songPriority, link,
+        nongEnum, extraArtistIDs, isNew, newType, size, extraArtistNames, downloadSoundtrackOverride)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`).run(
+        name, artistID, artistName, String(fields.videoID || ''), String(fields.youtubeURL || ''),
+        Number(fields.allowedForUse ?? 1) ? 1 : 0, Number(fields.songPriority || 0), '',
+        Number(fields.nongEnum || 0), String(fields.extraArtistIDs || ''), Number(fields.isNew || 0) ? 1 : 0,
+        Number(fields.newType || 0), Math.round(upload.file.content.length / 1048576 * 100) / 100,
+        String(fields.extraArtistNames || ''), String(fields.downloadSoundtrackOverride || '')
+    );
+    const songID = Number(result.lastInsertRowid);
+    const fileName = `${songID}${extension}`;
+    const link = `${String(process.env.SONG_BASE_URL || `${req.protocol}://${req.get('host')}/songs`).replace(/\/+$/, '')}/${fileName}`;
+    try {
+        await fs.writeFile(path.join(songsDirectory, fileName), upload.file.content, { flag: 'wx' });
+        db.prepare('UPDATE songs SET link = ? WHERE ID = ?').run(link, songID);
+    } catch (error) {
+        db.prepare('DELETE FROM songs WHERE ID = ?').run(songID);
+        await fs.unlink(path.join(songsDirectory, fileName)).catch(() => {});
+        return res.status(500).json({ error: 'Failed to store song file' });
+    }
+    res.status(201).json({ song: db.prepare('SELECT * FROM songs WHERE ID = ?').get(songID) });
+});
+
+router.delete('/api/songs/:id', requireAuth, requireCsrf, async (req, res) => {
+    const id = Number(req.params.id);
+    if (!Number.isInteger(id) || id < 1) return res.status(400).json({ error: 'Invalid song' });
+    const song = db.prepare('SELECT link FROM songs WHERE ID = ?').get(id);
+    if (!song) return res.status(404).json({ error: 'Song not found' });
+    const fileName = path.basename(new URL(song.link, `${req.protocol}://${req.get('host')}`).pathname);
+    await fs.unlink(path.join(songsDirectory, fileName)).catch(() => {});
+    db.prepare('DELETE FROM songs WHERE ID = ?').run(id);
     res.status(204).end();
 });
 

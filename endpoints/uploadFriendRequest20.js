@@ -18,6 +18,7 @@ module.exports = {
         if (!accountID || !gjp2 || !toAccountID) return res.send('-1');
         if (gjp2.length !== 40) return res.send('-1');
         if (accountID === toAccountID) return res.send('-1');
+        if (comment.length > 190) return res.send('-1');
         if (!utils.isURLBase64(comment)) return res.send('-1');
 
         // db checks

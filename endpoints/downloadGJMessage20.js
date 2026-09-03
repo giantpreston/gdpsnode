@@ -2,6 +2,12 @@ const { commonSecret } = require('../middleware/secrets');
 const db = require('../database');
 const utils = require('../utils');
 
+const welcomeMessageSender = {
+    accountID: 71,
+    userName: 'GDPSnode Notifications',
+    subject: 'V2VsY29tZSB0byBHRFBTbm9kZSE='
+};
+
 module.exports = {
     method: 'post',
     path: '/downloadGJMessage20.php',
@@ -39,7 +45,12 @@ module.exports = {
                 otherAccountID = message.toAccountID;
                 actualIsSender = 1;
             }
-            const otherProfile = db.prepare('SELECT userName, accountID FROM profiles WHERE accountID = ?').get(otherAccountID);
+            let otherProfile = db.prepare('SELECT userName, accountID FROM profiles WHERE accountID = ?').get(otherAccountID);
+            if (!otherProfile && message.accID === welcomeMessageSender.accountID &&
+                message.userName === welcomeMessageSender.userName &&
+                message.subject === welcomeMessageSender.subject) {
+                otherProfile = welcomeMessageSender;
+            }
 
             if (!otherProfile) return res.send('-1');
 

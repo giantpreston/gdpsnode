@@ -1,0 +1,6 @@
+This is where all the songs uploaded by elder mods on the dashboard stay.
+
+Similarly to levels, they're linked to DB records, so simply deleting them here isn't enough.
+Delete them on the dashboard OR delete them from here AND the DB.
+
+Thank you!

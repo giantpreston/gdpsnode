@@ -139,6 +139,7 @@ module.exports = {
         if (!account) return res.send('-1');
         if (account.gjp2 !== gjp2) return res.send('-1');
         if (account.isDisabled === 1) return res.send('-1');
+        if (account.creatorBanned === 1) return res.send('-1');
 
         const existingOwnedLevelByName = db.prepare(
             'SELECT * FROM levels WHERE accountID = ? AND levelName = ? ORDER BY levelID DESC LIMIT 1'

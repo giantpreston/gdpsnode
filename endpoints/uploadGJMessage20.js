@@ -17,6 +17,8 @@ module.exports = {
         if (!accountID || !gjp2 || !toAccountID || !subject || !body) return res.send('-1');
         if (gjp2.length !== 40) return res.send('-1');
         if (accountID === toAccountID) return res.send('-1');
+        if (subject.length > 50) return res.send('-1');
+        if (body.length > 270) return res.send('-1');
         if (!utils.isURLBase64(body) || !utils.isURLBase64(subject)) return res.send('-1');
 
         // db checks
@@ -42,7 +44,7 @@ module.exports = {
             }
 
             const uploadDate = Math.floor(Date.now() / 1000);
-            const inf = db.prepare('INSERT INTO messages (subject, body, accID, userID, userName, toAccountID, timestamp) VALUES (?, ?, ?, ?, ?, ?, ?)').run(subject, body, accountID, accountID + 1, senderProfile.userName, toAccountID, uploadDate);
+            const inf = db.prepare('INSERT INTO messages (subject, body, accID, userName, toAccountID, timestamp) VALUES (?, ?, ?, ?, ?, ?)').run(subject, body, accountID, senderProfile.userName, toAccountID, uploadDate);
 
             if (inf.changes > 0) return res.send('1');
         } catch (err) {
