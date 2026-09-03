@@ -84,4 +84,38 @@ function getRelative(unixTimestamp) {
   return parts.slice(0, 2).join(', ');
 }
 
-module.exports = { generateGJP2, isURLBase64, remove, charclean, numbercolon, number, getRelative };
+function xorCipher(buffer, key) {
+    const result = Buffer.alloc(buffer.length);
+    let keyBytes;
+    
+    if (typeof key === 'string') {
+        keyBytes = Buffer.from(key, 'utf8');
+    } else if (typeof key === 'number') {
+        // If numeric, convert to string then to UTF8 bytes
+        keyBytes = Buffer.from(String(key), 'utf8');
+    } else {
+        keyBytes = key;
+    }
+    
+    for (let i = 0; i < buffer.length; i++) {
+        result[i] = buffer[i] ^ keyBytes[i % keyBytes.length];
+    }
+    return result;
+}
+
+function genSolo3(str) {
+    const salt = "oC36fpYaPtdg";
+    const combined = str + salt;
+    return crypto.createHash('sha1').update(combined).digest('hex').toLowerCase();
+}
+
+function randomString(length) {
+    const chars = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ';
+    let result = '';
+    for (let i = 0; i < length; i++) {
+        result += chars.charAt(Math.floor(Math.random() * chars.length));
+    }
+    return result;
+}
+
+module.exports = { generateGJP2, isURLBase64, remove, charclean, numbercolon, number, getRelative, xorCipher, genSolo3, randomString };

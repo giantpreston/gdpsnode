@@ -107,6 +107,12 @@ button:hover { background: var(--orange); }
 .song-row div { display: grid; gap: 4px; }
 .song-row span, .song-row a { color: var(--muted); font: 11px 'DejaVu Sans Mono', monospace; }
 .song-row a { color: var(--lime); }
+.quest-form { display: grid; grid-template-columns: 1fr 1fr 1fr 1.5fr auto; gap: 8px; align-items: end; margin-top: 16px; }
+.quest-list { display: grid; gap: 8px; margin-top: 18px; }
+.quest-row { display: grid; grid-template-columns: 1fr auto; gap: 12px; align-items: center; padding: 10px 0; border-bottom: 1px dashed var(--line); }
+.quest-row div { display: grid; gap: 4px; }
+.quest-row span { color: var(--muted); font: 11px 'DejaVu Sans Mono', monospace; }
+.quest-row strong { color: var(--lime); }
 .collections { display: grid; gap: 24px; }
 .collection-list { display: grid; gap: 8px; }
 .collection-form { display: grid; grid-template-columns: 130px minmax(160px, 1fr) auto auto; gap: 8px; align-items: end; padding: 8px 0; border-bottom: 1px dashed var(--line); }
@@ -130,7 +136,7 @@ button:hover { background: var(--orange); }
     .topbar { gap: 16px; }
     .login-panel { margin-top: 8vh; padding: 28px; }
     .login-panel h1 { font-size: 29px; }
-    .schedule-form, .collection-form, .map-pack-form, .map-pack-row, .level-list-form, .level-list-row, .song-form { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    .schedule-form, .collection-form, .map-pack-form, .map-pack-row, .level-list-form, .level-list-row, .song-form, .quest-form { grid-template-columns: repeat(2, minmax(0, 1fr)); }
     .collection-form strong { grid-column: 1 / -1; }
     .song-row { grid-template-columns: 1fr auto; }
     .song-row .delete-song { grid-column: 2; }

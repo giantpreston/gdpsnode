@@ -116,6 +116,11 @@ function renderSongs(songs) {
     $('#song-list').innerHTML = songs.length ? songs.map(song => `<div class="song-row"><div><strong>${escapeHtml(song.name)}</strong><span>${escapeHtml(song.artistName)} · #${song.ID} · ${song.size} MB</span></div><a href="${escapeHtml(song.link)}" target="_blank" rel="noreferrer">Open file</a><button type="button" class="reject delete-song" data-song="${song.ID}">Delete</button></div>`).join('') : '<p class="empty">No songs uploaded.</p>';
 }
 
+function renderQuests(quests) {
+    const typeNames = { 1: 'Orbs', 2: 'Coins', 3: 'Stars' };
+    $('#quest-list').innerHTML = quests.length ? quests.map(quest => `<div class="quest-row"><div><strong>${escapeHtml(quest.name)}</strong><span>${typeNames[quest.type]} · Need ${quest.amount} · ${quest.reward} 💎</span></div><button type="button" class="reject delete-quest" data-quest="${quest.questID}">Delete</button></div>`).join('') : '<p class="empty">No quests created.</p>';
+}
+
 function formBody(form) {
     const body = Object.fromEntries(new FormData(form).entries());
     if (form.id === 'level-list-form' || form.classList.contains('level-list-row')) body.listDesc = encodeBase64Url(body.listDesc || '');
@@ -157,6 +162,7 @@ async function load() {
         render(data);
         renderCollections(await request('api/collections'));
         renderSongs((await request('api/songs')).songs);
+        renderQuests((await request('api/quests')).quests || []);
         renderAccountResults((await request('api/users?limit=25')).users);
         renderSchedule(await request('api/server-schedule'));
         $('#login-view').hidden = true;
@@ -303,6 +309,20 @@ document.addEventListener('submit', async event => {
             form.reset();
             renderSongs((await request('api/songs')).songs);
         } catch (error) { $('#app-error').textContent = error.message; }
+    } else if (form.id === 'quest-form') {
+        event.preventDefault();
+        try {
+            const formData = new FormData(form);
+            const payload = {
+                type: Number(formData.get('type')),
+                amount: Number(formData.get('amount')),
+                reward: Number(formData.get('reward')),
+                name: formData.get('name')
+            };
+            await request('api/quests', { method: 'POST', body: JSON.stringify(payload) });
+            form.reset();
+            renderQuests((await request('api/quests')).quests || []);
+        } catch (error) { $('#app-error').textContent = error.message; }
     }
 });
 
@@ -316,6 +336,11 @@ document.addEventListener('input', event => {
 document.addEventListener('click', async event => {
     if (event.target.classList.contains('delete-song')) {
         try { await request(`api/songs/${event.target.dataset.song}`, { method: 'DELETE' }); renderSongs((await request('api/songs')).songs); }
+        catch (error) { $('#app-error').textContent = error.message; }
+        return;
+    }
+    if (event.target.classList.contains('delete-quest')) {
+        try { await request(`api/quests/${event.target.dataset.quest}`, { method: 'DELETE' }); renderQuests((await request('api/quests')).quests || []); }
         catch (error) { $('#app-error').textContent = error.message; }
         return;
     }

@@ -581,6 +581,34 @@ router.post('/api/reject', requireAuth, requireCsrf, (req, res) => {
     res.status(204).end();
 });
 
+router.get('/api/quests', requireAuth, (req, res) => {
+    const quests = db.prepare('SELECT * FROM quests ORDER BY questID DESC').all();
+    res.json({ quests });
+});
+
+router.post('/api/quests', requireAuth, requireCsrf, (req, res) => {
+    const type = Number(req.body?.type);
+    const amount = Number(req.body?.amount);
+    const reward = Number(req.body?.reward);
+    const name = String(req.body?.name || '').trim();
+
+    if (![1, 2, 3].includes(type)) return res.status(400).json({ error: 'Invalid quest type (must be 1=Orbs, 2=Coins, or 3=Stars)' });
+    if (!Number.isInteger(amount) || amount < 1 || amount > 999) return res.status(400).json({ error: 'Quest amount must be between 1 and 999' });
+    if (!Number.isInteger(reward) || reward < 1 || reward > 999) return res.status(400).json({ error: 'Quest reward must be between 1 and 999' });
+    if (!name || name.length > 64) return res.status(400).json({ error: 'Quest name is required and must be under 64 characters' });
+
+    const result = db.prepare('INSERT INTO quests (type, amount, reward, name) VALUES (?, ?, ?, ?)').run(type, amount, reward, name);
+    res.status(201).json({ quest: db.prepare('SELECT * FROM quests WHERE questID = ?').get(result.lastInsertRowid) });
+});
+
+router.delete('/api/quests/:id', requireAuth, requireCsrf, (req, res) => {
+    const id = Number(req.params.id);
+    if (!Number.isInteger(id) || id < 1) return res.status(400).json({ error: 'Invalid quest' });
+    const result = db.prepare('DELETE FROM quests WHERE questID = ?').run(id);
+    if (!result.changes) return res.status(404).json({ error: 'Quest not found' });
+    res.status(204).end();
+});
+
 router.use(express.static(path.join(__dirname, 'dashboard'), { index: false, dotfiles: 'deny' }));
 
 module.exports = router;

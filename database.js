@@ -248,6 +248,14 @@ db.exec(`
         timestamp INTEGER NOT NULL,
         isNew INTEGER NOT NULL DEFAULT 1
     );
+
+    CREATE TABLE IF NOT EXISTS quests (
+        questID INTEGER PRIMARY KEY AUTOINCREMENT,
+        type INTEGER NOT NULL,
+        amount INTEGER NOT NULL,
+        reward INTEGER NOT NULL,
+        name TEXT NOT NULL
+    );
 `);
 
 function setInitialSequence(table, firstID) {
