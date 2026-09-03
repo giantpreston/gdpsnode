@@ -1,7 +1,6 @@
 // Change this parameter to start the server at a different port.
 // To not require typing in a port, use port 80 (requires root/admin usually), or port 443 in case of https.
 const port = 10000;
-const dashboardPath = (process.env.DASHBOARD_PATH || '/dashboard').replace(/\/+$/, '').replace(/^([^/])/, '/$1') || '/dashboard';
 // Don't change anything below unless you know what you're doing!
 
 
@@ -11,6 +10,7 @@ try {
 } catch (e) {
     console.warn('\x1b[1;31m✗ No .env file found! Falling back to defaults...\x1b[0m');
 }
+const dashboardPath = (process.env.DASHBOARD_PATH || '/dashboard').replace(/\/+$/, '').replace(/^([^/])/, '/$1') || '/dashboard';
 const isDefaultPath = process.env.DASHBOARD_PATH === '/dashboard';
 const isDefaultPass = process.env.DASHBOARD_PASSWORD === 'replace-with-a-long-random-password';
 

@@ -9,6 +9,8 @@ module.exports = {
     handler: (req, res) => {
         let accountID = parseInt(utils.number(req.body?.userID), 10);
         accountID = accountID - 1;
+        const ownAcc = parseInt(utils.number(req.body?.accountID), 10);
+        const gjp2 = parseInt(utils.number(req.body?.gjp2), 10);
         const page = parseInt(utils.number(req.body?.mode), 10);
         const mode = parseInt(utils.number(req.body?.mode), 10);
 
@@ -18,6 +20,12 @@ module.exports = {
 
         // db checks
         const lvcm = db.prepare('SELECT * FROM comments WHERE accountID = ?').get(accountID);
+        const check = db.prepare('SELECT * FROM accounts WHERE accountID = ?').get(ownAcc);
+        const user = db.prepare('SELECT cS FROM profiles WHERE accountID = ?').get(accountID);
+        const areFriends = ownAcc && db.prepare('SELECT ID FROM friendships WHERE (person1 = ? AND person2 = ?) OR (person2 = ? AND person1 = ?)').get(ownAcc, accountID, ownAcc, accountID);
+
+        if (ownAcc && (!check || check.gjp2 !== gjp2)) return res.send('-1');
+        if (user.cS !== 0 && (!ownAcc || user.cS === 2 && ownAcc !== accountID || user.cS === 1 && ownAcc !== accountID && !areFriends)) return res.send('-1');
 
         if (!lvcm) return res.send('-1');
 

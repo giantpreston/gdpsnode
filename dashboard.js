@@ -497,7 +497,7 @@ router.get('/api/levels', requireAuth, (req, res) => {
     const levels = db.prepare(`SELECT l.levelID, l.levelName, l.levelDesc, l.levelLength,
         l.starStars, l.starDifficulty, l.starAuto, l.starDemon, l.starDemonDiff,
         l.featured, l.starEpic, l.userRates, l.avgUserRate, l.downloads, l.likes,
-        l.dislikes, l.isSent, l.uploadDate, p.userName AS creator
+        l.isSent, l.uploadDate, p.userName AS creator
         FROM levels l LEFT JOIN profiles p ON p.accountID = l.accountID
         WHERE (? = '' OR l.levelName LIKE ? ESCAPE '\\' OR CAST(l.levelID AS TEXT) = ?)
         ORDER BY l.uploadDate DESC, l.levelID DESC LIMIT ? OFFSET ?`).all(query, like, query, limit, offset);
