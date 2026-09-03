@@ -109,6 +109,10 @@ function genSolo3(str) {
     return crypto.createHash('sha1').update(combined).digest('hex').toLowerCase();
 }
 
+function genSolo4(str) {
+    return crypto.createHash('sha1').update(str + 'pC26fpYaQCtg').digest('hex').toLowerCase();
+}
+
 function randomString(length) {
     const chars = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ';
     let result = '';
@@ -118,4 +122,4 @@ function randomString(length) {
     return result;
 }
 
-module.exports = { generateGJP2, isURLBase64, remove, charclean, numbercolon, number, getRelative, xorCipher, genSolo3, randomString };
+module.exports = { generateGJP2, isURLBase64, remove, charclean, numbercolon, number, getRelative, xorCipher, genSolo3, genSolo4, randomString };
