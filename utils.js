@@ -65,24 +65,19 @@ function getRelative(unixTimestamp) {
   const units = [
     { label: 'year', ms: 365 * 24 * 60 * 60 * 1000 },
     { label: 'month', ms: 30 * 24 * 60 * 60 * 1000 },
+    { label: 'week', ms: 7 * 24 * 60 * 60 * 1000 },
     { label: 'day', ms: 24 * 60 * 60 * 1000 },
     { label: 'hour', ms: 60 * 60 * 1000 },
     { label: 'minute', ms: 60 * 1000 },
     { label: 'second', ms: 1000 }
   ];
 
-  const parts = [];
-
   for (const { label, ms } of units) {
     const value = Math.floor(delta / ms);
-    if (value > 0) {
-      parts.push(`${value} ${label}${value > 1 ? 's' : ''}`);
-      delta -= value * ms;
-    }
+        if (value > 0) return `${value} ${label}${value > 1 ? 's' : ''}`;
   }
 
-  if (parts.length === 0) return "0 seconds";
-  return parts.slice(0, 2).join(', ');
+    return "0 seconds";
 }
 
 function xorCipher(buffer, key) {

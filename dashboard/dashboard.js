@@ -4,6 +4,16 @@ const escapeHtml = value => String(value ?? '').replace(/[&<>"']/g, character =>
 const demonNames = { 3: 'Easy Demon', 4: 'Medium Demon', 0: 'Hard Demon', 5: 'Insane Demon', 6: 'Extreme Demon' };
 const featureNames = { 1: 'Featured', 2: 'Epic', 3: 'Legendary', 4: 'Mythic' };
 const difficultyNames = { 1: 'Easy', 2: 'Normal', 3: 'Hard', 4: 'Harder', 5: 'Insane' };
+const secretRewardItems = [
+    [1, 'Fire Shard'], [2, 'Ice Shard'], [3, 'Poison Shard'], [4, 'Shadow Shard'], [5, 'Lava Shard'],
+    [6, 'Demon Key'], [7, 'Mana Orbs'], [8, 'Diamonds'], [10, 'Earth Shard'], [11, 'Blood Shard'],
+    [12, 'Metal Shard'], [13, 'Light Shard'], [14, 'Soul Shard'], [15, 'Yellow Key'],
+    [1001, 'Cube unlock'], [1002, 'Color 1 unlock'], [1003, 'Color 2 unlock'], [1004, 'Ship unlock'],
+    [1005, 'Ball unlock'], [1006, 'UFO unlock'], [1007, 'Wave unlock'], [1008, 'Robot unlock'],
+    [1009, 'Spider unlock'], [1010, 'Streak unlock'], [1011, 'Death unlock'], [1012, 'GJ item unlock'],
+    [1013, 'Swing unlock'], [1014, 'Jetpack unlock'], [1015, 'Ship fire unlock']
+];
+const secretRewardUnlockDefaults = { 1001: 1, 1002: 1, 1003: 1, 1004: 1, 1005: 1, 1006: 63, 1007: 1, 1008: 1, 1009: 1, 1010: 1, 1011: 1, 1012: 1, 1013: 1, 1014: 1, 1015: 1 };
 const gauntletNames = ['Fire', 'Ice', 'Poison', 'Shadow', 'Lava', 'Bonus', 'Chaos', 'Demon', 'Time', 'Crystal', 'Magic', 'Spike', 'Monster', 'Doom', 'Death', 'Forest', 'Rune', 'Force', 'Spooky', 'Dragon', 'Water', 'Haunted', 'Acid', 'Witch', 'Power', 'Potion', 'Snake', 'Toxic', 'Halloween', 'Treasure', 'Ghost', 'Spider', 'Gem', 'Inferno', 'Portal', 'Strange', 'Fantasy', 'Christmas', 'Surprise', 'Mystery', 'Cursed', 'Cyborg', 'Castle', 'Grave', 'Temple', 'World', 'Galaxy', 'Universe', 'Discord', 'Split', 'NCS I', 'NCS II', 'Space', 'Cosmos', 'Random', 'Chance', 'Future', 'Utopia', 'Cinema', 'Love', 'Duality'];
 const selected = (current, value) => Number(current) === Number(value) ? ' selected' : '';
 function decodeBase64Url(value) {
@@ -105,9 +115,11 @@ function renderAccountResults(users) {
 function renderSchedule(data) {
     const daily = data.daily || [];
     const weekly = data.weekly || [];
+    const event = data.event || [];
     const display = [
         daily.length ? daily.map(item => `<div class="schedule-item"><strong>Daily #${item.dailyNumber}</strong><span>${escapeHtml(item.levelName)} · #${item.levelID} · ${escapeHtml(item.creator || 'unknown')}</span></div>`).join('') : '<p class="empty">No daily level set.</p>',
-        weekly.length ? weekly.map(item => `<div class="schedule-item"><strong>Weekly #${item.dailyNumber - 100000}</strong><span>${escapeHtml(item.levelName)} · #${item.levelID} · ${escapeHtml(item.creator || 'unknown')}</span></div>`).join('') : '<p class="empty">No weekly level set.</p>'
+        weekly.length ? weekly.map(item => `<div class="schedule-item"><strong>Weekly #${item.dailyNumber - 100000}</strong><span>${escapeHtml(item.levelName)} · #${item.levelID} · ${escapeHtml(item.creator || 'unknown')}</span></div>`).join('') : '<p class="empty">No weekly level set.</p>',
+        event.length ? event.map(item => `<div class="schedule-item"><strong>Event #${item.dailyNumber - 200000}</strong><span>${escapeHtml(item.levelName)} · #${item.levelID} · ${escapeHtml(item.creator || 'unknown')}</span></div>`).join('') : '<p class="empty">No event level set.</p>'
     ];
     $('#schedule-display').innerHTML = display.join('');
 }
@@ -119,6 +131,50 @@ function renderSongs(songs) {
 function renderQuests(quests) {
     const typeNames = { 1: 'Orbs', 2: 'Coins', 3: 'Stars' };
     $('#quest-list').innerHTML = quests.length ? quests.map(quest => `<div class="quest-row"><div><strong>${escapeHtml(quest.name)}</strong><span>${typeNames[quest.type]} · Need ${quest.amount} · ${quest.reward} 💎</span></div><button type="button" class="reject delete-quest" data-quest="${quest.questID}">Delete</button></div>`).join('') : '<p class="empty">No quests created.</p>';
+}
+
+function decodeSecretCode(value) {
+    try { return atob(value); } catch { return '[Invalid code]'; }
+}
+
+function rewardLabel(rewards) {
+    const values = String(rewards || '').split(',').map(Number);
+    const names = new Map(secretRewardItems);
+    const result = [];
+    for (let index = 0; index + 1 < values.length; index += 2) {
+        const name = names.get(values[index]) || `Item ${values[index]}`;
+        result.push(values[index] >= 1000 ? `${name} #${values[index + 1]}` : `${name} ×${values[index + 1]}`);
+    }
+    return result.join(' · ');
+}
+
+function secretRewardItemOptions() {
+    return secretRewardItems.map(([id, name]) => `<option value="${id}">${name}</option>`).join('');
+}
+
+function addSecretRewardItem(item = {}) {
+    const row = document.createElement('div');
+    row.className = 'secret-reward-item';
+    row.innerHTML = `<select name="itemID" aria-label="Reward item">${secretRewardItemOptions()}</select><span class="secret-reward-value-label">Quantity</span><input name="total" type="number" min="1" max="999999" value="${item.total || 1}" aria-label="Reward quantity" required><button type="button" class="ghost remove-secret-item">Remove</button>`;
+    row.querySelector('[name="itemID"]').value = item.itemID || 1;
+    updateSecretRewardValue(row, item.total);
+    $('#secret-reward-items').append(row);
+}
+
+function updateSecretRewardValue(row, value) {
+    const itemID = Number(row.querySelector('[name="itemID"]').value);
+    const input = row.querySelector('[name="total"]');
+    const unlock = itemID >= 1000;
+    input.min = unlock ? '1' : '1';
+    input.max = '999999';
+    input.value = value || (unlock ? secretRewardUnlockDefaults[itemID] || 1 : 1);
+    input.setAttribute('aria-label', unlock ? 'Unlock item ID' : 'Reward quantity');
+    const label = row.querySelector('.secret-reward-value-label');
+    if (label) label.textContent = unlock ? 'Unlock ID' : 'Quantity';
+}
+
+function renderSecretRewards(rewards) {
+    $('#secret-reward-list').innerHTML = rewards.length ? rewards.map(reward => `<div class="quest-row"><div><strong>${escapeHtml(decodeSecretCode(reward.code))}</strong><span>${escapeHtml(rewardLabel(reward.rewards))} · ${reward.uses} use${reward.uses === 1 ? '' : 's'}${reward.duration ? ` · ${Math.ceil(reward.duration / 86400)} day expiry` : ''}</span></div><button type="button" class="reject delete-secret-reward" data-reward="${reward.rewardID}">Delete</button></div>`).join('') : '<p class="empty">No secret codes created.</p>';
 }
 
 function formBody(form) {
@@ -163,6 +219,7 @@ async function load() {
         renderCollections(await request('api/collections'));
         renderSongs((await request('api/songs')).songs);
         renderQuests((await request('api/quests')).quests || []);
+        renderSecretRewards((await request('api/secret-rewards')).rewards || []);
         renderAccountResults((await request('api/users?limit=25')).users);
         renderSchedule(await request('api/server-schedule'));
         $('#login-view').hidden = true;
@@ -266,6 +323,11 @@ $('#clear-weekly').addEventListener('click', async () => {
     catch (error) { $('#app-error').textContent = error.message; }
 });
 
+$('#clear-event').addEventListener('click', async () => {
+    try { await request('api/server-schedule/clear', { method: 'POST', body: JSON.stringify({ type: 'event' }) }); renderSchedule(await request('api/server-schedule')); }
+    catch (error) { $('#app-error').textContent = error.message; }
+});
+
 function showTab(name) {
     document.querySelectorAll('.tab').forEach(item => item.classList.toggle('active', item.dataset.tab === name));
     $('#levels-tab').hidden = name !== 'levels';
@@ -323,6 +385,22 @@ document.addEventListener('submit', async event => {
             form.reset();
             renderQuests((await request('api/quests')).quests || []);
         } catch (error) { $('#app-error').textContent = error.message; }
+    } else if (form.id === 'secret-reward-form') {
+        event.preventDefault();
+        try {
+            const formData = new FormData(form);
+            const items = [...document.querySelectorAll('#secret-reward-items .secret-reward-item')].map(row => ({
+                itemID: Number(row.querySelector('[name="itemID"]').value),
+                total: Number(row.querySelector('[name="total"]').value)
+            }));
+            await request('api/secret-rewards', { method: 'POST', body: JSON.stringify({
+                code: formData.get('code'), uses: Number(formData.get('uses')), duration: Number(formData.get('durationDays')) * 86400, items
+            }) });
+            form.reset();
+            $('#secret-reward-items').innerHTML = '';
+            addSecretRewardItem();
+            renderSecretRewards((await request('api/secret-rewards')).rewards || []);
+        } catch (error) { $('#app-error').textContent = error.message; }
     }
 });
 
@@ -331,6 +409,10 @@ document.addEventListener('input', event => {
     if (!control) return;
     if (event.target.classList.contains('color-picker')) syncColorControl(control, true);
     else if (event.target.name === 'barColor' || event.target.name === 'textColor') syncColorControl(control);
+});
+
+document.addEventListener('change', event => {
+    if (event.target.name === 'itemID') updateSecretRewardValue(event.target.closest('.secret-reward-item'));
 });
 
 document.addEventListener('click', async event => {
@@ -344,6 +426,20 @@ document.addEventListener('click', async event => {
         catch (error) { $('#app-error').textContent = error.message; }
         return;
     }
+    if (event.target.classList.contains('remove-secret-item')) {
+        const rows = document.querySelectorAll('#secret-reward-items .secret-reward-item');
+        if (rows.length > 1) event.target.closest('.secret-reward-item').remove();
+        return;
+    }
+    if (event.target.classList.contains('add-secret-item')) {
+        addSecretRewardItem();
+        return;
+    }
+    if (event.target.classList.contains('delete-secret-reward')) {
+        try { await request(`api/secret-rewards/${event.target.dataset.reward}`, { method: 'DELETE' }); renderSecretRewards((await request('api/secret-rewards')).rewards || []); }
+        catch (error) { $('#app-error').textContent = error.message; }
+        return;
+    }
     const form = event.target.closest('.collection-form');
     if (!form) return;
     const isGauntlet = form.classList.contains('gauntlet-form');
@@ -352,4 +448,5 @@ document.addEventListener('click', async event => {
     try { await request(`api/${isList ? 'lists' : isGauntlet ? 'gauntlets' : 'map-packs'}/${form.dataset.id}`, { method: 'DELETE' }); await load(); }
     catch (error) { $('#app-error').textContent = error.message; }
 });
+addSecretRewardItem();
 load();

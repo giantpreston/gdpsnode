@@ -277,7 +277,10 @@ router.get('/api/server-schedule', requireAuth, (req, res) => {
     const weekly = db.prepare(`SELECT l.levelID, l.levelName, l.dailyNumber, l.dailyTime,
         p.userName AS creator FROM levels l LEFT JOIN profiles p ON p.accountID = l.accountID
         WHERE l.dailyNumber >= 100001 ORDER BY l.dailyNumber ASC, l.dailyTime DESC`).all();
-    res.json({ daily, weekly });
+    const event = db.prepare(`SELECT l.levelID, l.levelName, l.dailyNumber, l.dailyTime,
+        p.userName AS creator FROM levels l LEFT JOIN profiles p ON p.accountID = l.accountID
+        WHERE l.dailyNumber > 200000 ORDER BY l.dailyNumber ASC, l.dailyTime DESC`).all();
+    res.json({ daily, weekly, event });
 });
 
 router.post('/api/server-schedule', requireAuth, requireCsrf, (req, res) => {
@@ -286,6 +289,7 @@ router.post('/api/server-schedule', requireAuth, requireCsrf, (req, res) => {
     const expiresAt = Number(req.body?.expiresAt) || Math.floor(Date.now() / 1000) + 86400;
     const type = String(req.body?.type || 'daily');
     const isWeekly = type === 'weekly';
+    const isEvent = type === 'event';
 
     if (!Number.isInteger(levelId) || levelId < 1) return res.status(400).json({ error: 'Invalid level ID' });
     if (!Number.isInteger(slot) || slot < 1) return res.status(400).json({ error: 'Invalid slot number' });
@@ -294,10 +298,12 @@ router.post('/api/server-schedule', requireAuth, requireCsrf, (req, res) => {
     const level = db.prepare('SELECT levelID FROM levels WHERE levelID = ?').get(levelId);
     if (!level) return res.status(404).json({ error: 'Level not found' });
 
-    const targetNumber = isWeekly ? slot + 100000 : slot;
+    const targetNumber = isEvent ? slot + 200000 : isWeekly ? slot + 100000 : slot;
 
     db.transaction(() => {
-        if (isWeekly) {
+        if (isEvent) {
+            db.prepare('UPDATE levels SET dailyNumber = 0, dailyTime = 0 WHERE dailyNumber > 200000').run();
+        } else if (isWeekly) {
             db.prepare('UPDATE levels SET dailyNumber = 0, dailyTime = 0 WHERE dailyNumber >= 100001').run();
         } else {
             db.prepare('UPDATE levels SET dailyNumber = 0, dailyTime = 0 WHERE dailyNumber > 0 AND dailyNumber < 100001').run();
@@ -310,11 +316,70 @@ router.post('/api/server-schedule', requireAuth, requireCsrf, (req, res) => {
 
 router.post('/api/server-schedule/clear', requireAuth, requireCsrf, (req, res) => {
     const type = String(req.body?.type || 'daily');
-    if (type === 'weekly') {
+    if (type === 'event') {
+        db.prepare('UPDATE levels SET dailyNumber = 0, dailyTime = 0 WHERE dailyNumber > 200000').run();
+    } else if (type === 'weekly') {
         db.prepare('UPDATE levels SET dailyNumber = 0, dailyTime = 0 WHERE dailyNumber >= 100001').run();
     } else {
         db.prepare('UPDATE levels SET dailyNumber = 0, dailyTime = 0 WHERE dailyNumber > 0 AND dailyNumber < 100001').run();
     }
+    res.status(204).end();
+});
+
+const secretRewardItemIds = new Set([1, 2, 3, 4, 5, 6, 7, 8, 10, 11, 12, 13, 14, 15,
+    1001, 1002, 1003, 1004, 1005, 1006, 1007, 1008, 1009, 1010, 1011, 1012, 1013, 1014, 1015]);
+
+function secretRewardInput(body) {
+    const code = typeof body?.code === 'string' ? body.code.trim() : '';
+    const uses = Number(body?.uses);
+    const duration = Number(body?.duration || 0);
+    const items = Array.isArray(body?.items) ? body.items : [];
+    if (!code || code.length > 64 || !Number.isInteger(uses) || uses < 1 ||
+        !Number.isInteger(duration) || duration < 0 || items.length < 1 || items.length > 20) return null;
+
+    const rewards = [];
+    for (const item of items) {
+        const itemID = Number(item?.itemID);
+        const total = Number(item?.total);
+        if (!secretRewardItemIds.has(itemID) || !Number.isInteger(total) || total < 1 || total > 999999) return null;
+        rewards.push(itemID, total);
+    }
+
+    return {
+        code: Buffer.from(code, 'utf8').toString('base64'),
+        uses,
+        duration,
+        rewards: rewards.join(',')
+    };
+}
+
+router.get('/api/secret-rewards', requireAuth, (req, res) => {
+    res.json({ rewards: db.prepare('SELECT rewardID, code, uses, duration, rewards, createdAt FROM secret_rewards ORDER BY rewardID DESC').all() });
+});
+
+router.post('/api/secret-rewards', requireAuth, requireCsrf, (req, res) => {
+    const reward = secretRewardInput(req.body);
+    if (!reward) return res.status(400).json({ error: 'Invalid secret reward details' });
+
+    try {
+        const result = db.prepare(`INSERT INTO secret_rewards (code, uses, duration, rewards, createdAt)
+            VALUES (?, ?, ?, ?, ?)`).run(reward.code, reward.uses, reward.duration, reward.rewards, Math.floor(Date.now() / 1000));
+        res.status(201).json({ reward: db.prepare('SELECT rewardID, code, uses, duration, rewards, createdAt FROM secret_rewards WHERE rewardID = ?').get(result.lastInsertRowid) });
+    } catch (error) {
+        if (error.code === 'SQLITE_CONSTRAINT_UNIQUE') return res.status(409).json({ error: 'That secret code already exists' });
+        throw error;
+    }
+});
+
+router.delete('/api/secret-rewards/:id', requireAuth, requireCsrf, (req, res) => {
+    const rewardID = Number(req.params.id);
+    if (!Number.isInteger(rewardID) || rewardID < 1) return res.status(400).json({ error: 'Invalid secret reward' });
+    const result = db.transaction(() => {
+        const deleted = db.prepare('DELETE FROM secret_rewards WHERE rewardID = ?').run(rewardID);
+        db.prepare('DELETE FROM content_increments WHERE contentID = ? AND contentType = ?').run(rewardID, 'secret_reward');
+        return deleted.changes;
+    })();
+    if (!result) return res.status(404).json({ error: 'Secret reward not found' });
     res.status(204).end();
 });
 

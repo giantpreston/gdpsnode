@@ -256,6 +256,38 @@ db.exec(`
         reward INTEGER NOT NULL,
         name TEXT NOT NULL
     );
+
+    CREATE TABLE IF NOT EXISTS levelscores (
+        scoreID INTEGER PRIMARY KEY AUTOINCREMENT,
+        accountID INTEGER NOT NULL,
+        levelID INTEGER NOT NULL,
+        percent INTEGER NOT NULL,
+        uploadDate INTEGER NOT NULL,
+        attempts INTEGER NOT NULL DEFAULT 1,
+        coins INTEGER NOT NULL DEFAULT 0,
+        clicks INTEGER NOT NULL DEFAULT 0,
+        time INTEGER NOT NULL DEFAULT 0,
+        progresses TEXT NOT NULL DEFAULT '',
+        dailyID INTEGER NOT NULL DEFAULT 0
+    );
+
+    CREATE TABLE IF NOT EXISTS platscores (
+        scoreID INTEGER PRIMARY KEY AUTOINCREMENT,
+        accountID INTEGER NOT NULL,
+        levelID INTEGER NOT NULL,
+        time INTEGER NOT NULL,
+        points INTEGER NOT NULL DEFAULT 0,
+        timestamp INTEGER NOT NULL
+    );
+
+    CREATE TABLE IF NOT EXISTS secret_rewards (
+        rewardID INTEGER PRIMARY KEY AUTOINCREMENT,
+        code TEXT NOT NULL UNIQUE,
+        uses INTEGER NOT NULL DEFAULT 1,
+        duration INTEGER NOT NULL DEFAULT 0,
+        rewards TEXT NOT NULL,
+        createdAt INTEGER NOT NULL
+    );
 `);
 
 function setInitialSequence(table, firstID) {

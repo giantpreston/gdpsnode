@@ -58,8 +58,21 @@ module.exports = {
         }
 
         try {
-            const inf = db.prepare('INSERT INTO comments (accountID, userName, comment, levelID, timestamp, percent) VALUES (?, ?, ?, ?, ?, ?)').run(accountID, userName, comment, levelID, Math.floor(Date.now() / 1000), percent);
-            if (inf.changes > 0) return res.send(String(inf.lastInsertRowid));
+            const uploadDate = Math.floor(Date.now() / 1000);
+            const inf = db.prepare('INSERT INTO comments (accountID, userName, comment, levelID, timestamp, percent) VALUES (?, ?, ?, ?, ?, ?)').run(accountID, userName, comment, levelID, uploadDate, percent);
+
+            if (inf.changes > 0) {
+                if (percent !== 0) {
+                    const existingScore = db.prepare('SELECT percent FROM levelscores WHERE accountID = ? AND levelID = ?').get(accountID, levelID);
+                    if (!existingScore) {
+                        db.prepare('INSERT INTO levelscores (accountID, levelID, percent, uploadDate, progresses) VALUES (?, ?, ?, ?, ?)').run(accountID, levelID, percent, uploadDate, '');
+                    } else if (existingScore.percent < percent) {
+                        db.prepare('UPDATE levelscores SET percent = ?, uploadDate = ? WHERE accountID = ? AND levelID = ?').run(percent, uploadDate, accountID, levelID);
+                    }
+                }
+
+                return res.send(String(inf.lastInsertRowid));
+            }
         } catch (err) {
             console.error('\x1b[1;31m✗ Failed to save level comment:\x1b[0m', err);
         }
