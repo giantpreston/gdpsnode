@@ -179,12 +179,12 @@ module.exports = {
             order = 'uploadDate DESC';
         }
         if (type === 22) {
-            conditions.push('NOT dailyNumber = 0');
             conditions.push('dailyNumber > 100000'); // exclude daily
+            conditions.push('dailyNumber < 200001')
             order = 'uploadDate DESC';
         }
         if (type === 23) {
-            conditions.push('NOT eventNumber = 0');
+            conditions.push('dailyNumber > 200000');
             order = 'uploadDate DESC';
         }
         if (type === 25) {

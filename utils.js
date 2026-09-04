@@ -5,6 +5,7 @@ function generateGJP2(password = "", salt = "mI29fmAnxgTs") {
     const hash = crypto.createHash('sha1').update(combined).digest('hex');
     return hash;
 }
+
 function isURLBase64(str) {
     if (typeof str !== 'string') return false;
     if (str === '') return false;
@@ -104,13 +105,11 @@ function xorCipher(buffer, key) {
 }
 
 function genSolo3(str) {
-    const salt = "oC36fpYaPtdg";
-    const combined = str + salt;
-    return crypto.createHash('sha1').update(combined).digest('hex').toLowerCase();
+    return generateGJP2(str, 'oC36fpYaPtdg').toLowerCase();
 }
 
 function genSolo4(str) {
-    return crypto.createHash('sha1').update(str + 'pC26fpYaQCtg').digest('hex').toLowerCase();
+    return generateGJP2(str, 'pC26fpYaQCtg').toLowerCase();
 }
 
 function randomString(length) {

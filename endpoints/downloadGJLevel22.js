@@ -55,7 +55,10 @@ module.exports = {
             level = db.prepare('SELECT * FROM levels WHERE dailyNumber != 0 AND dailyNumber < 100001 ORDER BY uploadDate DESC LIMIT 1').get();
             if (!level) return res.send('-1');
         } else if (levelID === -2) {
-            level = db.prepare('SELECT * FROM levels WHERE dailyNumber != 0 AND dailyNumber > 100000 ORDER BY uploadDate DESC LIMIT 1').get();
+            level = db.prepare('SELECT * FROM levels WHERE dailyNumber > 100000 AND dailyNumber < 200001 ORDER BY uploadDate DESC LIMIT 1').get();
+            if (!level) return res.send('-1');
+        } else if (levelID === -3) {
+            level = db.prepare('SELECT * FROM levels WHERE dailyNumber > 200000 ORDER BY uploadDate DESC LIMIT 1').get();
             if (!level) return res.send('-1');
         } else {
             const lvcheck = db.prepare('SELECT * FROM levels WHERE levelID = ?');
