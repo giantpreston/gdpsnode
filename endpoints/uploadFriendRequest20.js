@@ -28,7 +28,7 @@ module.exports = {
 
         if (!account || !toAccount) return res.send('-1');
         if (account.gjp2 !== gjp2) return res.send('-1');
-        if (account.isDisabled === 1) return res.send('-1');
+        if (account.isDisabled === 1 || toAccount.isDisabled === 1) return res.send('-1');
 
         // check if blocked
         const isBlocked = db.prepare('SELECT ID FROM blocks WHERE person1 = ? AND person2 = ?').get(toAccountID, accountID);
