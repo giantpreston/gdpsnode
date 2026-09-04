@@ -62,6 +62,8 @@ module.exports = {
                 const rewardsChk = utils.generateGJP2(rewardsEncoded, 'pC26fpYaQCtg');
 
                 return res.send(`${level.dailyNumber}|10|${responsePrefix}${rewardsEncoded}|${rewardsChk}`);
+            } else {
+                return res.send(`${level.dailyNumber}|${timeLeft}`);
             }
         } catch (error) {
             console.error('\x1b[1;31m✗ [getGJDailyLevel] request failed:\x1b[0m', error);
