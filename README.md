@@ -70,3 +70,5 @@ To add an endpoint, create a module in `endpoints/` that exports `method`, `path
 ## License
 
 Open-source as it should be, [MIT Licensed](LICENSE)
+
+Not affiliated with, endorsed or approved by RobTop Games AB. Purchase the game on stores such as [Steam](https://store.steampowered.com/app/322170/Geometry_Dash/), [Google Play Store](https://play.google.com/store/apps/details?id=com.robtopx.geometryjump) or the [Apple App Store](https://apps.apple.com/us/app/geometry-dash/id625334537).
