@@ -93,3 +93,5 @@ module.exports = {
         res.send(`${responsePrefix}${encoded}|${utils.genSolo4(encoded)}`);
     }
 };
+
+module.exports.makeChestReward = makeChestReward;
