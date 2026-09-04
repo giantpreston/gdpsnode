@@ -53,7 +53,7 @@ module.exports = {
 
             if (type === 2) {
                 // decode chk
-                const chkBuffer = utils.xorCipher(Buffer.from(body.chk.slice(5), 'base64url'), '59182').toString('utf8');
+                const chk = utils.xorCipher(Buffer.from(body.chk.slice(5), 'base64url'), '59182').toString('utf8');
                 // Random string INSIDE the encrypted payload
                 const rewardPrefix = utils.randomString(5);    // inside the encoded string
                 const responsePrefix = utils.randomString(5);  // outside the encoded string
