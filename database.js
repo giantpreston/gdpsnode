@@ -2,6 +2,13 @@ const Database = require('better-sqlite3');
 const db = new Database('gd_server.db');
 
 db.pragma('journal_mode = WAL');
+db.pragma('synchronous = NORMAL');
+db.pragma('busy_timeout = 30000');
+db.pragma('wal_autocheckpoint = 1000');
+db.pragma('journal_size_limit = 67108864');
+db.pragma('cache_size = -64000');
+db.pragma('temp_store = MEMORY');
+db.pragma('mmap_size = 268435456');
 db.exec(`
     CREATE TABLE IF NOT EXISTS accounts (
         accountID INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -94,7 +101,6 @@ db.exec(`
         starDemon INTEGER NOT NULL DEFAULT 0,
         dailyNumber INTEGER NOT NULL DEFAULT 0,
         dailyTime INTEGER NOT NULL DEFAULT 0,
-        eventNumber INTEGER NOT NULL DEFAULT 0,
         inGauntlet INTEGER NOT NULL DEFAULT 0,
         starAuto INTEGER NOT NULL DEFAULT 0,
         starStars INTEGER NOT NULL DEFAULT 0,
@@ -288,7 +294,61 @@ db.exec(`
         rewards TEXT NOT NULL,
         createdAt INTEGER NOT NULL
     );
+
+    CREATE INDEX IF NOT EXISTS idx_accounts_userName ON accounts(userName);
+    CREATE INDEX IF NOT EXISTS idx_accounts_gjp2 ON accounts(gjp2);
+
+    CREATE INDEX IF NOT EXISTS idx_profiles_userName ON profiles(userName);
+    CREATE INDEX IF NOT EXISTS idx_profiles_accountID ON profiles(accountID);
+    CREATE INDEX IF NOT EXISTS idx_profiles_modLevel ON profiles(modLevel);
+
+    CREATE INDEX IF NOT EXISTS idx_levels_accountID ON levels(accountID);
+    CREATE INDEX IF NOT EXISTS idx_levels_audioTrack ON levels(audioTrack);
+    CREATE INDEX IF NOT EXISTS idx_levels_songID ON levels(songID);
+    CREATE INDEX IF NOT EXISTS idx_levels_downloads ON levels(downloads DESC, levelID DESC);
+    CREATE INDEX IF NOT EXISTS idx_levels_likes ON levels(likes DESC, levelID DESC);
+    CREATE INDEX IF NOT EXISTS idx_levels_uploadDate ON levels(uploadDate DESC, levelID DESC);
+    CREATE INDEX IF NOT EXISTS idx_levels_unlisted_downloads ON levels(unlisted, downloads DESC, levelID DESC);
+    CREATE INDEX IF NOT EXISTS idx_levels_unlisted_likes ON levels(unlisted, likes DESC, levelID DESC);
+    CREATE INDEX IF NOT EXISTS idx_levels_unlisted_uploadDate ON levels(unlisted, uploadDate DESC, levelID DESC);
+    CREATE INDEX IF NOT EXISTS idx_levels_dailyNumber ON levels(dailyNumber, uploadDate DESC);
+    CREATE INDEX IF NOT EXISTS idx_levels_isSent_lastSent ON levels(isSent, lastSent DESC, levelID DESC);
+    CREATE INDEX IF NOT EXISTS idx_levels_featured_likes ON levels(featured, likes DESC, levelID DESC);
+
+    CREATE INDEX IF NOT EXISTS idx_comments_levelID_commentID ON comments(levelID, commentID DESC);
+    CREATE INDEX IF NOT EXISTS idx_comments_levelID_likes ON comments(levelID, likes DESC, commentID DESC);
+    CREATE INDEX IF NOT EXISTS idx_comments_accountID ON comments(accountID, commentID DESC);
+    CREATE INDEX IF NOT EXISTS idx_acccomments_accountID ON acccomments(accountID, commentID DESC);
+
+    CREATE INDEX IF NOT EXISTS idx_level_ratings_accountID ON level_ratings(accountID);
+    CREATE INDEX IF NOT EXISTS idx_modSuggest_levelID ON modSuggest(levelID);
+
+    CREATE INDEX IF NOT EXISTS idx_lists_accountID ON lists(accountID);
+    CREATE INDEX IF NOT EXISTS idx_lists_downloads ON lists(downloads DESC, listID DESC);
+    CREATE INDEX IF NOT EXISTS idx_lists_likes ON lists(likes DESC, listID DESC);
+    CREATE INDEX IF NOT EXISTS idx_lists_uploadDate ON lists(uploadDate DESC, listID DESC);
+    CREATE INDEX IF NOT EXISTS idx_lists_unlisted_downloads ON lists(unlisted, downloads DESC, listID DESC);
+    CREATE INDEX IF NOT EXISTS idx_lists_unlisted_likes ON lists(unlisted, likes DESC, listID DESC);
+    CREATE INDEX IF NOT EXISTS idx_lists_unlisted_uploadDate ON lists(unlisted, uploadDate DESC, listID DESC);
+    CREATE INDEX IF NOT EXISTS idx_lists_featured_downloads ON lists(featured, downloads DESC, listID DESC);
+
+    CREATE INDEX IF NOT EXISTS idx_friendships_person1 ON friendships(person1, person2);
+    CREATE INDEX IF NOT EXISTS idx_friendships_person2 ON friendships(person2, person1);
+    CREATE INDEX IF NOT EXISTS idx_blocks_person1_person2 ON blocks(person1, person2);
+    CREATE INDEX IF NOT EXISTS idx_blocks_person2_person1 ON blocks(person2, person1);
+    CREATE INDEX IF NOT EXISTS idx_friendreqs_toAccountID_uploadDate ON friendreqs(toAccountID, uploadDate DESC);
+    CREATE INDEX IF NOT EXISTS idx_friendreqs_accountID_toAccountID ON friendreqs(accountID, toAccountID);
+    CREATE INDEX IF NOT EXISTS idx_messages_toAccountID_timestamp ON messages(toAccountID, timestamp DESC);
+    CREATE INDEX IF NOT EXISTS idx_messages_accID_timestamp ON messages(accID, timestamp DESC);
+
+    CREATE INDEX IF NOT EXISTS idx_levelscores_account_level_daily ON levelscores(accountID, levelID, dailyID);
+    CREATE INDEX IF NOT EXISTS idx_levelscores_level_daily_percent ON levelscores(levelID, dailyID, percent DESC);
+    CREATE INDEX IF NOT EXISTS idx_levelscores_level_daily_uploadDate ON levelscores(levelID, dailyID, uploadDate DESC);
+    CREATE INDEX IF NOT EXISTS idx_platscores_account_level ON platscores(accountID, levelID);
+    CREATE INDEX IF NOT EXISTS idx_platscores_level_points ON platscores(levelID, points DESC);
 `);
+
+db.pragma('optimize');
 
 function setInitialSequence(table, firstID) {
     if (db.prepare(`SELECT 1 FROM ${table} LIMIT 1`).get()) return;

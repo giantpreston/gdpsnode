@@ -54,6 +54,17 @@ The application allows 100 requests per minute per client. Dashboard login is li
 npm test
 ```
 
+To measure SQLite on your hardware with a temporary database:
+
+```sh
+npm run benchmark:sqlite -- --rows=1000000 --writers=4 --rounds=5000
+```
+
+The benchmark reports seed speed, mixed indexed read/write throughput, and
+95th-percentile operation latency. Increase `rows` until it matches your
+expected population, then increase `writers` and `rounds` to model traffic.
+Move to a server database when measured write latency or throughput no longer meets your requirements!
+
 To add an endpoint, create a module in `endpoints/` that exports `method`, `path`, and `handler`. It will be registered automatically when the server restarts.
 
 ## License

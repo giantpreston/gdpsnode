@@ -5,7 +5,8 @@
   "main": "server.js",
   "scripts": {
     "start": "node server.js",
-    "test": "node --check server.js && node --check dashboard.js && node --check dashboard/dashboard.js"
+    "test": "node --check server.js && node --check dashboard.js && node --check dashboard/dashboard.js",
+    "benchmark:sqlite": "node scripts/benchmark-sqlite.js"
   },
   "keywords": [],
   "type": "commonjs",
