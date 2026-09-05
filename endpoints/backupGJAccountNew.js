@@ -2,6 +2,10 @@ const { accountSecret } = require('../middleware/secrets');
 const db = require('../database');
 const utils = require('../utils');
 const zlib = require('zlib');
+const { promisify } = require('util');
+
+const gunzip = promisify(zlib.gunzip);
+const gzip = promisify(zlib.gzip);
 
 module.exports = {
     method: 'post',
@@ -38,8 +42,9 @@ module.exports = {
             const buffer = Buffer.from(decodedSave, 'base64');
             let decompressed;
             try {
-                decompressed = (await zlib.promises.gunzip(buffer)).toString();
+                decompressed = (await gunzip(buffer)).toString();
             } catch (err) {
+                console.error(err);
                 return res.send('-3'); // invalid save data
             }
             
@@ -55,7 +60,7 @@ module.exports = {
             const saveDataReplaced = decompressed.replace(/<k>GJA_002<\/k><s>.*?<\/s>/, '<k>GJA_002</k><s>password</s>');
             
             // recompress and re-encode
-            const compressed = await zlib.promises.gzip(saveDataReplaced);
+            const compressed = await gzip(saveDataReplaced);
             let encodedSave = compressed.toString('base64')
                 .replace(/\+/g, '-')
                 .replace(/\//g, '_');

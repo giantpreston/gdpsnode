@@ -1,4 +1,7 @@
 // security check block
+const config = require('./config');
+const port = Number(config.port);
+
 try {
     process.loadEnvFile();
 } catch (e) {
@@ -22,9 +25,25 @@ const express = require('express'); // im so excited
 const rateLimit = require('express-rate-limit');
 const fs = require('fs/promises');
 const path = require('path');
-const config = require('./config');
 const dashboard = require('./dashboard');
 const { closeDB } = require('./database');
+
+const VERSION = '1.3R';
+const VERSION_URL = 'https://raw.githubusercontent.com/giantpreston/gdpsnode/refs/heads/main/version.txt';
+
+async function checkForUpdates() {
+    try {
+        const response = await fetch(VERSION_URL);
+        if (!response.ok) throw new Error(`HTTP ${response.status}`);
+
+        const latestVersion = (await response.text()).trim();
+        if (latestVersion && latestVersion !== VERSION) {
+            console.warn(`\x1b[1;31m⚠ This server is outdated (v${VERSION}). Latest version: v${latestVersion}. Run 'git pull' to update!\x1b[0m`);
+        }
+    } catch (err) {
+        console.warn(`\x1b[1;33m⚠ Could not check for updates: ${err.message}\x1b[0m`);
+    }
+}
 
 function isElevated() {
   if (process.getuid) {
@@ -43,9 +62,9 @@ function isElevated() {
 }
 
 
-const port = Number(config.port);
 const app = express();
 app.disable('x-powered-by');
+app.set('trust proxy', 1);
 
 // spoof robtop's version of apache lmaoooooo
 app.use((req, res, next) => {
@@ -86,6 +105,8 @@ app.use('/songs', express.static(path.join(__dirname, 'songs'), {
 const endpointsDir = path.join(__dirname, 'endpoints');
 
 async function registerEndpoints() {
+    await checkForUpdates();
+
     const files = await fs.readdir(endpointsDir);
 
     for (const file of files) {

@@ -10,7 +10,7 @@ module.exports = {
         let accountID = parseInt(utils.number(req.body?.userID), 10);
         accountID = accountID - 1;
         const ownAcc = parseInt(utils.number(req.body?.accountID), 10);
-        const gjp2 = parseInt(utils.number(req.body?.gjp2), 10);
+        const gjp2 = utils.remove(req.body?.gjp2 || '');
         const page = parseInt(utils.number(req.body?.mode), 10);
         const mode = parseInt(utils.number(req.body?.mode), 10);
 
