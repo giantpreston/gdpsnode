@@ -1,4 +1,8 @@
 module.exports = {
+    // Change this parameter to start the server at a different port.
+    // To not require typing in a port, use port 80 (requires root/admin usually), or port 443 in case of https.
+    port: 10000,
+    // GDPS Switcher-related configs
     motd: 'A GDPSnode Private Server.',
     icon: 'https://raw.githubusercontent.com/Kingminer7/gdps-switcher/refs/heads/main/resources/gdlogo.png',
     lang: 'js'

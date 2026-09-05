@@ -1,9 +1,3 @@
-// Change this parameter to start the server at a different port.
-// To not require typing in a port, use port 80 (requires root/admin usually), or port 443 in case of https.
-const port = 10000;
-// Don't change anything below unless you know what you're doing!
-
-
 // security check block
 try {
     process.loadEnvFile();
@@ -28,9 +22,28 @@ const express = require('express'); // im so excited
 const rateLimit = require('express-rate-limit');
 const fs = require('fs/promises');
 const path = require('path');
+const config = require('./config');
 const dashboard = require('./dashboard');
 const { closeDB } = require('./database');
 
+function isElevated() {
+  if (process.getuid) {
+    return process.getuid() === 0;
+  }
+
+  if (process.platform === 'win32') {
+    try {
+      execSync('net session', { stdio: 'ignore' });
+      return true;
+    } catch (e) {
+      return false;
+    }
+  }
+  return false;
+}
+
+
+const port = Number(config.port);
 const app = express();
 app.disable('x-powered-by');
 
@@ -107,6 +120,7 @@ registerEndpoints().then(() => {
 
     const server = app.listen(port, () => {
         console.log(`\x1b[1;32m✓ GDPS Running Successfully! Port: ${port}\x1b[0m`);
+        if (!isElevated() && port === 80 || !isElevated() && port === 443) { console.log('\x1b[1;33m⚠ Running on a privileged port without elevated permissions!'); console.log('\x1b[1;33m  This server is most likely NOT listening on the set port, to do so, elevate this process.'); }
 
         if (process.stdin.isTTY) {
             process.stdin.setRawMode(true);
