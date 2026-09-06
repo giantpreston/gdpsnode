@@ -16,7 +16,8 @@ module.exports = {
                 return Number.isNaN(value) ? fallback : value;
             };
             const numericList = (name, fallback = '') => {
-                const value = body[name];
+                const rawValue = body[name];
+                const value = Array.isArray(rawValue) ? rawValue.at(-1) : rawValue;
                 if (value === undefined || value === null || value === '') return fallback;
                 return utils.numbercolon(String(value));
             };
@@ -63,7 +64,7 @@ module.exports = {
         if ((uncompleted === 1 || onlyCompleted === 1) && !completedLevels) return res.send('-1');
 
         // db
-        if (accountID !== null) {
+        if (accountID > 0) {
             const account = db.prepare('SELECT * FROM accounts WHERE accountID = ?').get(accountID);
             if (!account) return res.send('-1');
             if (account.gjp2 !== gjp2) return res.send('-1');
@@ -200,11 +201,11 @@ module.exports = {
                 params.push(...levelIDs);
             }
         }
-        if (diff === -1) {
+        if (diff === '-1') {
             conditions.push('starDifficulty = 0');
-        } else if (diff === -3) {
+        } else if (diff === '-3') {
             conditions.push('starAuto = 1');
-        } else if (diff === -2) {
+        } else if (diff === '-2') {
             conditions.push('starDemon = 1');
             if (demonFilter === 1) conditions.push('starDemonDiff = 3');
             if (demonFilter === 2) conditions.push('starDemonDiff = 4');
