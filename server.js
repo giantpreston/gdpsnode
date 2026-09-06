@@ -28,7 +28,7 @@ const path = require('path');
 const dashboard = require('./dashboard');
 const { closeDB } = require('./database');
 
-const VERSION = '1.4R';
+const VERSION = '1.5R';
 const VERSION_URL = 'https://raw.githubusercontent.com/giantpreston/gdpsnode/refs/heads/main/version.txt';
 
 async function checkForUpdates() {

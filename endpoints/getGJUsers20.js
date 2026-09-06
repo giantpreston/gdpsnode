@@ -14,8 +14,9 @@ module.exports = {
 
         // db lookup
         let account;
+        let dis;
         if (isNaN(parseInt(str))) { account = db.prepare('SELECT * FROM profiles WHERE userName = ?').get(str); } else { account = db.prepare('SELECT * FROM profiles WHERE accountID = ?').get(str - 1); }
-        const dis = db.prepare('SELECT * FROM accounts WHERE accountID = ?').get(account.accountID);
+        if (isNaN(parseInt(str))) { dis = db.prepare('SELECT * FROM accounts WHERE userName = ?').get(str); } else { dis = db.prepare('SELECT * FROM accounts WHERE accountID = ?').get(account.accountID); }
 
         if (!account) return res.send('-1');
         if (dis.isDisabled === 1) return res.send('-1');
