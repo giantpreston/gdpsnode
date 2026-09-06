@@ -15,6 +15,11 @@ module.exports = {
                 const value = parseInt(body[name], 10);
                 return Number.isNaN(value) ? fallback : value;
             };
+            const numericList = (name, fallback = '') => {
+                const value = body[name];
+                if (value === undefined || value === null || value === '') return fallback;
+                return utils.numbercolon(String(value));
+            };
             const accountID = int('accountID');
             const type = int('type');
             const strProvided = has('str');
@@ -23,8 +28,8 @@ module.exports = {
             if (!strProvided) { str = ''; }
             else if (isNumericStr) { str = int('str'); }
             else { str = utils.remove(String(body.str)); }
-            const diff = utils.numbercolon(body.diff || '');
-            const len = has('len') ? utils.numbercolon(body.len) : '-';
+            const diff = numericList('diff');
+            const len = has('len') ? numericList('len') : '-';
             const page = int('page');
             const uncompleted = int('uncompleted');
             const onlyCompleted = int('onlyCompleted');
@@ -47,15 +52,15 @@ module.exports = {
             completedLevels: rawCompleted
         } = body;
         const gjp2 = utils.remove(body.gjp2 || '');
-        const followed = utils.numbercolon(rawFollowed || '');
-        const completedLevels = utils.numbercolon(rawCompleted || '');
+        const followed = rawFollowed === undefined ? '' : numericList('followed');
+        const completedLevels = rawCompleted === undefined ? '' : numericList('completedLevels');
 
         // holy fuck that was a lot of writing..
         // sanity checks
         if (accountID && !gjp2) return res.send('-1');
         if (type === 12 && !followed) return res.send('-1');
         if (type === 10 && !str.includes(',')) return res.send('-1');
-        if (uncompleted === 1 || onlyCompleted === 1 && !completedLevels) return res.send('-1');
+        if ((uncompleted === 1 || onlyCompleted === 1) && !completedLevels) return res.send('-1');
 
         // db
         if (accountID !== null) {
@@ -92,7 +97,7 @@ module.exports = {
 
         let epicParams = [];
 
-        if (featured === 1) epicParams.push('starFeatured = 1');
+        if (featured === 1) epicParams.push('featured = 1');
         if (epic === 1) epicParams.push('starEpic = 1');
         if (legendary === 1) epicParams.push('starEpic = 2');
         if (mythic === 1) epicParams.push('starEpic = 3');
@@ -206,14 +211,16 @@ module.exports = {
             if (demonFilter === 3) conditions.push('starDemonDiff = 0');
             if (demonFilter === 4) conditions.push('starDemonDiff = 5');
             if (demonFilter === 5) conditions.push('starDemonDiff = 6');
-        } else if (diff) {
-            const diffValues = diff.split(',').map(Number);
+        } else if (diff && diff !== '-') {
+            const diffValues = diff.split(',').filter(value => value !== '').map(Number);
+            if (diffValues.some(value => !Number.isInteger(value))) return res.send('-1');
             const placeholders = diffValues.map(() => '?').join(',');
             conditions.push(`starDifficulty IN (${placeholders}) AND starAuto = 0 AND starDemon = 0`);
             params.push(...diffValues);
         }
         if (len && len !== "-") {
-            const lenValues = len.split(',').map(Number);
+            const lenValues = len.split(',').filter(value => value !== '').map(Number);
+            if (lenValues.some(value => !Number.isInteger(value))) return res.send('-1');
             const placeholders = lenValues.map(() => '?').join(',');
             conditions.push(`levelLength IN (${placeholders})`);
             params.push(...lenValues);
