@@ -74,19 +74,23 @@ module.exports = {
         let conditions = [];
         let params = [];
 
+        const completedLevelIDs = completedLevels.split(',').filter(value => value !== '').map(Number);
         if (uncompleted === 1) {
-            conditions.push('NOT levelID IN (?)');
-            params.push(completedLevels);
+            const placeholders = completedLevelIDs.map(() => '?').join(',');
+            conditions.push(`levelID NOT IN (${placeholders})`);
+            params.push(...completedLevelIDs);
         }
         if (onlyCompleted === 1) {
-            conditions.push('levelID IN (?)');
-            params.push(completedLevels);
+            const placeholders = completedLevelIDs.map(() => '?').join(',');
+            conditions.push(`levelID IN (${placeholders})`);
+            params.push(...completedLevelIDs);
         }
         if (customSong === 1 && songProvided) {
             song = song - 1;
             conditions.push("audioTrack = 0 AND songID = ?");
             params.push(song);
         } else if (songProvided) {
+            song = song - 1;
             conditions.push("audioTrack = ?");
             params.push(song);
         }
