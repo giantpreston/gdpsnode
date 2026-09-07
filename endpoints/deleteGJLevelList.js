@@ -26,7 +26,11 @@ module.exports = {
         if (profile.modLevel !== 2 && list.accountID !== accountID) return res.send('-1'); // not list owner or elder
 
         try {
-            const inf = db.prepare('DELETE FROM lists WHERE listID = ?').run(listID);
+            const inf = db.transaction(() => {
+                const result = db.prepare('DELETE FROM lists WHERE listID = ?').run(listID);
+                if (result.changes > 0) db.prepare('DELETE FROM comments WHERE levelID = ?').run(-listID);
+                return result;
+            })();
             if (inf.changes > 0) return res.send('1');
         } catch (err) {
             console.error('\x1b[1;31m✗ Failed to delete list:\x1b[0m', err);

@@ -550,7 +550,12 @@ router.put('/api/lists/:id', requireAuth, requireCsrf, (req, res) => {
 router.delete('/api/lists/:id', requireAuth, requireCsrf, (req, res) => {
     const id = Number(req.params.id);
     if (!Number.isInteger(id) || id < 1) return res.status(400).json({ error: 'Invalid level list' });
-    if (!db.prepare('DELETE FROM lists WHERE listID = ?').run(id).changes) return res.status(404).json({ error: 'Level list not found' });
+    const result = db.transaction(() => {
+        const deletion = db.prepare('DELETE FROM lists WHERE listID = ?').run(id);
+        if (deletion.changes > 0) db.prepare('DELETE FROM comments WHERE levelID = ?').run(-id);
+        return deletion;
+    })();
+    if (!result.changes) return res.status(404).json({ error: 'Level list not found' });
     res.status(204).end();
 });
 

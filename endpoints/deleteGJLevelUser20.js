@@ -44,8 +44,11 @@ module.exports = {
         const filePath = path.join(levelsDir, `${levelID}.gdcs`);
 
         try {
-            const action = db.prepare('DELETE FROM levels WHERE levelID = ?');
-            const info = action.run(levelID); // delete level from db
+            const info = db.transaction(() => {
+                const result = db.prepare('DELETE FROM levels WHERE levelID = ?').run(levelID);
+                if (result.changes > 0) db.prepare('DELETE FROM comments WHERE levelID = ?').run(levelID);
+                return result;
+            })();
             await fs.unlink(filePath); // delete level data from folder
 
             if (info.changes > 0) return res.send('1');
