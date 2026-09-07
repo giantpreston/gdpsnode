@@ -276,7 +276,7 @@ router.get('/api/server-schedule', requireAuth, (req, res) => {
         WHERE l.dailyNumber > 0 AND l.dailyNumber < 100001 ORDER BY l.dailyNumber ASC, l.dailyTime DESC`).all();
     const weekly = db.prepare(`SELECT l.levelID, l.levelName, l.dailyNumber, l.dailyTime,
         p.userName AS creator FROM levels l LEFT JOIN profiles p ON p.accountID = l.accountID
-        WHERE l.dailyNumber >= 100001 ORDER BY l.dailyNumber ASC, l.dailyTime DESC`).all();
+        WHERE l.dailyNumber >= 100001 AND l.dailyNumber <= 200000 ORDER BY l.dailyNumber ASC, l.dailyTime DESC`).all();
     const event = db.prepare(`SELECT l.levelID, l.levelName, l.dailyNumber, l.dailyTime,
         p.userName AS creator FROM levels l LEFT JOIN profiles p ON p.accountID = l.accountID
         WHERE l.dailyNumber > 200000 ORDER BY l.dailyNumber ASC, l.dailyTime DESC`).all();
@@ -304,7 +304,7 @@ router.post('/api/server-schedule', requireAuth, requireCsrf, (req, res) => {
         if (isEvent) {
             db.prepare('UPDATE levels SET dailyNumber = 0, dailyTime = 0 WHERE dailyNumber > 200000').run();
         } else if (isWeekly) {
-            db.prepare('UPDATE levels SET dailyNumber = 0, dailyTime = 0 WHERE dailyNumber >= 100001').run();
+            db.prepare('UPDATE levels SET dailyNumber = 0, dailyTime = 0 WHERE dailyNumber >= 100001 AND dailyNumber <= 200000').run();
         } else {
             db.prepare('UPDATE levels SET dailyNumber = 0, dailyTime = 0 WHERE dailyNumber > 0 AND dailyNumber < 100001').run();
         }
@@ -319,7 +319,7 @@ router.post('/api/server-schedule/clear', requireAuth, requireCsrf, (req, res) =
     if (type === 'event') {
         db.prepare('UPDATE levels SET dailyNumber = 0, dailyTime = 0 WHERE dailyNumber > 200000').run();
     } else if (type === 'weekly') {
-        db.prepare('UPDATE levels SET dailyNumber = 0, dailyTime = 0 WHERE dailyNumber >= 100001').run();
+        db.prepare('UPDATE levels SET dailyNumber = 0, dailyTime = 0 WHERE dailyNumber >= 100001 AND dailyNumber <= 200000').run();
     } else {
         db.prepare('UPDATE levels SET dailyNumber = 0, dailyTime = 0 WHERE dailyNumber > 0 AND dailyNumber < 100001').run();
     }
