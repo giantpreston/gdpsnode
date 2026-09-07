@@ -7,25 +7,26 @@ module.exports = {
     path: '/getGJComments21.php',
     middleware: [commonSecret],
     handler: (req, res) => {
-        const rawLevelID = Number(utils.number(req.body?.levelID));
+        const rawLevelID = String(req.body?.levelID ?? '').trim();
         const rawPage = Number(utils.number(req.body?.page));
         const rawMode = Number(utils.number(req.body?.mode));
         const rawCount = Number(utils.number(req.body?.count));
 
-        const levelID = Number.isInteger(rawLevelID) && rawLevelID > 0 ? rawLevelID : NaN;
+        const levelID = /^-?\d+$/.test(rawLevelID) ? parseInt(rawLevelID, 10) : NaN;
         const page = Number.isInteger(rawPage) && rawPage >= 0 ? rawPage : 0;
         const mode = Number.isInteger(rawMode) && rawMode >= 0 && rawMode <= 1 ? rawMode : 0;
         const count = Number.isInteger(rawCount) && rawCount > 0 ? rawCount : 10;
 
         // sanity checks
-        if (!Number.isInteger(levelID) || !Number.isFinite(levelID)) return res.send('-1');
+        if (!Number.isInteger(levelID) || !Number.isFinite(levelID) || levelID === 0) return res.send('-1');
         if (count > 30) return res.send('-1');
 
         // db checks
         const lv = db.prepare('SELECT * FROM levels WHERE levelID = ?').get(levelID);
+        const list = db.prepare('SELECT * FROM lists WHERE listID = ?').get(Math.abs(levelID));
         const lvcm = db.prepare('SELECT * FROM comments WHERE levelID = ?').get(levelID);
 
-        if (!lv) return res.send('-1');
+        if ((levelID > 0 && !lv) || (levelID < 0 && !list)) return res.send('-1');
         if (!lvcm) return res.send('-2');
 
         const offset = page * count;

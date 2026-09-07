@@ -10,7 +10,8 @@ module.exports = {
         const accountID = parseInt(utils.number(req.body?.accountID), 10);
         const gjp2 = utils.remove(req.body?.gjp2);
         const commentID = parseInt(utils.number(req.body?.commentID), 10);
-        const levelID = parseInt(utils.number(req.body?.levelID), 10);
+        const rawLevelID = String(req.body?.levelID ?? '').trim();
+        const levelID = /^-?\d+$/.test(rawLevelID) ? parseInt(rawLevelID, 10) : NaN;
 
         // sanity checks
         if (!accountID || !gjp2 || !commentID || !levelID) return res.send('-1');
@@ -23,10 +24,11 @@ module.exports = {
         const comment = db.prepare('SELECT * FROM comments WHERE commentID = ? AND levelID = ?').get(commentID, levelID);
         const account = db.prepare('SELECT * FROM accounts WHERE accountID = ?').get(accountID);
         const profile = db.prepare('SELECT * FROM profiles WHERE accountID = ?').get(accountID);
+        const target = level || list;
 
         if (((levelID < 0 && !list) || (levelID > 0 && !level)) || !profile || !account || !comment) return res.send('-1');
         if (account.gjp2 !== gjp2) return res.send('-1');
-        if (profile.modLevel !== 2 && accountID !== level.accountID && comment.accountID !== accountID) return res.send('-1');
+        if (profile.modLevel !== 2 && accountID !== target.accountID && comment.accountID !== accountID) return res.send('-1');
         if (account.isDisabled === 1) return res.send('-1');
 
         try {

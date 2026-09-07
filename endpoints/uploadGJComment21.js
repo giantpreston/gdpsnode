@@ -28,7 +28,8 @@ module.exports = {
         const gjp2 = utils.remove(req.body?.gjp2);
         const userName = utils.remove(req.body?.userName);
         const comment = utils.remove(req.body?.comment);
-        const levelID = parseInt(utils.number(req.body?.levelID), 10);
+        const rawLevelID = String(req.body?.levelID ?? '').trim();
+        const levelID = /^-?\d+$/.test(rawLevelID) ? parseInt(rawLevelID, 10) : NaN;
         const chk = utils.remove(req.body?.chk);
         let percent = parseInt(utils.number(req.body?.percent), 10);
 

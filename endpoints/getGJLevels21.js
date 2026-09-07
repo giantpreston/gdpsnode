@@ -144,7 +144,7 @@ module.exports = {
             order = 'lastSent DESC'; // yay
         }
         if (type === 10) {
-            const levelIDs = str.split(',').map(Number).filter(n => !Number.isNaN(n));
+            const levelIDs = String(str).split(',').map(Number).filter(n => !Number.isNaN(n));
             if (levelIDs.length > 0) {
                 const placeholders = levelIDs.map(() => '?').join(',');
                 conditions.push(`levelID IN (${placeholders})`);
@@ -198,7 +198,7 @@ module.exports = {
             order = 'uploadDate DESC';
         }
         if (type === 25) {
-            const levelIDs = str.split(',').map(Number).filter(n => !Number.isNaN(n));
+            const levelIDs = String(str).split(',').map(Number).filter(n => !Number.isNaN(n));
             if (levelIDs.length > 0) {
                 const placeholders = levelIDs.map(() => '?').join(',');
                 conditions.push(`levelID IN (${placeholders})`);
