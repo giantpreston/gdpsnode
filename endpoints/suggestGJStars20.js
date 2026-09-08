@@ -14,9 +14,9 @@ module.exports = {
         const feature = parseInt(utils.number(req.body?.feature), 10);
 
         // sanity checks
-        if (!accountID || !gjp2 || !levelID || !stars) return res.send('-1');
+        if (!accountID || !gjp2 || !levelID || Number.isNaN(stars) || Number.isNaN(feature)) return res.send('-1');
         if (gjp2.length !== 40) return res.send('-1');
-        if (stars < 1 || stars > 10) return res.send('-1');
+        if (stars < 0 || stars > 10) return res.send('-1');
         if (feature < 0 || feature > 4) return res.send('-1');
 
         // db checks
@@ -34,6 +34,7 @@ module.exports = {
 
         try {
             if (profile.modLevel === 1) {
+                if (stars === 0) return res.send('-1');
                 const action = db.prepare('INSERT INTO modsuggest (accountID, levelID, stars, feature) VALUES (?, ?, ?, ?)');
                 const inf = action.run(accountID, levelID, stars, feature);                
                 
@@ -47,8 +48,13 @@ module.exports = {
                 
                 updates.push('starStars = ?');
                 params.push(stars);
-                
-                if (stars === 1) {
+
+                if (stars === 0) {
+                    updates.push('starAuto = 0');
+                    updates.push('starDemon = 0');
+                    updates.push('starDifficulty = 0');
+                    updates.push('starDemonDiff = 0');
+                } else if (stars === 1) {
                     updates.push('starAuto = 1');
                     updates.push('starDifficulty = 1');
                     updates.push('starDemon = 0');
@@ -90,19 +96,31 @@ module.exports = {
                 } else if (feature === 4) {
                     updates.push('featured = 1');
                     updates.push('starEpic = 3');
+                } else {
+                    updates.push('featured = 0');
+                    updates.push('starEpic = 0');
                 }
                 
                 params.push(levelID); // for WHERE clause
                 
                 const query = `UPDATE levels SET ${updates.join(', ')} WHERE levelID = ?`;
                 const action = db.prepare(query);
-                const inf = action.run(...params);
+                const transaction = db.transaction(() => {
+                    const oldFeature = level.featured ? level.starEpic + 1 : 0;
+                    const oldPoints = utils.creatorPointsForRating(level.starStars, oldFeature);
+                    const newPoints = utils.creatorPointsForRating(stars, feature);
+                    const inf = action.run(...params);
 
-                // clean up any old records sent by mods since the level is now rated and no longer pending a rating
-                const action2 = db.prepare('UPDATE levels SET isSent = 0, lastSent = 0 WHERE levelID = ?');
-                action2.run(levelID);
-                const action3 = db.prepare('DELETE FROM modsuggest WHERE levelID = ?');
-                action3.run(levelID);
+                    db.prepare('UPDATE levels SET isSent = 0, lastSent = 0 WHERE levelID = ?').run(levelID);
+                    db.prepare('DELETE FROM modsuggest WHERE levelID = ?').run(levelID);
+                    const pointDelta = newPoints - oldPoints;
+                    if (pointDelta) {
+                        db.prepare('UPDATE profiles SET creatorPoints = creatorPoints + ? WHERE accountID = ?')
+                            .run(pointDelta, level.accountID);
+                    }
+                    return inf;
+                });
+                const inf = transaction();
                 
                 if (inf.changes > 0) return res.send('1');
             }

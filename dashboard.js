@@ -4,6 +4,7 @@ const rateLimit = require('express-rate-limit');
 const path = require('path');
 const fs = require('fs/promises');
 const db = require('./database');
+const utils = require('./utils');
 
 const router = express.Router();
 const sessions = new Map();
@@ -82,20 +83,39 @@ function applyRating(levelId, stars, feature, demonDiff) {
 
     const update = db.prepare(`UPDATE levels SET ${updates.join(', ')}, isSent = 0, lastSent = 0 WHERE levelID = ?`);
     const clear = db.prepare('DELETE FROM modSuggest WHERE levelID = ?');
+    const getLevel = db.prepare('SELECT accountID, starStars, featured, starEpic FROM levels WHERE levelID = ?');
+    const updateCreatorPoints = db.prepare('UPDATE profiles SET creatorPoints = creatorPoints + ? WHERE accountID = ?');
     const transaction = db.transaction(() => {
+        const level = getLevel.get(levelId);
+        if (!level) return 0;
         const result = update.run(...values);
         clear.run(levelId);
+        const oldFeature = level.featured ? level.starEpic + 1 : 0;
+        const pointDelta = utils.creatorPointsForRating(stars, feature) -
+            utils.creatorPointsForRating(level.starStars, oldFeature);
+        if (pointDelta) updateCreatorPoints.run(pointDelta, level.accountID);
         return result.changes;
     });
     return transaction();
 }
 
 function clearRating(levelId) {
-    const result = db.prepare(`UPDATE levels SET starStars = 0,
+    const clear = db.prepare(`UPDATE levels SET starStars = 0,
         starAuto = 0, starDemon = 0, featured = 0, starEpic = 0, starDemonDiff = 0,
-        isSent = 0, lastSent = 0 WHERE levelID = ?`).run(levelId);
-    db.prepare('DELETE FROM modSuggest WHERE levelID = ?').run(levelId);
-    return result.changes;
+        isSent = 0, lastSent = 0 WHERE levelID = ?`);
+    const getLevel = db.prepare('SELECT accountID, starStars, featured, starEpic FROM levels WHERE levelID = ?');
+    const updateCreatorPoints = db.prepare('UPDATE profiles SET creatorPoints = creatorPoints - ? WHERE accountID = ?');
+    const transaction = db.transaction(() => {
+        const level = getLevel.get(levelId);
+        if (!level) return 0;
+        const result = clear.run(levelId);
+        const oldFeature = level.featured ? level.starEpic + 1 : 0;
+        const points = utils.creatorPointsForRating(level.starStars, oldFeature);
+        if (points) updateCreatorPoints.run(points, level.accountID);
+        db.prepare('DELETE FROM modSuggest WHERE levelID = ?').run(levelId);
+        return result.changes;
+    });
+    return transaction();
 }
 
 function applyDifficulty(levelId, difficulty) {

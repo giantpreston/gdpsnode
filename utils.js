@@ -116,4 +116,9 @@ function randomString(length) {
     return result;
 }
 
-module.exports = { generateGJP2, isURLBase64, remove, charclean, numbercolon, number, getRelative, xorCipher, genSolo3, genSolo4, randomString };
+function creatorPointsForRating(stars, feature) {
+    if (!stars) return 0;
+    return Math.max(0, Math.min(4, feature)) + 1;
+}
+
+module.exports = { generateGJP2, isURLBase64, remove, charclean, numbercolon, number, getRelative, xorCipher, genSolo3, genSolo4, randomString, creatorPointsForRating };
