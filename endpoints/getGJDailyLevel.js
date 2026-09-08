@@ -12,7 +12,7 @@ function getCurrentDailyLevel(isWeekly = false, isEvent = false) {
         `SELECT levelID, levelName, dailyNumber, dailyTime, starStars, accountID
          FROM levels
          WHERE ${rangeClause}
-         ORDER BY uploadDate DESC
+         ORDER BY dailyNumber DESC
          LIMIT 1`
     ).get() || null;
 }

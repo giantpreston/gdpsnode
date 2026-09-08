@@ -321,13 +321,6 @@ router.post('/api/server-schedule', requireAuth, requireCsrf, (req, res) => {
     const targetNumber = isEvent ? slot + 200000 : isWeekly ? slot + 100000 : slot;
 
     db.transaction(() => {
-        if (isEvent) {
-            db.prepare('UPDATE levels SET dailyNumber = 0, dailyTime = 0 WHERE dailyNumber > 200000').run();
-        } else if (isWeekly) {
-            db.prepare('UPDATE levels SET dailyNumber = 0, dailyTime = 0 WHERE dailyNumber >= 100001 AND dailyNumber <= 200000').run();
-        } else {
-            db.prepare('UPDATE levels SET dailyNumber = 0, dailyTime = 0 WHERE dailyNumber > 0 AND dailyNumber < 100001').run();
-        }
         db.prepare('UPDATE levels SET dailyNumber = ?, dailyTime = ? WHERE levelID = ?').run(targetNumber, expiresAt, levelId);
     })();
 
