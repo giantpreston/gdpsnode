@@ -1,7 +1,7 @@
 # GDPSnode
 
 [![Watch the trailer](https://img.shields.io/badge/Watch_the_trailer-YouTube-red?logo=youtube&logoColor=white)](https://www.youtube.com/watch?v=2F5ZYpTTSGM)
-[![Node.js](https://img.shields.io/badge/Node.js-20%2B-339933?logo=node.js&logoColor=white)](https://nodejs.org/)
+[![Node.js](https://img.shields.io/badge/Node.js-22%2B-339933?logo=node.js&logoColor=white)](https://nodejs.org/)
 
 A fully rewritten version of the Geomtry Dash backend in Node.js, with account storage, levels, custom songs, rewards, and an admin dashboard.
 
