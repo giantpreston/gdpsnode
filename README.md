@@ -7,7 +7,7 @@ A fully rewritten version of the Geomtry Dash backend in Node.js, with account s
 
 ## Quick start
 
-Requirements: Node.js 20.6+ and npm.
+Requirements: Node.js 22+ and npm.
 
 ```sh
 npm install
@@ -32,7 +32,7 @@ DASHBOARD_ACCOUNT_ID=123
 
 The account must already exist and have `modLevel=2` (elder). Change the default dashboard path and password before exposing the server to the internet. Set `DASHBOARD_SECURE_COOKIES=1` when using HTTPS.
 
-## What is included
+## Project Features:
 
 - Geometry Dash-compatible account, level, list, score, comment, message, social, rating, reward, and moderation endpoints
 - Custom song hosting at `/songs/<filename>`
