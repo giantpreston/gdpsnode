@@ -73,8 +73,8 @@ module.exports = {
             updateAccount.run(finalSaveData, accountId);
             
             // update profile orbs and completed levels
-            const profileCheck = db.prepare('SELECT accountID FROM profiles WHERE userName = ?');
-            const profile = profileCheck.get(account.userName);
+            const profileCheck = db.prepare('SELECT accountID FROM profiles WHERE accountID = ?');
+            const profile = profileCheck.get(accountId);
             
             if (profile) {
                 const updateProfile = db.prepare('UPDATE profiles SET orbs = ?, completedLvls = ? WHERE accountID = ?');

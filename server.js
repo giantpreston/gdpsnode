@@ -23,12 +23,13 @@ if (isDefaultPath || isDefaultPass) {
 // actual server code
 const express = require('express'); // im so excited
 const rateLimit = require('express-rate-limit');
+const { execSync } = require('child_process');
 const fs = require('fs/promises');
 const path = require('path');
 const dashboard = require('./dashboard');
 const { closeDB } = require('./database');
 
-const VERSION = '2.3R';
+const VERSION = '2.4R';
 const VERSION_URL = 'https://raw.githubusercontent.com/giantpreston/gdpsnode/refs/heads/main/version.txt';
 
 async function checkForUpdates() {
@@ -64,7 +65,7 @@ function isElevated() {
 
 const app = express();
 app.disable('x-powered-by');
-app.set('trust proxy', 1);
+app.set('trust proxy', process.env.TRUST_PROXY === '1');
 
 // spoof robtop's version of apache lmaoooooo
 app.use((req, res, next) => {

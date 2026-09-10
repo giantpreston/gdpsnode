@@ -40,18 +40,20 @@ module.exports = {
 
         const scoreColumn = mode === 1 ? 'points' : 'time';
         const scoreOrder = mode === 1 ? 'DESC' : 'ASC';
-        const existingScore = db.prepare('SELECT time, points FROM platscores WHERE accountID = ? AND levelID = ?').get(accountID, levelID);
+        db.transaction(() => {
+            const existingScore = db.prepare('SELECT time, points FROM platscores WHERE accountID = ? AND levelID = ?').get(accountID, levelID);
 
-        if (!existingScore) {
-            if (time > 0) {
-                db.prepare('INSERT INTO platscores (accountID, levelID, time, points, timestamp) VALUES (?, ?, ?, ?, ?)').run(accountID, levelID, time, points, timestamp);
+            if (!existingScore) {
+                if (time > 0) {
+                    db.prepare('INSERT INTO platscores (accountID, levelID, time, points, timestamp) VALUES (?, ?, ?, ?, ?)').run(accountID, levelID, time, points, timestamp);
+                }
+            } else {
+                const improvesScore = mode === 1 ? existingScore.points < points : existingScore.time > time;
+                if (improvesScore && time > 0) {
+                    db.prepare(`UPDATE platscores SET ${scoreColumn} = ?, timestamp = ? WHERE accountID = ? AND levelID = ?`).run(mode === 1 ? points : time, timestamp, accountID, levelID);
+                }
             }
-        } else {
-            const improvesScore = mode === 1 ? existingScore.points < points : existingScore.time > time;
-            if (improvesScore && time > 0) {
-                db.prepare(`UPDATE platscores SET ${scoreColumn} = ?, timestamp = ? WHERE accountID = ? AND levelID = ?`).run(mode === 1 ? points : time, timestamp, accountID, levelID);
-            }
-        }
+        })();
 
         let query = `
             SELECT s.*, p.userName, p.icon, p.color1, p.color2, p.color3, p.iconType, p.special, a.isDisabled

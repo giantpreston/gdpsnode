@@ -31,12 +31,17 @@ module.exports = {
         try {
             const body = req.body || {};
             const accountID = body.accountID ? parseInt(utils.number(body.accountID), 10) : 0;
+            const gjp2 = utils.remove(body.gjp2 || '');
             const type = integer(body.type);
             const page = Math.max(integer(body.page), 0);
             const offset = page * pageSize;
             const str = hasValue(body, 'str') ? utils.remove(String(body.str)) : '';
             const diff = hasValue(body, 'diff') ? utils.numbercolon(String(body.diff)) : '-';
             const demonFilter = integer(body.demonFilter);
+            if (accountID) {
+                const account = db.prepare('SELECT gjp2, isDisabled FROM accounts WHERE accountID = ?').get(accountID);
+                if (!account || account.isDisabled === 1 || !gjp2 || account.gjp2 !== gjp2) return res.send('-1');
+            }
             const isIdSearch = type === 0 && /^\d+$/.test(str);
             const conditions = [];
             const params = [];

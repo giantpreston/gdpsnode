@@ -55,11 +55,11 @@ module.exports = {
         if (/^\d+$/.test(udid) || (!accountID && !uuid && !udid)) return res.send('-1');
         if (accountID) {
             const account = db.prepare('SELECT accountID, gjp2, isDisabled FROM accounts WHERE accountID = ?').get(accountID);
-            if (!account || account.isDisabled === 1 || (gjp2 && account.gjp2 !== gjp2)) return res.send('-1');
+            if (!account || account.isDisabled === 1 || !gjp2 || account.gjp2 !== gjp2) return res.send('-1');
         }
 
         const profileID = accountID || (uuid > 1 ? uuid - 1 : 0);
-        const profile = profileID ? db.prepare('SELECT * FROM profiles WHERE accountID = ?').get(profileID) : null;
+        const profile = accountID ? db.prepare('SELECT * FROM profiles WHERE accountID = ?').get(accountID) : null;
         if (accountID && !profile) return res.send('-1');
 
         const currentTime = Math.floor(Date.now() / 1000) + 100;
@@ -71,17 +71,17 @@ module.exports = {
         let chest2left = Math.max(0, chestConfig.chest2wait - (currentTime - chest2time));
 
         if (rewardType === 1 || rewardType === 2) {
-            if (!profile || (rewardType === 1 ? chest1left : chest2left) !== 0) return res.send('-1');
+            if (profile && (rewardType === 1 ? chest1left : chest2left) !== 0) return res.send('-1');
             if (rewardType === 1) {
                 chest1count++;
                 chest1time = currentTime;
                 chest1left = chestConfig.chest1wait;
-                db.prepare('UPDATE profiles SET chest1count = ?, chest1time = ? WHERE accountID = ?').run(chest1count, chest1time, profileID);
+                if (profile) db.prepare('UPDATE profiles SET chest1count = ?, chest1time = ? WHERE accountID = ?').run(chest1count, chest1time, accountID);
             } else {
                 chest2count++;
                 chest2time = currentTime;
                 chest2left = chestConfig.chest2wait;
-                db.prepare('UPDATE profiles SET chest2count = ?, chest2time = ? WHERE accountID = ?').run(chest2count, chest2time, profileID);
+                if (profile) db.prepare('UPDATE profiles SET chest2count = ?, chest2time = ? WHERE accountID = ?').run(chest2count, chest2time, accountID);
             }
         }
 

@@ -160,8 +160,6 @@ module.exports = {
             
             const updateQuery = `
                 UPDATE levels SET
-                    levelName = ?,
-                    levelDesc = ?,
                     levelVersion = ?,
                     levelLength = ?,
                     audioTrack = ?,
@@ -182,7 +180,7 @@ module.exports = {
                 WHERE levelID = ?
             `;
             const updateValues = [
-                levelName, levelDesc, existingLevel.levelVersion + 1, levelLength,
+                existingLevel.levelVersion + 1, levelLength,
                 audioTrack, normalizedPassword, twoPlayer, songID, objects, coins,
                 requestedStars, Math.floor(Date.now() / 1000),
                 unlisted, original, ldm, gameVersion,
@@ -192,16 +190,31 @@ module.exports = {
                 levelID
             ];
             const updateLvl = db.prepare(updateQuery);
-            updateLvl.run(...updateValues);
-
+            const levelsDir = path.join(__dirname, '..', 'levels');
+            const filePath = path.join(levelsDir, `${levelID}.gdcs`);
+            let previousLevelData = null;
             try {
-                const levelsDir = path.join(__dirname, '..', 'levels');
                 await fs.access(levelsDir).catch(() => fs.mkdir(levelsDir, { recursive: true }));
-
-                const filePath = path.join(levelsDir, `${levelID}.gdcs`);
+                previousLevelData = await fs.readFile(filePath).catch(error => {
+                    if (error.code === 'ENOENT') return null;
+                    throw error;
+                });
                 await fs.writeFile(filePath, decoded);
             } catch (err) {
                 console.error('\x1b[1;31m✗ Failed to save level string:\x1b[0m', err);
+                return res.send('-1');
+            }
+
+            try {
+                updateLvl.run(...updateValues);
+            } catch (err) {
+                try {
+                    if (previousLevelData) await fs.writeFile(filePath, previousLevelData);
+                    else await fs.unlink(filePath);
+                } catch (restoreError) {
+                    console.error('\x1b[1;31m✗ Failed to restore level string:\x1b[0m', restoreError);
+                }
+                console.error('\x1b[1;31m✗ Failed to update level metadata:\x1b[0m', err);
                 return res.send('-1');
             }
 
@@ -226,13 +239,14 @@ module.exports = {
             const info = addlvl.run(...values);
 
             const newLevelID = info.lastInsertRowid;
+            const levelsDir = path.join(__dirname, '..', 'levels');
+            const filePath = path.join(levelsDir, `${newLevelID}.gdcs`);
             try {
-                const levelsDir = path.join(__dirname, '..', 'levels');
                 await fs.access(levelsDir).catch(() => fs.mkdir(levelsDir, { recursive: true }));
-
-                const filePath = path.join(levelsDir, `${newLevelID}.gdcs`);
                 await fs.writeFile(filePath, decoded);
             } catch (err) {
+                db.prepare('DELETE FROM levels WHERE levelID = ?').run(newLevelID);
+                await fs.unlink(filePath).catch(() => {});
                 console.error('\x1b[1;31m✗ Failed to save level string:\x1b[0m', err);
                 return res.send('-1');
             }

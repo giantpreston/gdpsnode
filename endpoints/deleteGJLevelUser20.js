@@ -42,17 +42,28 @@ module.exports = {
             return res.send('-1'); // levels dir doesn't exist, therefore level doesn't exist.
         }
         const filePath = path.join(levelsDir, `${levelID}.gdcs`);
+        let levelData = null;
 
         try {
+            levelData = await fs.readFile(filePath).catch(error => {
+                if (error.code === 'ENOENT') return null;
+                throw error;
+            });
+            await fs.unlink(filePath).catch(error => {
+                if (error.code !== 'ENOENT') throw error;
+            });
+
             const info = db.transaction(() => {
                 const result = db.prepare('DELETE FROM levels WHERE levelID = ?').run(levelID);
                 if (result.changes > 0) db.prepare('DELETE FROM comments WHERE levelID = ?').run(levelID);
                 return result;
             })();
-            await fs.unlink(filePath); // delete level data from folder
 
             if (info.changes > 0) return res.send('1');
         } catch (err) {
+            if (levelData) await fs.writeFile(filePath, levelData).catch(restoreError => {
+                console.error('\x1b[1;31m✗ Failed to restore level string:\x1b[0m', restoreError);
+            });
             console.error('\x1b[1;31m✗ Failed to delete level:\x1b[0m', err);
             return res.send('-1');
         }

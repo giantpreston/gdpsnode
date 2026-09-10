@@ -75,7 +75,6 @@ module.exports = {
         if (unlisted < 0 || unlisted > 2) return res.send('-1');
 
         // db checks
-        const list = db.prepare('SELECT * FROM lists WHERE accountID = ?').get(accountID); // yes i learned i dont have to make two variables. dont laugh
         const account = db.prepare('SELECT * FROM accounts WHERE accountID = ?').get(accountID);
 
         if (!account) return res.send('-1');
@@ -83,10 +82,12 @@ module.exports = {
         if (account.isDisabled === 1) return res.send('-1');
         
         const isUpdate = listID > 0;
+        const list = isUpdate
+            ? db.prepare('SELECT * FROM lists WHERE listID = ? AND accountID = ?').get(listID, accountID)
+            : null;
 
         if (isUpdate) {
-            if (!list) return res.send('-1'); // not a real list
-            if (list.accountID !== accountID) return res.send('-1'); // doesn't own list
+            if (!list) return res.send('-1'); // not a real list or doesn't own list
 
             const updateQuery = `
                 UPDATE lists SET

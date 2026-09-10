@@ -58,20 +58,22 @@ module.exports = {
         if (attempts < 0 || clicks < 0 || time < 0 || coins < 0 || coins > 3) return res.send('-1');
         const dailyCondition = dailyID > 0 ? '> 0' : '= 0';
 
-        const existingScore = db.prepare(`SELECT percent FROM levelscores WHERE accountID = ? AND levelID = ? AND dailyID ${dailyCondition}`).get(accountID, levelID);
-        if (!existingScore) {
-            db.prepare(`
-                INSERT INTO levelscores
-                    (accountID, levelID, percent, uploadDate, coins, attempts, clicks, time, progresses, dailyID)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-            `).run(accountID, levelID, percent, uploadDate, coins, attempts, clicks, time, progresses, dailyID);
-        } else if (existingScore.percent <= percent) {
-            db.prepare(`
-                UPDATE levelscores
-                SET percent = ?, uploadDate = ?, coins = ?, attempts = ?, clicks = ?, time = ?, progresses = ?, dailyID = ?
-                WHERE accountID = ? AND levelID = ? AND dailyID ${dailyCondition}
-            `).run(percent, uploadDate, coins, attempts, clicks, time, progresses, dailyID, accountID, levelID);
-        }
+        db.transaction(() => {
+            const existingScore = db.prepare(`SELECT percent FROM levelscores WHERE accountID = ? AND levelID = ? AND dailyID ${dailyCondition}`).get(accountID, levelID);
+            if (!existingScore) {
+                db.prepare(`
+                    INSERT INTO levelscores
+                        (accountID, levelID, percent, uploadDate, coins, attempts, clicks, time, progresses, dailyID)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                `).run(accountID, levelID, percent, uploadDate, coins, attempts, clicks, time, progresses, dailyID);
+            } else if (existingScore.percent <= percent) {
+                db.prepare(`
+                    UPDATE levelscores
+                    SET percent = ?, uploadDate = ?, coins = ?, attempts = ?, clicks = ?, time = ?, progresses = ?, dailyID = ?
+                    WHERE accountID = ? AND levelID = ? AND dailyID ${dailyCondition}
+                `).run(percent, uploadDate, coins, attempts, clicks, time, progresses, dailyID, accountID, levelID);
+            }
+        })();
 
         let scores;
         if (type === 0) {
