@@ -65,7 +65,7 @@ function isElevated() {
 
 const app = express();
 app.disable('x-powered-by');
-app.set('trust proxy', process.env.TRUST_PROXY === '1');
+app.set('trust proxy', process.env.TRUST_PROXY);
 
 // spoof robtop's version of apache lmaoooooo
 app.use((req, res, next) => {
