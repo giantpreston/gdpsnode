@@ -8,6 +8,7 @@ module.exports = {
     middleware: [commonSecret],
     handler: (req, res) => {
         const str = utils.remove(req.body?.str || '');
+        const normalizedStr = utils.normalizeUsername(str);
 
         // sanity check
         if (!str) return res.send('-1'); // bro what u wanna search for!1!!
@@ -15,8 +16,8 @@ module.exports = {
         // db lookup
         let account;
         let dis;
-        if (isNaN(parseInt(str))) { account = db.prepare('SELECT * FROM profiles WHERE userName = ?').get(str); } else { account = db.prepare('SELECT * FROM profiles WHERE accountID = ?').get(str - 1); }
-        if (isNaN(parseInt(str))) { dis = db.prepare('SELECT * FROM accounts WHERE userName = ?').get(str); } else { dis = db.prepare('SELECT * FROM accounts WHERE accountID = ?').get(account.accountID); }
+        if (isNaN(parseInt(str))) { account = db.prepare('SELECT * FROM profiles WHERE LOWER(userName) = ?').get(normalizedStr); } else { account = db.prepare('SELECT * FROM profiles WHERE accountID = ?').get(str - 1); }
+        if (isNaN(parseInt(str))) { dis = db.prepare('SELECT * FROM accounts WHERE LOWER(userName) = ?').get(normalizedStr); } else { dis = db.prepare('SELECT * FROM accounts WHERE accountID = ?').get(account.accountID); }
 
         if (!account) return res.send('-1');
         if (dis.isDisabled === 1) return res.send('-1');

@@ -43,6 +43,11 @@ function remove(str) {
     return esc;
 }
 
+function normalizeUsername(str) {
+    if (typeof str !== 'string') return '';
+    return remove(str).toLowerCase();
+}
+
 function charclean(str) {
     if (typeof str !== 'string') return '';
     return str.replace(/[^A-Za-z0-9 ]/g, '');
@@ -121,4 +126,4 @@ function creatorPointsForRating(stars, feature) {
     return Math.max(0, Math.min(4, feature)) + 1;
 }
 
-module.exports = { generateGJP2, isURLBase64, remove, charclean, numbercolon, number, getRelative, xorCipher, genSolo3, genSolo4, randomString, creatorPointsForRating };
+module.exports = { generateGJP2, isURLBase64, remove, normalizeUsername, charclean, numbercolon, number, getRelative, xorCipher, genSolo3, genSolo4, randomString, creatorPointsForRating };

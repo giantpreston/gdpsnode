@@ -8,6 +8,7 @@ module.exports = {
     middleware: [accountSecret],
     handler: (req, res) => {
         const username = utils.remove(req.body?.userName || '');
+        const normalizedUsername = utils.normalizeUsername(username);
         const gjp2 = utils.remove(req.body?.gjp2 || '');
 
         // sanity checks
@@ -16,8 +17,8 @@ module.exports = {
         if (gjp2.length !== 40) return res.send('-8'); // pwd too short (here in case the gjp2 isnt a valid gjp2)
 
         // db checks
-        const check = db.prepare('SELECT * FROM accounts WHERE userName = ?');
-        const account = check.get(username);
+        const check = db.prepare('SELECT * FROM accounts WHERE LOWER(userName) = ?');
+        const account = check.get(normalizedUsername);
 
         if (!account) return res.send('-11'); // Login Failed
         if (account.gjp2 === gjp2) {

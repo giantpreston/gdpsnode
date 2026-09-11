@@ -9,6 +9,7 @@ module.exports = {
     handler: (req, res) => {
         const username = utils.remove(req.body?.userName || '')
         const password = utils.remove(req.body?.password || '')
+        const normalizedUsername = utils.normalizeUsername(username);
         
         // sanity checks
         if (!username || !password) return res.send('-1');
@@ -18,8 +19,8 @@ module.exports = {
         if (username.length > 20) return res.send('-4');
 
         // db checks
-        const check = db.prepare('SELECT * FROM accounts WHERE userName = ?');
-        const existingUser = check.get(username);
+        const check = db.prepare('SELECT * FROM accounts WHERE LOWER(userName) = ?');
+        const existingUser = check.get(normalizedUsername);
 
         if (existingUser) return res.send('-2');
 
