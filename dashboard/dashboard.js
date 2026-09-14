@@ -1,7 +1,51 @@
 let csrf = '';
+let currentLevels = [];
 const $ = selector => document.querySelector(selector);
 const escapeHtml = value => String(value ?? '').replace(/[&<>"']/g, character => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[character]));
 const demonNames = { 3: 'Easy Demon', 4: 'Medium Demon', 0: 'Hard Demon', 5: 'Insane Demon', 6: 'Extreme Demon' };
+
+function showToast(message, type = 'success') {
+    const stack = $('#toast-stack');
+    if (!stack) return;
+    const toast = document.createElement('div');
+    toast.className = `toast ${type}`;
+    toast.textContent = message;
+    stack.appendChild(toast);
+    setTimeout(() => {
+        toast.style.opacity = '0';
+        toast.style.transform = 'translateY(-4px)';
+        setTimeout(() => toast.remove(), 180);
+    }, 2600);
+}
+
+function touchLastSaved(message = 'Saved just now') {
+    const node = $('#last-saved');
+    if (!node) return;
+    node.textContent = message;
+}
+
+function setBusyState(button, label = 'Saving…', disabled = true) {
+    if (!button) return;
+    if (disabled && !button.dataset.defaultText) button.dataset.defaultText = button.textContent;
+    button.disabled = disabled;
+    if (disabled) button.textContent = label;
+    else button.textContent = button.dataset.defaultText || button.textContent;
+}
+
+function clearSearchButton(form) {
+    const query = form.querySelector('input[name="query"]');
+    if (query) query.value = '';
+}
+
+function sortLevelResults(levels) {
+    const selector = $('#level-sort');
+    if (!selector) return levels;
+    const mode = selector.value || 'id';
+    const copy = [...levels];
+    if (mode === 'name') return copy.sort((a, b) => (a.levelName || '').localeCompare(b.levelName || ''));
+    if (mode === 'stars') return copy.sort((a, b) => Number(b.starStars || 0) - Number(a.starStars || 0));
+    return copy.sort((a, b) => Number(b.levelID) - Number(a.levelID));
+}
 const featureNames = { 1: 'Featured', 2: 'Epic', 3: 'Legendary', 4: 'Mythic' };
 const difficultyNames = { 1: 'Easy', 2: 'Normal', 3: 'Hard', 4: 'Harder', 5: 'Insane' };
 const secretRewardItems = [
@@ -41,7 +85,10 @@ async function request(url, options = {}) {
     if (options.body) headers['Content-Type'] = 'application/json';
     if (csrf && options.method && options.method !== 'GET') headers['X-CSRF-Token'] = csrf;
     const response = await fetch(url, { ...options, headers });
-    if (!response.ok) throw new Error((await response.json().catch(() => ({}))).error || `Request failed (${response.status})`);
+    if (!response.ok) {
+        const payload = await response.json().catch(() => ({}));
+        throw new Error(payload.error || `Request failed (${response.status})`);
+    }
     return response.status === 204 ? null : response.json();
 }
 
@@ -71,7 +118,9 @@ function render(data) {
 }
 
 function renderLevels(levels) {
-    $('#level-results').innerHTML = levels.length ? levels.map(level => `<button class="level-result" data-level="${level.levelID}"><span><strong>${escapeHtml(level.levelName)}</strong><small>#${level.levelID} · ${escapeHtml(level.creator || 'unknown')}</small></span><span>${level.starStars ? `${level.starStars}★` : 'unrated'}${level.starDifficulty ? ` · ${difficultyNames[level.starDifficulty]}` : ''} · ${level.userRates || 0} user ratings</span></button>`).join('') : '<p class="empty">No matching levels.</p>';
+    currentLevels = Array.isArray(levels) ? levels : [];
+    const ordered = sortLevelResults(currentLevels);
+    $('#level-results').innerHTML = ordered.length ? ordered.map(level => `<button class="level-result" data-level="${level.levelID}"><span><strong>${escapeHtml(level.levelName)}</strong><small>#${level.levelID} · ${escapeHtml(level.creator || 'unknown')}</small></span><span>${level.starStars ? `${level.starStars}★` : 'unrated'}${level.starDifficulty ? ` · ${difficultyNames[level.starDifficulty]}` : ''} · ${level.userRates || 0} user ratings</span></button>`).join('') : '<p class="empty">No matching levels.</p>';
 }
 
 function renderLevelDetail(data) {
@@ -94,7 +143,7 @@ function renderCollections(data) {
     }).join('');
     $('#map-pack-list').innerHTML = data.mapPacks.length ? data.mapPacks.map(pack => `<form class="collection-form map-pack-row" data-id="${pack.packID}"><input name="packName" value="${escapeHtml(pack.packName)}" required><input name="levels" value="${escapeHtml(pack.levels)}" required><input name="stars" type="number" min="0" value="${pack.stars}" required><input name="coins" type="number" min="0" value="${pack.coins}" required><input name="difficulty" type="number" min="0" max="5" value="${pack.difficulty}" required><span class="color-control"><input class="color-picker" type="color" value="${rgbToHex(pack.barColor) || '#000000'}" aria-label="Bar color picker"><input name="barColor" value="${escapeHtml(pack.barColor)}" pattern="[0-9]+,[0-9]+,[0-9]+" required></span><span class="color-control"><input class="color-picker" type="color" value="${rgbToHex(pack.textColor) || '#000000'}" aria-label="Text color picker"><input name="textColor" value="${escapeHtml(pack.textColor)}" pattern="[0-9]+,[0-9]+,[0-9]+" required></span><button type="submit">Save</button><button type="button" class="reject delete-pack">Delete</button></form>`).join('') : '<p class="empty">No map packs yet.</p>';
     const lists = data.lists || [];
-    $('#level-list-list').innerHTML = lists.length ? lists.map(list => `<form class="collection-form level-list-row" data-id="${list.listID}"><label>List name<input name="listName" maxlength="20" value="${escapeHtml(list.listName)}" required></label><label>Description<input name="listDesc" maxlength="1000" value="${escapeHtml(decodeBase64Url(list.listDesc))}"></label><label>Level IDs<input name="listLevels" value="${escapeHtml(list.listLevels)}" required></label><label>Difficulty<input name="starDifficulty" type="number" min="-1" max="10" value="${list.starDifficulty}" required></label><label>Stars reward<input name="starStars" type="number" min="0" max="10" value="${list.starStars}" required></label><label>Featured<select name="featured"><option value="0"${selected(list.featured, 0)}>Not featured</option><option value="1"${selected(list.featured, 1)}>Featured</option></select></label><label>Count for reward<input name="countForReward" type="number" min="0" max="1" value="${list.countForReward}" required></label><label>Original<select name="original"><option value="0"${selected(list.original, 0)}>Reupload</option><option value="1"${selected(list.original, 1)}>Original</option></select></label><label>Visibility<select name="unlisted"><option value="0"${selected(list.unlisted, 0)}>Listed</option><option value="1"${selected(list.unlisted, 1)}>Unlisted</option><option value="2"${selected(list.unlisted, 2)}>Friends</option></select></label><span class="list-meta">#${list.listID} · v${list.listVersion} · ${escapeHtml(list.creator || 'unknown')}</span><button type="submit">Save</button><button type="button" class="reject delete-list">Delete</button></form>`).join('') : '<p class="empty">No level lists yet.</p>';
+    $('#level-list-list').innerHTML = lists.length ? lists.map(list => `<form class="collection-form level-list-row" data-id="${list.listID}"><label>List name<input name="listName" maxlength="20" value="${escapeHtml(list.listName)}" required></label><label>Description<input name="listDesc" maxlength="1000" value="${escapeHtml(list.listDesc || '')}"></label><label>Level IDs<input name="listLevels" value="${escapeHtml(list.listLevels)}" required></label><label>Difficulty<input name="starDifficulty" type="number" min="-1" max="10" value="${list.starDifficulty}" required></label><label>Stars reward<input name="starStars" type="number" min="0" max="10" value="${list.starStars}" required></label><label>Featured<select name="featured"><option value="0"${selected(list.featured, 0)}>Not featured</option><option value="1"${selected(list.featured, 1)}>Featured</option></select></label><label>Count for reward<input name="countForReward" type="number" min="0" max="1" value="${list.countForReward}" required></label><label>Original<select name="original"><option value="0"${selected(list.original, 0)}>Reupload</option><option value="1"${selected(list.original, 1)}>Original</option></select></label><label>Visibility<select name="unlisted"><option value="0"${selected(list.unlisted, 0)}>Listed</option><option value="1"${selected(list.unlisted, 1)}>Unlisted</option><option value="2"${selected(list.unlisted, 2)}>Friends</option></select></label><span class="list-meta">#${list.listID} · v${list.listVersion} · ${escapeHtml(list.creator || 'unknown')}</span><button type="submit">Save</button><button type="button" class="reject delete-list">Delete</button></form>`).join('') : '<p class="empty">No level lists yet.</p>';
     syncColorControls($('#map-pack-list'));
 }
 
@@ -174,7 +223,7 @@ function updateSecretRewardValue(row, value) {
 }
 
 function renderSecretRewards(rewards) {
-    $('#secret-reward-list').innerHTML = rewards.length ? rewards.map(reward => `<div class="quest-row"><div><strong>${escapeHtml(decodeSecretCode(reward.code))}</strong><span>${escapeHtml(rewardLabel(reward.rewards))} · ${reward.uses} use${reward.uses === 1 ? '' : 's'}${reward.duration ? ` · ${Math.ceil(reward.duration / 86400)} day expiry` : ''}</span></div><button type="button" class="reject delete-secret-reward" data-reward="${reward.rewardID}">Delete</button></div>`).join('') : '<p class="empty">No secret codes created.</p>';
+    $('#secret-reward-list').innerHTML = rewards.length ? rewards.map(reward => `<div class="quest-row"><div><strong>${escapeHtml(decodeSecretCode(reward.code))}</strong><span>${escapeHtml(rewardLabel(reward.rewards))} · ${reward.uses} use${reward.uses === 1 ? '' : 's'}${reward.duration ? ` · ${Math.ceil(reward.duration / 86400)} day expiry` : ''}</span></div><div class="row-actions"><button type="button" class="ghost small copy-secret-code" data-code="${escapeHtml(decodeSecretCode(reward.code))}">Copy</button><button type="button" class="reject delete-secret-reward" data-reward="${reward.rewardID}">Delete</button></div></div>`).join('') : '<p class="empty">No secret codes created.</p>';
 }
 
 function formBody(form) {
@@ -232,8 +281,24 @@ async function load() {
 $('#login-form').addEventListener('submit', async event => {
     event.preventDefault(); $('#login-error').textContent = '';
     const form = new FormData(event.currentTarget);
-    try { const data = await request('api/login', { method: 'POST', body: JSON.stringify({ username: form.get('username'), password: form.get('password') }) }); csrf = data.csrf; await load(); }
-    catch (error) { $('#login-error').textContent = error.message; }
+    const submit = event.currentTarget.querySelector('button[type="submit"]');
+    setBusyState(submit, 'Authorizing…', true);
+    try {
+        const data = await request('api/login', { method: 'POST', body: JSON.stringify({ username: form.get('username'), password: form.get('password') }) });
+        csrf = data.csrf;
+        await load();
+        showToast('Dashboard opened', 'success');
+    } catch (error) { $('#login-error').textContent = error.message; showToast(error.message, 'error'); }
+    finally { setBusyState(submit, 'Authorizing…', false); }
+});
+
+$('#toggle-password').addEventListener('click', () => {
+    const password = $('#login-password');
+    if (!password) return;
+    const toggle = $('#toggle-password');
+    const next = password.type === 'password' ? 'text' : 'password';
+    password.type = next;
+    toggle.textContent = next === 'password' ? 'Show' : 'Hide';
 });
 
 $('#queue').addEventListener('click', async event => {
@@ -242,8 +307,11 @@ $('#queue').addEventListener('click', async event => {
     const body = { levelId: Number(item.dataset.level) };
     const url = event.target.classList.contains('approve') ? 'api/rate' : 'api/reject';
     if (url.endsWith('/rate')) { body.stars = Number(item.querySelector('.stars').value); body.feature = Number(item.querySelector('.feature').value); body.demonDiff = Number(item.querySelector('.demon').value); }
-    try { await request(url, { method: 'POST', body: JSON.stringify(body) }); await load(); }
-    catch (error) { $('#app-error').textContent = error.message; }
+    const button = event.target;
+    setBusyState(button, 'Working…', true);
+    try { await request(url, { method: 'POST', body: JSON.stringify(body) }); await load(); showToast(url.includes('rate') ? 'Suggestion rated' : 'Suggestion rejected', 'success'); }
+    catch (error) { $('#app-error').textContent = error.message; showToast(error.message, 'error'); }
+    finally { setBusyState(button, 'Working…', false); }
 });
 
 $('#queue').addEventListener('change', event => {
@@ -258,8 +326,29 @@ $('#level-detail').addEventListener('change', event => {
 $('#level-search').addEventListener('submit', async event => {
     event.preventDefault();
     const query = new FormData(event.currentTarget).get('query');
-    try { const data = await request(`api/levels?q=${encodeURIComponent(query)}`); renderLevels(data.levels); }
-    catch (error) { $('#app-error').textContent = error.message; }
+    const button = event.currentTarget.querySelector('button[type="submit"]');
+    setBusyState(button, 'Searching…', true);
+    try {
+        const data = await request(`api/levels?q=${encodeURIComponent(query)}`);
+        renderLevels(data.levels);
+        touchLastSaved('Levels ready');
+        showToast('Levels refreshed', 'success');
+    } catch (error) { $('#app-error').textContent = error.message; showToast(error.message, 'error'); }
+    finally { setBusyState(button, 'Searching…', false); }
+});
+
+$('#level-sort').addEventListener('change', () => {
+    renderLevels(currentLevels);
+    showToast('Level list sorted', 'success');
+});
+
+$('#clear-level-search').addEventListener('click', () => {
+    const form = $('#level-search');
+    if (!form) return;
+    clearSearchButton(form);
+    $('#level-sort').value = 'id';
+    renderLevels([]);
+    form.dispatchEvent(new Event('submit'));
 });
 
 $('#level-results').addEventListener('click', async event => {
@@ -292,10 +381,21 @@ $('#logout').addEventListener('click', async () => { try { await request('api/lo
 $('#account-search').addEventListener('submit', async event => {
     event.preventDefault();
     const query = new FormData(event.currentTarget).get('query');
+    const button = event.currentTarget.querySelector('button[type="submit"]');
+    setBusyState(button, 'Searching…', true);
     try {
         const data = await request(`api/users?q=${encodeURIComponent(query)}`);
         renderAccountResults(data.users);
-    } catch (error) { $('#app-error').textContent = error.message; }
+        touchLastSaved('Accounts ready');
+    } catch (error) { $('#app-error').textContent = error.message; showToast(error.message, 'error'); }
+    finally { setBusyState(button, 'Searching…', false); }
+});
+
+$('#clear-account-search').addEventListener('click', () => {
+    const form = $('#account-search');
+    if (!form) return;
+    clearSearchButton(form);
+    form.dispatchEvent(new Event('submit'));
 });
 
 $('#server-schedule-form').addEventListener('submit', async event => {
@@ -344,9 +444,9 @@ document.addEventListener('submit', async event => {
         event.preventDefault();
         try { await request(form.dataset.id ? `api/map-packs/${form.dataset.id}` : 'api/map-packs', { method: form.dataset.id ? 'PUT' : 'POST', body: JSON.stringify(formBody(form)) }); await load(); }
         catch (error) { $('#app-error').textContent = error.message; }
-    } else if (form.id === 'level-list-form' || form.classList.contains('level-list-row')) {
+    } else if (form.classList.contains('level-list-row')) {
         event.preventDefault();
-        try { await request(form.dataset.id ? `api/lists/${form.dataset.id}` : 'api/lists', { method: form.dataset.id ? 'PUT' : 'POST', body: JSON.stringify(formBody(form)) }); await load(); }
+        try { await request(`api/lists/${form.dataset.id}`, { method: 'PUT', body: JSON.stringify(formBody(form)) }); await load(); }
         catch (error) { $('#app-error').textContent = error.message; }
     } else if (form.classList.contains('gauntlet-form')) {
         event.preventDefault();
@@ -411,19 +511,56 @@ document.addEventListener('input', event => {
     else if (event.target.name === 'barColor' || event.target.name === 'textColor') syncColorControl(control);
 });
 
+document.addEventListener('focusin', event => {
+    if (!event.target.matches('select')) return;
+
+    document.querySelectorAll('select.selected').forEach(select => {
+        if (select !== event.target) select.classList.remove('selected');
+    });
+
+    event.target.classList.add('selected');
+});
+
 document.addEventListener('change', event => {
+    if (event.target.matches('select')) event.target.classList.remove('selected');
     if (event.target.name === 'itemID') updateSecretRewardValue(event.target.closest('.secret-reward-item'));
 });
 
+document.addEventListener('click', event => {
+    if (!event.target.matches('select')) {
+        document.querySelectorAll('select.selected').forEach(select => select.classList.remove('selected'));
+    }
+});
+
 document.addEventListener('click', async event => {
+    if (event.target.classList.contains('copy-secret-code')) {
+        const code = event.target.dataset.code || '';
+        try {
+            if (navigator.clipboard) await navigator.clipboard.writeText(code);
+            else {
+                const tmp = document.createElement('textarea');
+                tmp.value = code;
+                document.body.appendChild(tmp);
+                tmp.select();
+                document.execCommand('copy');
+                tmp.remove();
+            }
+            showToast('Secret code copied', 'success');
+        } catch (error) {
+            showToast('Copy failed', 'error');
+        }
+        return;
+    }
     if (event.target.classList.contains('delete-song')) {
-        try { await request(`api/songs/${event.target.dataset.song}`, { method: 'DELETE' }); renderSongs((await request('api/songs')).songs); }
-        catch (error) { $('#app-error').textContent = error.message; }
+        if (!confirm('Delete this song?')) return;
+        try { await request(`api/songs/${event.target.dataset.song}`, { method: 'DELETE' }); renderSongs((await request('api/songs')).songs); showToast('Song deleted', 'success'); }
+        catch (error) { $('#app-error').textContent = error.message; showToast(error.message, 'error'); }
         return;
     }
     if (event.target.classList.contains('delete-quest')) {
-        try { await request(`api/quests/${event.target.dataset.quest}`, { method: 'DELETE' }); renderQuests((await request('api/quests')).quests || []); }
-        catch (error) { $('#app-error').textContent = error.message; }
+        if (!confirm('Delete this quest?')) return;
+        try { await request(`api/quests/${event.target.dataset.quest}`, { method: 'DELETE' }); renderQuests((await request('api/quests')).quests || []); showToast('Quest deleted', 'success'); }
+        catch (error) { $('#app-error').textContent = error.message; showToast(error.message, 'error'); }
         return;
     }
     if (event.target.classList.contains('remove-secret-item')) {
@@ -436,8 +573,9 @@ document.addEventListener('click', async event => {
         return;
     }
     if (event.target.classList.contains('delete-secret-reward')) {
-        try { await request(`api/secret-rewards/${event.target.dataset.reward}`, { method: 'DELETE' }); renderSecretRewards((await request('api/secret-rewards')).rewards || []); }
-        catch (error) { $('#app-error').textContent = error.message; }
+        if (!confirm('Delete this secret reward?')) return;
+        try { await request(`api/secret-rewards/${event.target.dataset.reward}`, { method: 'DELETE' }); renderSecretRewards((await request('api/secret-rewards')).rewards || []); showToast('Secret reward deleted', 'success'); }
+        catch (error) { $('#app-error').textContent = error.message; showToast(error.message, 'error'); }
         return;
     }
     const form = event.target.closest('.collection-form');
@@ -445,8 +583,10 @@ document.addEventListener('click', async event => {
     const isGauntlet = form.classList.contains('gauntlet-form');
     const isList = form.classList.contains('level-list-row');
     if (!event.target.classList.contains(isList ? 'delete-list' : isGauntlet ? 'delete-gauntlet' : 'delete-pack')) return;
-    try { await request(`api/${isList ? 'lists' : isGauntlet ? 'gauntlets' : 'map-packs'}/${form.dataset.id}`, { method: 'DELETE' }); await load(); }
-    catch (error) { $('#app-error').textContent = error.message; }
+    if (!confirm('Delete this collection item?')) return;
+    try { await request(`api/${isList ? 'lists' : isGauntlet ? 'gauntlets' : 'map-packs'}/${form.dataset.id}`, { method: 'DELETE' }); await load(); showToast('Collection item deleted', 'success'); }
+    catch (error) { $('#app-error').textContent = error.message; showToast(error.message, 'error'); }
 });
+
 addSecretRewardItem();
 load();

@@ -16,6 +16,17 @@ const secureCookies = process.env.DASHBOARD_SECURE_COOKIES === '1';
 const dashboardPath = (process.env.DASHBOARD_PATH || '/dashboard').replace(/\/+$/, '').replace(/^([^/])/, '/$1') || '/dashboard';
 const songsDirectory = path.join(__dirname, 'songs');
 
+function decodeBase64Url(value) {
+    if (!value) return '';
+    try {
+        const normalized = String(value).replace(/-/g, '+').replace(/_/g, '/');
+        const padded = normalized.padEnd(Math.ceil(normalized.length / 4) * 4, '=');
+        return Buffer.from(padded, 'base64').toString('utf8');
+    } catch {
+        return value;
+    }
+}
+
 function sameSecret(left, right) {
     if (typeof left !== 'string' || typeof right !== 'string') return false;
     const leftBuffer = Buffer.from(left);
@@ -243,7 +254,10 @@ router.get('/api/collections', requireAuth, (req, res) => {
     const gauntlets = db.prepare('SELECT * FROM gauntlets WHERE ID BETWEEN 1 AND 60 ORDER BY ID').all();
     const mapPacks = db.prepare('SELECT * FROM mapPacks ORDER BY packID').all();
     const lists = db.prepare(`SELECT l.*, p.userName AS creator FROM lists l
-        LEFT JOIN profiles p ON p.accountID = l.accountID ORDER BY l.listID`).all();
+        LEFT JOIN profiles p ON p.accountID = l.accountID ORDER BY l.listID`).all().map(list => ({
+            ...list,
+            listDesc: decodeBase64Url(list.listDesc)
+        }));
     res.json({ gauntlets, mapPacks, lists });
 });
 
