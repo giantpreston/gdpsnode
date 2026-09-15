@@ -282,7 +282,18 @@ module.exports = {
         const customSongIDs = new Set();
         levels.forEach(level => {
             accountIDs.add(level.accountID);
-            if (level.customSongID > 0) customSongIDs.add(level.customSongID);
+
+            if (level.audioTrack === 0 && level.songID > 0) {
+                customSongIDs.add(level.songID);
+            }
+
+            if (level.songIDs) {
+                String(level.songIDs)
+                    .split(',')
+                    .map(value => Number(value.trim()))
+                    .filter(id => Number.isInteger(id) && id > 0)
+                    .forEach(id => customSongIDs.add(id));
+            }
         });
 
         const userMap = new Map();
@@ -364,10 +375,10 @@ module.exports = {
                 2: songData.name || '',
                 3: songData.artistID || 0,
                 4: songData.artistName || '',
-                5: 0,
+                5: songData.size || 0,
                 6: songData.videoID || '',
                 7: songData.youtubeURL || '',
-                8: songData.isVerified ? 1 : 0,
+                8: songData.allowedForUse ? 1 : 0,
                 9: songData.songPriority || 0,
                 10: songData.link || '',
                 11: songData.nongEnum || 0,
@@ -386,7 +397,7 @@ module.exports = {
 
         const levelsStr = levelStrings.join('|');
         const creatorsStr = creatorStrings.join('|');
-        const songsStr = songStrings.join(':');
+        const songsStr = songStrings.join('~:~|~');
 
         const pageInfo = `${total}:${offset}:10`;
         let hashInput = '';
