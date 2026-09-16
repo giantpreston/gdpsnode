@@ -15,7 +15,7 @@ cp .env.example .env
 npm start
 ```
 
-The server runs on port `10000` by default. Change the `port` value at the top of `server.js` to use another port.
+The server runs on port `10000` by default. Change the `port` value at the top of `config.js` to pick another port.
 
 ## Dashboard
 
@@ -28,6 +28,8 @@ DASHBOARD_PATH=/dashboard
 DASHBOARD_USER=elder
 DASHBOARD_PASSWORD=use-a-long-random-password
 DASHBOARD_ACCOUNT_ID=123
+DASHBOARD_SECURE_COOKIES=0
+TRUST_PROXY_HOPS=0
 ```
 
 The account must already exist and have `modLevel=2` (elder). Change the default dashboard path and password before exposing the server to the internet. Set `DASHBOARD_SECURE_COOKIES=1` when using HTTPS.

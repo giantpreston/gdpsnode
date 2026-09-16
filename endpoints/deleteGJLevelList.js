@@ -23,7 +23,7 @@ module.exports = {
         if (!account || !list) return res.send('-1');
         if (account.gjp2 !== gjp2) return res.send('-1');
         if (account.isDisabled === 1) return res.send('-1');
-        if (profile.modLevel !== 2 && list.accountID !== accountID) return res.send('-1'); // not list owner or elder
+        if (profile.modLevel !== 2 && list.accountID !== accountID) return res.send('-1'); // not list owner or mod
 
         try {
             const inf = db.transaction(() => {

@@ -24,7 +24,7 @@ module.exports = {
         if (!profile || !account || !comment) return res.send('-1');
         if (account.gjp2 !== gjp2) return res.send('-1');
         if (account.isDisabled === 1) return res.send('-1');
-        if (profile.modLevel !== 2 && targetAccountID !== accountID) return res.send('-1'); // elder mod acc comment deletion functionality
+        if (profile.modLevel !== 2 && targetAccountID !== accountID) return res.send('-1'); // moderator acc comment deletion functionality
         if (profile.modLevel !== 2 && comment.accountID !== accountID) return res.send('-1');
 
         try {

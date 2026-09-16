@@ -26,8 +26,8 @@ module.exports = {
             if (account2.isDisabled === 1) return res.send('-1');
 
             if (account.modLevel === 0) return res.send('-1'); // -1 = no mod
-            if (account.modLevel === 1) return res.send('1'); // 1 = mod
-            if (account.modLevel === 2) return res.send('2'); // 2 = elder mod
+            if (account.modLevel === 1) return res.send('1'); // 1 = advisor
+            if (account.modLevel === 2) return res.send('2'); // 2 = mod
             if (account.modLevel === 3) return res.send('99'); // 99 = leaderboard mod
         }
 

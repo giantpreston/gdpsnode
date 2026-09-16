@@ -99,7 +99,7 @@ function suggestionText(suggestion) {
 }
 
 function render(data) {
-    const labels = [['accounts', 'Accounts'], ['levels', 'Levels'], ['moderators', 'Mods'], ['elders', 'Elders'], ['pending', 'Pending']];
+    const labels = [['accounts', 'Accounts'], ['levels', 'Levels'], ['moderators', 'Advisors'], ['elders', 'Mods'], ['pending', 'Pending']];
     $('#stats').innerHTML = labels.map(([key, label]) => `<div class="stat"><span>${label}</span><strong>${data.stats[key].toLocaleString()}</strong></div>`).join('');
 
     const grouped = [...data.pending.reduce((levels, suggestion) => {
@@ -152,9 +152,9 @@ function renderAccountResults(users) {
         <form class="account-row" data-account="${user.accountID}">
           <div class="account-main">
             <strong>${escapeHtml(user.userName || user.profileName || `Account #${user.accountID}`)}</strong>
-            <small>#${user.accountID} · ${user.modLevel === 2 ? 'Elder' : user.modLevel === 1 ? 'Mod' : user.modLevel === 3 ? 'Leaderboard' : 'Player'} · ${user.isDisabled ? 'Disabled' : 'Active'}</small>
+            <small>#${user.accountID} · ${user.modLevel === 2 ? 'Mod' : user.modLevel === 1 ? 'Advisor' : user.modLevel === 3 ? 'Leaderboard' : 'Player'} · ${user.isDisabled ? 'Disabled' : 'Active'}</small>
           </div>
-          <label>Mod level<select name="modLevel"><option value="0"${selected(user.modLevel, 0)}>Player</option><option value="1"${selected(user.modLevel, 1)}>Mod</option><option value="2"${selected(user.modLevel, 2)}>Elder</option><option value="3"${selected(user.modLevel, 3)}>Leaderboard</option></select></label>
+          <label>Mod level<select name="modLevel"><option value="0"${selected(user.modLevel, 0)}>Player</option><option value="1"${selected(user.modLevel, 1)}>Advisor</option><option value="2"${selected(user.modLevel, 2)}>Mod</option><option value="3"${selected(user.modLevel, 3)}>Leaderboard</option></select></label>
           <label>Disabled<select name="isDisabled"><option value="0"${selected(user.isDisabled, 0)}>No</option><option value="1"${selected(user.isDisabled, 1)}>Yes</option></select></label>
           <button type="submit">Save</button>
         </form>

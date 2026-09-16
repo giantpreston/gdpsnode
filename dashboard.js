@@ -216,7 +216,7 @@ router.use(express.json({ limit: '32kb' }));
 const loginLimiter = rateLimit({ windowMs: 15 * 60 * 1000, max: 10, standardHeaders: true, legacyHeaders: false });
 router.post('/api/login', loginLimiter, (req, res) => {
     const elder = Number.isInteger(dashboardAccountId) ? db.prepare('SELECT userName, modLevel FROM profiles WHERE accountID = ?').get(dashboardAccountId) : null;
-    if (!dashboardUser || !dashboardPassword || !elder || elder.modLevel !== 2) return res.status(503).json({ error: 'Dashboard elder credentials are not configured' });
+    if (!dashboardUser || !dashboardPassword || !elder || elder.modLevel !== 2) return res.status(503).json({ error: 'Dashboard mod credentials are not configured' });
     if (!sameSecret(req.body?.username, dashboardUser) || !sameSecret(req.body?.username, elder.userName) || !sameSecret(req.body?.password, dashboardPassword)) {
         return res.status(401).json({ error: 'Invalid credentials' });
     }
