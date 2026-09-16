@@ -317,6 +317,19 @@ router.get('/api/server-schedule', requireAuth, (req, res) => {
     res.json({ daily, weekly, event });
 });
 
+function scheduleTargetNumber(type, slot) {
+    if (type === 'event') return slot + 200000;
+    if (type === 'weekly') return slot + 100000;
+    return slot;
+}
+
+function scheduleTypeFromNumber(number) {
+    if (number > 200000) return 'event';
+    if (number >= 100001 && number <= 200000) return 'weekly';
+    if (number > 0 && number < 100001) return 'daily';
+    return null;
+}
+
 router.post('/api/server-schedule', requireAuth, requireCsrf, (req, res) => {
     const levelId = Number(req.body?.levelId);
     const slot = Number(req.body?.slot);
@@ -332,7 +345,16 @@ router.post('/api/server-schedule', requireAuth, requireCsrf, (req, res) => {
     const level = db.prepare('SELECT levelID FROM levels WHERE levelID = ?').get(levelId);
     if (!level) return res.status(404).json({ error: 'Level not found' });
 
-    const targetNumber = isEvent ? slot + 200000 : isWeekly ? slot + 100000 : slot;
+    const targetNumber = scheduleTargetNumber(type, slot);
+    const slotConflict = db.prepare('SELECT levelID FROM levels WHERE dailyNumber = ? AND levelID != ?').get(targetNumber, levelId);
+    if (slotConflict) return res.status(409).json({ error: `That ${type} slot is already assigned to level #${slotConflict.levelID}` });
+
+    const otherAssignments = db.prepare('SELECT dailyNumber FROM levels WHERE levelID = ? AND dailyNumber != 0').all(levelId);
+    const duplicateInType = otherAssignments.some(item => {
+        const currentType = scheduleTypeFromNumber(item.dailyNumber);
+        return currentType === type && item.dailyNumber !== targetNumber;
+    });
+    if (duplicateInType) return res.status(409).json({ error: `This level is already assigned to another ${type} slot` });
 
     db.transaction(() => {
         db.prepare('UPDATE levels SET dailyNumber = ?, dailyTime = ? WHERE levelID = ?').run(targetNumber, expiresAt, levelId);
@@ -353,6 +375,16 @@ router.post('/api/server-schedule/clear', requireAuth, requireCsrf, (req, res) =
     res.status(204).end();
 });
 
+router.delete('/api/server-schedule/:type/:slot', requireAuth, requireCsrf, (req, res) => {
+    const type = String(req.params.type || 'daily');
+    const slot = Number(req.params.slot);
+    if (!Number.isInteger(slot) || slot < 1) return res.status(400).json({ error: 'Invalid slot number' });
+    const targetNumber = scheduleTargetNumber(type, slot);
+    const result = db.prepare('UPDATE levels SET dailyNumber = 0, dailyTime = 0 WHERE dailyNumber = ?').run(targetNumber);
+    if (!result.changes) return res.status(404).json({ error: 'Schedule slot not found' });
+    res.status(204).end();
+});
+
 const secretRewardItemIds = new Set([1, 2, 3, 4, 5, 6, 7, 8, 10, 11, 12, 13, 14, 15,
     1001, 1002, 1003, 1004, 1005, 1006, 1007, 1008, 1009, 1010, 1011, 1012, 1013, 1014, 1015]);
 
@@ -361,7 +393,7 @@ function secretRewardInput(body) {
     const uses = Number(body?.uses);
     const duration = Number(body?.duration || 0);
     const items = Array.isArray(body?.items) ? body.items : [];
-    if (!code || code.length > 64 || !Number.isInteger(uses) || uses < 1 ||
+    if (!code || code.length > 64 || !Number.isInteger(uses) || (uses !== -1 && uses < 1) ||
         !Number.isInteger(duration) || duration < 0 || items.length < 1 || items.length > 20) return null;
 
     const rewards = [];
@@ -380,8 +412,17 @@ function secretRewardInput(body) {
     };
 }
 
+function secretRewardIsActive(reward, now = Math.floor(Date.now() / 1000)) {
+    if (!reward || reward.uses === 0) return false;
+    if (reward.duration !== 0 && Number(reward.createdAt) + Number(reward.duration) <= now) return false;
+    return true;
+}
+
 router.get('/api/secret-rewards', requireAuth, (req, res) => {
-    res.json({ rewards: db.prepare('SELECT rewardID, code, uses, duration, rewards, createdAt FROM secret_rewards ORDER BY rewardID DESC').all() });
+    const now = Math.floor(Date.now() / 1000);
+    const rewards = db.prepare('SELECT rewardID, code, uses, duration, rewards, createdAt FROM secret_rewards ORDER BY rewardID DESC').all()
+        .filter(reward => secretRewardIsActive(reward, now));
+    res.json({ rewards });
 });
 
 router.post('/api/secret-rewards', requireAuth, requireCsrf, (req, res) => {

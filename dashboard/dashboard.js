@@ -1,5 +1,6 @@
 let csrf = '';
 let currentLevels = [];
+let dashboardRequestCount = 0;
 const $ = selector => document.querySelector(selector);
 const escapeHtml = value => String(value ?? '').replace(/[&<>"']/g, character => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[character]));
 const demonNames = { 3: 'Easy Demon', 4: 'Medium Demon', 0: 'Hard Demon', 5: 'Insane Demon', 6: 'Extreme Demon' };
@@ -12,8 +13,7 @@ function showToast(message, type = 'success') {
     toast.textContent = message;
     stack.appendChild(toast);
     setTimeout(() => {
-        toast.style.opacity = '0';
-        toast.style.transform = 'translateY(-4px)';
+        toast.classList.add('is-leaving');
         setTimeout(() => toast.remove(), 180);
     }, 2600);
 }
@@ -22,6 +22,22 @@ function touchLastSaved(message = 'Saved just now') {
     const node = $('#last-saved');
     if (!node) return;
     node.textContent = message;
+}
+
+function setDashboardStatus(isBusy) {
+    const orb = $('#topbar-status');
+    if (!orb) return;
+    orb.classList.toggle('is-busy', !!isBusy);
+}
+
+function beginDashboardRequest() {
+    dashboardRequestCount += 1;
+    setDashboardStatus(true);
+}
+
+function endDashboardRequest() {
+    dashboardRequestCount = Math.max(0, dashboardRequestCount - 1);
+    setDashboardStatus(dashboardRequestCount > 0);
 }
 
 function setBusyState(button, label = 'Saving…', disabled = true) {
@@ -84,12 +100,17 @@ async function request(url, options = {}) {
     const headers = { ...options.headers };
     if (options.body) headers['Content-Type'] = 'application/json';
     if (csrf && options.method && options.method !== 'GET') headers['X-CSRF-Token'] = csrf;
-    const response = await fetch(url, { ...options, headers });
-    if (!response.ok) {
-        const payload = await response.json().catch(() => ({}));
-        throw new Error(payload.error || `Request failed (${response.status})`);
+    beginDashboardRequest();
+    try {
+        const response = await fetch(url, { ...options, headers });
+        if (!response.ok) {
+            const payload = await response.json().catch(() => ({}));
+            throw new Error(payload.error || `Request failed (${response.status})`);
+        }
+        return response.status === 204 ? null : response.json();
+    } finally {
+        endDashboardRequest();
     }
-    return response.status === 204 ? null : response.json();
 }
 
 function suggestionText(suggestion) {
@@ -165,16 +186,54 @@ function renderSchedule(data) {
     const daily = data.daily || [];
     const weekly = data.weekly || [];
     const event = data.event || [];
+    const formatType = (type, slot) => {
+        if (type === 'daily') return `Daily #${slot}`;
+        if (type === 'weekly') return `Weekly #${slot}`;
+        return `Event #${slot}`;
+    };
+    const formatExpiry = unixTime => {
+        if (!unixTime) return 'No expiry';
+        const date = new Date(Number(unixTime) * 1000);
+        if (Number.isNaN(date.getTime())) return 'No expiry';
+        return `Expires ${date.toLocaleString([], { dateStyle: 'short', timeStyle: 'short' })}`;
+    };
     const display = [
-        daily.length ? daily.map(item => `<div class="schedule-item"><strong>Daily #${item.dailyNumber}</strong><span>${escapeHtml(item.levelName)} · #${item.levelID} · ${escapeHtml(item.creator || 'unknown')}</span></div>`).join('') : '<p class="empty">No daily level set.</p>',
-        weekly.length ? weekly.map(item => `<div class="schedule-item"><strong>Weekly #${item.dailyNumber - 100000}</strong><span>${escapeHtml(item.levelName)} · #${item.levelID} · ${escapeHtml(item.creator || 'unknown')}</span></div>`).join('') : '<p class="empty">No weekly level set.</p>',
-        event.length ? event.map(item => `<div class="schedule-item"><strong>Event #${item.dailyNumber - 200000}</strong><span>${escapeHtml(item.levelName)} · #${item.levelID} · ${escapeHtml(item.creator || 'unknown')}</span></div>`).join('') : '<p class="empty">No event level set.</p>'
+        daily.length ? `<div class="schedule-group"><div class="schedule-header"><strong>Daily</strong><span>${daily.length} active</span></div>${daily.map(item => `<div class="schedule-item"><div class="schedule-item-header"><strong>${formatType('daily', item.dailyNumber)}</strong><button type="button" class="ghost small delete-schedule-slot" data-type="daily" data-slot="${item.dailyNumber}">Remove</button></div><span>${escapeHtml(item.levelName)} · #${item.levelID} · ${escapeHtml(item.creator || 'unknown')}</span><small>${formatExpiry(item.dailyTime)}</small></div>`).join('')}</div>` : '<div class="schedule-group"><div class="schedule-header"><strong>Daily</strong><span>0 active</span></div><p class="empty">No daily level set.</p></div>',
+        weekly.length ? `<div class="schedule-group"><div class="schedule-header"><strong>Weekly</strong><span>${weekly.length} active</span></div>${weekly.map(item => `<div class="schedule-item"><div class="schedule-item-header"><strong>${formatType('weekly', item.dailyNumber - 100000)}</strong><button type="button" class="ghost small delete-schedule-slot" data-type="weekly" data-slot="${item.dailyNumber - 100000}">Remove</button></div><span>${escapeHtml(item.levelName)} · #${item.levelID} · ${escapeHtml(item.creator || 'unknown')}</span><small>${formatExpiry(item.dailyTime)}</small></div>`).join('')}</div>` : '<div class="schedule-group"><div class="schedule-header"><strong>Weekly</strong><span>0 active</span></div><p class="empty">No weekly level set.</p></div>',
+        event.length ? `<div class="schedule-group"><div class="schedule-header"><strong>Event</strong><span>${event.length} active</span></div>${event.map(item => `<div class="schedule-item"><div class="schedule-item-header"><strong>${formatType('event', item.dailyNumber - 200000)}</strong><button type="button" class="ghost small delete-schedule-slot" data-type="event" data-slot="${item.dailyNumber - 200000}">Remove</button></div><span>${escapeHtml(item.levelName)} · #${item.levelID} · ${escapeHtml(item.creator || 'unknown')}</span><small>${formatExpiry(item.dailyTime)}</small></div>`).join('')}</div>` : '<div class="schedule-group"><div class="schedule-header"><strong>Event</strong><span>0 active</span></div><p class="empty">No event level set.</p></div>'
     ];
     $('#schedule-display').innerHTML = display.join('');
 }
 
 function renderSongs(songs) {
     $('#song-list').innerHTML = songs.length ? songs.map(song => `<div class="song-row"><div><strong>${escapeHtml(song.name)}</strong><span>${escapeHtml(song.artistName)} · #${song.ID} · ${song.size} MB</span></div><a href="${escapeHtml(song.link)}" target="_blank" rel="noreferrer">Open file</a><button type="button" class="reject delete-song" data-song="${song.ID}">Delete</button></div>`).join('') : '<p class="empty">No songs uploaded.</p>';
+}
+
+function setupDashboardUX() {
+    const searchInputs = document.querySelectorAll('.search-bar input[name="query"]');
+    searchInputs.forEach(input => {
+        input.addEventListener('keydown', event => {
+            if (event.key === 'Escape') {
+                input.value = '';
+                input.dispatchEvent(new Event('input', { bubbles: true }));
+            }
+        });
+    });
+
+    document.addEventListener('keydown', event => {
+        if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 'k') {
+            event.preventDefault();
+            const target = $('#level-query') || $('#account-query');
+            if (target) {
+                target.focus();
+                target.select();
+            }
+        }
+    });
+
+    document.querySelectorAll('button, input, select').forEach(element => {
+        element.addEventListener('focus', () => touchLastSaved('Ready'));
+    });
 }
 
 function renderQuests(quests) {
@@ -222,8 +281,30 @@ function updateSecretRewardValue(row, value) {
     if (label) label.textContent = unlock ? 'Unlock ID' : 'Quantity';
 }
 
+function formatSecretRewardUses(uses) {
+    if (uses === -1) return 'Unlimited uses';
+    return `${uses} use${uses === 1 ? '' : 's'}`;
+}
+
+function formatSecretRewardExpiry(duration, createdAt = 0) {
+    const totalSeconds = Number(duration) || 0;
+    if (!totalSeconds) return 'Never expires';
+    const expiresAt = Number(createdAt) + totalSeconds;
+    return `Ends ${new Date(expiresAt * 1000).toLocaleString([], { dateStyle: 'short', timeStyle: 'short' })}`;
+}
+
+function isSecretRewardActive(reward) {
+    if (!reward || reward.uses === 0) return false;
+    const createdAt = Number(reward.createdAt) || 0;
+    const duration = Number(reward.duration) || 0;
+    const now = Math.floor(Date.now() / 1000);
+    if (duration !== 0 && createdAt + duration <= now) return false;
+    return true;
+}
+
 function renderSecretRewards(rewards) {
-    $('#secret-reward-list').innerHTML = rewards.length ? rewards.map(reward => `<div class="quest-row"><div><strong>${escapeHtml(decodeSecretCode(reward.code))}</strong><span>${escapeHtml(rewardLabel(reward.rewards))} · ${reward.uses} use${reward.uses === 1 ? '' : 's'}${reward.duration ? ` · ${Math.ceil(reward.duration / 86400)} day expiry` : ''}</span></div><div class="row-actions"><button type="button" class="ghost small copy-secret-code" data-code="${escapeHtml(decodeSecretCode(reward.code))}">Copy</button><button type="button" class="reject delete-secret-reward" data-reward="${reward.rewardID}">Delete</button></div></div>`).join('') : '<p class="empty">No secret codes created.</p>';
+    const visible = (rewards || []).filter(isSecretRewardActive);
+    $('#secret-reward-list').innerHTML = visible.length ? visible.map(reward => `<div class="quest-row"><div><strong>${escapeHtml(decodeSecretCode(reward.code))}</strong><span>${escapeHtml(rewardLabel(reward.rewards))} · ${formatSecretRewardUses(reward.uses)} · ${formatSecretRewardExpiry(reward.duration, reward.createdAt)}</span></div><div class="row-actions"><button type="button" class="ghost small copy-secret-code" data-code="${escapeHtml(decodeSecretCode(reward.code))}">Copy</button><button type="button" class="reject delete-secret-reward" data-reward="${reward.rewardID}">Delete</button></div></div>`).join('') : '<p class="empty">No active secret codes.</p>';
 }
 
 function formBody(form) {
@@ -300,6 +381,59 @@ $('#toggle-password').addEventListener('click', () => {
     password.type = next;
     toggle.textContent = next === 'password' ? 'Show' : 'Hide';
 });
+
+function getDurationSecondsFromForm(form, selector = { preset: '[name="durationPreset"]', days: '[name="durationDays"]', hours: '[name="durationHours"]', minutes: '[name="durationMinutes"]', date: '[name="expiresAt"]', never: '[name="neverExpires"]' }) {
+    const neverInput = selector.never ? form.querySelector(selector.never) : null;
+    const neverExpires = !!neverInput?.checked;
+    if (neverExpires) return 0;
+
+    const preset = (selector.preset ? form.querySelector(selector.preset)?.value : null) || 'custom';
+    const customDays = Number((selector.days ? form.querySelector(selector.days)?.value : 0) || 0);
+    const customHours = Number((selector.hours ? form.querySelector(selector.hours)?.value : 0) || 0);
+    const customMinutes = Number((selector.minutes ? form.querySelector(selector.minutes)?.value : 0) || 0);
+
+    if (preset === '1d') return 86400;
+    if (preset === '7d') return 604800;
+    if (preset === '30d') return 2592000;
+    if (preset === '90d') return 7776000;
+    if (preset === '365d') return 31536000;
+
+    const expiresAtValue = form.querySelector(selector.date)?.value;
+    if (preset === 'date' && expiresAtValue) {
+        const expiresAt = new Date(expiresAtValue);
+        if (Number.isNaN(expiresAt.getTime())) throw new Error('Choose a valid expiry date and time');
+        const duration = Math.max(0, Math.round((expiresAt.getTime() - Date.now()) / 1000));
+        if (!duration) throw new Error('Expiry date must be later than now');
+        return duration;
+    }
+
+    const totalSeconds = (customDays * 86400) + (customHours * 3600) + (customMinutes * 60);
+    if (totalSeconds <= 0) return 0;
+    return totalSeconds;
+}
+
+function getSecretRewardDurationFromForm(form) {
+    return getDurationSecondsFromForm(form);
+}
+
+function updateSecretRewardFormControls(form) {
+    const neverExpires = form.querySelector('[name="neverExpires"]')?.checked;
+    const preset = form.querySelector('[name="durationPreset"]')?.value || 'custom';
+    const durationFields = form.querySelector('.secret-duration-fields');
+    const dateField = form.querySelector('.secret-expiry-date');
+    const durationDays = form.querySelector('[name="durationDays"]');
+    const durationHours = form.querySelector('[name="durationHours"]');
+    const durationMinutes = form.querySelector('[name="durationMinutes"]');
+
+    const useCustomLength = !neverExpires && preset === 'custom';
+    const useDateField = !neverExpires && preset === 'date';
+
+    if (durationFields) durationFields.hidden = neverExpires || useDateField;
+    if (dateField) dateField.hidden = neverExpires || !useDateField;
+    if (durationDays) durationDays.disabled = neverExpires || useDateField;
+    if (durationHours) durationHours.disabled = neverExpires || useDateField;
+    if (durationMinutes) durationMinutes.disabled = neverExpires || useDateField;
+}
 
 $('#queue').addEventListener('click', async event => {
     if (!event.target.classList.contains('approve') && !event.target.classList.contains('reject')) return;
@@ -400,15 +534,24 @@ $('#clear-account-search').addEventListener('click', () => {
 
 $('#server-schedule-form').addEventListener('submit', async event => {
     event.preventDefault();
-    const form = new FormData(event.currentTarget);
+    const form = event.currentTarget;
+    const formData = new FormData(form);
     try {
         const payload = {
-            levelId: Number(form.get('levelId')),
-            slot: Number(form.get('slot')),
-            type: form.get('type'),
-            expiresAt: Number(form.get('expiresAt')) || undefined
+            levelId: Number(formData.get('levelId')),
+            slot: Number(formData.get('slot')),
+            type: formData.get('type'),
+            expiresAt: getDurationSecondsFromForm(form, {
+                preset: '[name="scheduleExpiryPreset"]',
+                days: '[name="scheduleDurationDays"]',
+                hours: '[name="scheduleDurationHours"]',
+                minutes: '[name="scheduleDurationMinutes"]',
+                date: '[name="scheduleExpiresAt"]'
+            }) || undefined
         };
         await request('api/server-schedule', { method: 'POST', body: JSON.stringify(payload) });
+        form.reset();
+        updateScheduleExpiryControls(form);
         renderSchedule(await request('api/server-schedule'));
     } catch (error) { $('#app-error').textContent = error.message; }
 });
@@ -466,11 +609,13 @@ document.addEventListener('submit', async event => {
     } else if (form.id === 'song-form') {
         event.preventDefault();
         try {
+            beginDashboardRequest();
             const response = await fetch('api/songs', { method: 'POST', body: new FormData(form), headers: csrf ? { 'X-CSRF-Token': csrf } : {} });
             if (!response.ok) throw new Error((await response.json().catch(() => ({}))).error || `Request failed (${response.status})`);
             form.reset();
             renderSongs((await request('api/songs')).songs);
         } catch (error) { $('#app-error').textContent = error.message; }
+        finally { endDashboardRequest(); }
     } else if (form.id === 'quest-form') {
         event.preventDefault();
         try {
@@ -493,12 +638,15 @@ document.addEventListener('submit', async event => {
                 itemID: Number(row.querySelector('[name="itemID"]').value),
                 total: Number(row.querySelector('[name="total"]').value)
             }));
+            const uses = formData.get('usesInfinite') === 'on' ? -1 : Number(formData.get('uses'));
+            const duration = getSecretRewardDurationFromForm(form);
             await request('api/secret-rewards', { method: 'POST', body: JSON.stringify({
-                code: formData.get('code'), uses: Number(formData.get('uses')), duration: Number(formData.get('durationDays')) * 86400, items
+                code: formData.get('code'), uses, duration, items
             }) });
             form.reset();
             $('#secret-reward-items').innerHTML = '';
             addSecretRewardItem();
+            updateSecretRewardFormControls(form);
             renderSecretRewards((await request('api/secret-rewards')).rewards || []);
         } catch (error) { $('#app-error').textContent = error.message; }
     }
@@ -524,7 +672,54 @@ document.addEventListener('focusin', event => {
 document.addEventListener('change', event => {
     if (event.target.matches('select')) event.target.classList.remove('selected');
     if (event.target.name === 'itemID') updateSecretRewardValue(event.target.closest('.secret-reward-item'));
+    if (event.target.matches('[name="usesInfinite"]') || event.target.matches('[name="neverExpires"]') || event.target.matches('[name="durationPreset"]')) {
+        const form = event.target.closest('#secret-reward-form');
+        if (form) updateSecretRewardFormControls(form);
+    }
 });
+
+function updateScheduleExpiryControls(form) {
+    const preset = form.querySelector('[name="scheduleExpiryPreset"]')?.value || 'custom';
+    const durationFields = form.querySelector('.schedule-duration-fields');
+    const dateField = form.querySelector('.schedule-expiry-date');
+    const days = form.querySelector('[name="scheduleDurationDays"]');
+    const hours = form.querySelector('[name="scheduleDurationHours"]');
+    const minutes = form.querySelector('[name="scheduleDurationMinutes"]');
+
+    const useDateField = preset === 'date';
+    if (durationFields) durationFields.hidden = useDateField;
+    if (dateField) dateField.hidden = !useDateField;
+    if (days) days.disabled = useDateField;
+    if (hours) hours.disabled = useDateField;
+    if (minutes) minutes.disabled = useDateField;
+}
+
+const secretRewardForm = document.getElementById('secret-reward-form');
+if (secretRewardForm) {
+    const usesInput = secretRewardForm.querySelector('[name="uses"]');
+    const usesInfinite = secretRewardForm.querySelector('[name="usesInfinite"]');
+    const neverExpires = secretRewardForm.querySelector('[name="neverExpires"]');
+    const durationPreset = secretRewardForm.querySelector('[name="durationPreset"]');
+
+    const syncSecretRewardUseState = () => {
+        if (!usesInput || !usesInfinite) return;
+        usesInput.disabled = usesInfinite.checked;
+        if (usesInfinite.checked) usesInput.value = '1';
+    };
+
+    usesInfinite?.addEventListener('change', syncSecretRewardUseState);
+    neverExpires?.addEventListener('change', () => updateSecretRewardFormControls(secretRewardForm));
+    durationPreset?.addEventListener('change', () => updateSecretRewardFormControls(secretRewardForm));
+    syncSecretRewardUseState();
+    updateSecretRewardFormControls(secretRewardForm);
+}
+
+const scheduleForm = document.getElementById('server-schedule-form');
+if (scheduleForm) {
+    const preset = scheduleForm.querySelector('[name="scheduleExpiryPreset"]');
+    preset?.addEventListener('change', () => updateScheduleExpiryControls(scheduleForm));
+    updateScheduleExpiryControls(scheduleForm);
+}
 
 document.addEventListener('click', event => {
     if (!event.target.matches('select')) {
@@ -549,6 +744,15 @@ document.addEventListener('click', async event => {
         } catch (error) {
             showToast('Copy failed', 'error');
         }
+        return;
+    }
+    if (event.target.classList.contains('delete-schedule-slot')) {
+        const slot = Number(event.target.dataset.slot);
+        const type = event.target.dataset.type;
+        if (!type || !Number.isInteger(slot) || slot < 1) return;
+        if (!confirm(`Remove ${type} slot #${slot}?`)) return;
+        try { await request(`api/server-schedule/${type}/${slot}`, { method: 'DELETE' }); renderSchedule(await request('api/server-schedule')); showToast(`${type.charAt(0).toUpperCase() + type.slice(1)} slot removed`, 'success'); }
+        catch (error) { $('#app-error').textContent = error.message; showToast(error.message, 'error'); }
         return;
     }
     if (event.target.classList.contains('delete-song')) {
@@ -589,4 +793,5 @@ document.addEventListener('click', async event => {
 });
 
 addSecretRewardItem();
+setupDashboardUX();
 load();

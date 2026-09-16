@@ -34,7 +34,7 @@ module.exports = {
 
         const encodedKey = Buffer.from(rewardKey, 'utf8').toString('base64');
         const reward = db.prepare('SELECT * FROM secret_rewards WHERE code = ?').get(encodedKey);
-        if (!reward || reward.uses === 0 || (reward.duration !== 0 && reward.createdAt + reward.duration <= now)) return res.send('-1');
+        if (!reward || (reward.uses !== -1 && reward.uses <= 0) || (reward.duration !== 0 && reward.createdAt + reward.duration <= now)) return res.send('-1');
 
         const redeemed = db.prepare(`SELECT 1 FROM content_increments
             WHERE accountID = ? AND contentID = ? AND contentType = ?`).get(accountID, reward.rewardID, 'secret_reward');
@@ -65,3 +65,6 @@ module.exports = {
         return res.send(`PrStn${encoded}|${utils.genSolo4(encoded)}`);
     }
 };
+
+
+// <3 ndrnmnk
