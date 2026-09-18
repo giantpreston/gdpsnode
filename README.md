@@ -3,7 +3,7 @@
 [![Watch the trailer](https://img.shields.io/badge/Watch_the_trailer-YouTube-red?logo=youtube&logoColor=white)](https://www.youtube.com/watch?v=2F5ZYpTTSGM)
 [![Node.js](https://img.shields.io/badge/Node.js-22%2B-339933?logo=node.js&logoColor=white)](https://nodejs.org/)
 
-A fully rewritten version of the Geomtry Dash backend in Node.js, with account storage, levels, custom songs, rewards, and an admin dashboard.
+A fully rewritten version of the Geometry Dash backend in Node.js, with account storage, levels, custom songs, rewards, and an admin dashboard.
 
 ## Quick start
 
@@ -25,14 +25,14 @@ Configure these values in `.env`:
 
 ```env
 DASHBOARD_PATH=/dashboard
-DASHBOARD_USER=elder
+DASHBOARD_USER=moderator
 DASHBOARD_PASSWORD=use-a-long-random-password
 DASHBOARD_ACCOUNT_ID=123
 DASHBOARD_SECURE_COOKIES=0
 TRUST_PROXY_HOPS=0
 ```
 
-The account must already exist and have `modLevel=2` (elder). Change the default dashboard path and password before exposing the server to the internet. Set `DASHBOARD_SECURE_COOKIES=1` when using HTTPS.
+The account must already exist and have `modLevel=2` (moderator). Change the default dashboard path and password before exposing the server to the internet. Set `DASHBOARD_SECURE_COOKIES=1` when using HTTPS.
 
 ## Project Features:
 
