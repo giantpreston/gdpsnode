@@ -546,8 +546,9 @@ $('#server-schedule-form').addEventListener('submit', async event => {
                 days: '[name="scheduleDurationDays"]',
                 hours: '[name="scheduleDurationHours"]',
                 minutes: '[name="scheduleDurationMinutes"]',
-                date: '[name="scheduleExpiresAt"]'
-            }) || undefined
+                date: '[name="scheduleExpiresAt"]',
+                never: '[name="scheduleNeverExpires"]'
+            })
         };
         await request('api/server-schedule', { method: 'POST', body: JSON.stringify(payload) });
         form.reset();
@@ -638,7 +639,7 @@ document.addEventListener('submit', async event => {
                 itemID: Number(row.querySelector('[name="itemID"]').value),
                 total: Number(row.querySelector('[name="total"]').value)
             }));
-            const uses = formData.get('usesInfinite') === 'on' ? -1 : Number(formData.get('uses'));
+            const uses = formData.get('usesInfinite') === 'on' || formData.get('usesInfinite') === '1' ? -1 : Number(formData.get('uses'));
             const duration = getSecretRewardDurationFromForm(form);
             await request('api/secret-rewards', { method: 'POST', body: JSON.stringify({
                 code: formData.get('code'), uses, duration, items
@@ -676,9 +677,14 @@ document.addEventListener('change', event => {
         const form = event.target.closest('#secret-reward-form');
         if (form) updateSecretRewardFormControls(form);
     }
+    if (event.target.matches('[name="scheduleNeverExpires"]') || event.target.matches('[name="scheduleExpiryPreset"]')) {
+        const form = event.target.closest('#server-schedule-form');
+        if (form) updateScheduleExpiryControls(form);
+    }
 });
 
 function updateScheduleExpiryControls(form) {
+    const neverExpires = form.querySelector('[name="scheduleNeverExpires"]')?.checked;
     const preset = form.querySelector('[name="scheduleExpiryPreset"]')?.value || 'custom';
     const durationFields = form.querySelector('.schedule-duration-fields');
     const dateField = form.querySelector('.schedule-expiry-date');
@@ -686,12 +692,12 @@ function updateScheduleExpiryControls(form) {
     const hours = form.querySelector('[name="scheduleDurationHours"]');
     const minutes = form.querySelector('[name="scheduleDurationMinutes"]');
 
-    const useDateField = preset === 'date';
-    if (durationFields) durationFields.hidden = useDateField;
-    if (dateField) dateField.hidden = !useDateField;
-    if (days) days.disabled = useDateField;
-    if (hours) hours.disabled = useDateField;
-    if (minutes) minutes.disabled = useDateField;
+    const useDateField = !neverExpires && preset === 'date';
+    if (durationFields) durationFields.hidden = neverExpires || useDateField;
+    if (dateField) dateField.hidden = neverExpires || !useDateField;
+    if (days) days.disabled = neverExpires || useDateField;
+    if (hours) hours.disabled = neverExpires || useDateField;
+    if (minutes) minutes.disabled = neverExpires || useDateField;
 }
 
 const secretRewardForm = document.getElementById('secret-reward-form');

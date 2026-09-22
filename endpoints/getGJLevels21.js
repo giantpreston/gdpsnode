@@ -323,6 +323,10 @@ module.exports = {
             .filter(([, value]) => value !== '' && value !== undefined && value !== null)
             .flatMap(([key, value]) => [key, value])
             .join(separator);
+        const serializeSong = fields => fields
+            .flatMap(([key, value]) => [key, value ?? ''])
+            .join('~|~');
+        const encodeSongValue = value => typeof value === 'string' && value ? encodeURIComponent(value) : value;
 
         const levelStrings = levels.map(level => {
             const levelObj = {
@@ -370,34 +374,25 @@ module.exports = {
         }
         const songStrings = [];
         for (const [id, songData] of songMap) {
-            const songObj = {
-                1: songData.ID,
-                2: songData.name || '',
-                3: songData.artistID || 0,
-                4: songData.artistName || '',
-                5: songData.size || 0,
-                6: songData.videoID || '',
-                7: songData.youtubeURL || '',
-                8: songData.allowedForUse ? 1 : 0,
-                9: songData.songPriority || 0,
-                10: songData.link || '',
-                11: songData.nongEnum || 0,
-                12: songData.extraArtistIDs || '',
-                13: songData.isNew ? 1 : 0,
-                14: songData.newType || 0,
-                15: songData.extraArtistNames || '',
-                16: songData.downloadSoundtrackOverride || ''
-            };
-            const sortedSong = Object.fromEntries(
-                Object.entries(songObj).sort(([a], [b]) => Number(a) - Number(b))
-            );
-            const songStr = serializeKeyValues(sortedSong, '~|~');
+            const songFields = [
+                [1, songData.ID],
+                [2, songData.name || ''],
+                [3, songData.artistID || 0],
+                [4, songData.artistName || ''],
+                [5, songData.size || 0],
+                [6, songData.videoID || ''],
+                [10, encodeSongValue(songData.link || '')],
+                [16, encodeSongValue(songData.downloadSoundtrackOverride || '')],
+                [7, songData.youtubeURL || ''],
+                [8, songData.allowedForUse ? 1 : 0]
+            ];
+            const songStr = serializeSong(songFields);
             songStrings.push(songStr);
         }
 
         const levelsStr = levelStrings.join('|');
         const creatorsStr = creatorStrings.join('|');
-        const songsStr = songStrings.join('~:~|~');
+        const songsStr = songStrings.join('~:~');
 
         const pageInfo = `${total}:${offset}:10`;
         let hashInput = '';

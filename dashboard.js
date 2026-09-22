@@ -333,14 +333,17 @@ function scheduleTypeFromNumber(number) {
 router.post('/api/server-schedule', requireAuth, requireCsrf, (req, res) => {
     const levelId = Number(req.body?.levelId);
     const slot = Number(req.body?.slot);
-    const expiresAt = Number(req.body?.expiresAt) || Math.floor(Date.now() / 1000) + 86400;
+    const rawExpiresAt = req.body?.expiresAt;
+    const expiresAt = rawExpiresAt === undefined || rawExpiresAt === null || rawExpiresAt === ''
+        ? Math.floor(Date.now() / 1000) + 86400
+        : Number(rawExpiresAt);
     const type = String(req.body?.type || 'daily');
     const isWeekly = type === 'weekly';
     const isEvent = type === 'event';
 
     if (!Number.isInteger(levelId) || levelId < 1) return res.status(400).json({ error: 'Invalid level ID' });
     if (!Number.isInteger(slot) || slot < 1) return res.status(400).json({ error: 'Invalid slot number' });
-    if (!Number.isFinite(expiresAt) || expiresAt <= 0) return res.status(400).json({ error: 'Invalid expiry time' });
+    if (!Number.isFinite(expiresAt) || expiresAt < 0) return res.status(400).json({ error: 'Invalid expiry time' });
 
     const level = db.prepare('SELECT levelID FROM levels WHERE levelID = ?').get(levelId);
     if (!level) return res.status(404).json({ error: 'Level not found' });
