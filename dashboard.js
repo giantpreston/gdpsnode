@@ -4,6 +4,7 @@ const rateLimit = require('express-rate-limit');
 const path = require('path');
 const fs = require('fs/promises');
 const db = require('./database');
+const config = require('./config');
 const utils = require('./utils');
 
 const router = express.Router();
@@ -247,7 +248,7 @@ router.get('/api/bootstrap', requireAuth, (req, res) => {
         l.uploadDate, p.userName AS creator
         FROM levels l LEFT JOIN profiles p ON p.accountID = l.accountID
         ORDER BY l.uploadDate DESC LIMIT 25`).all();
-    res.json({ stats, pending, recent, csrf: req.dashboardSession.csrf });
+    res.json({ stats, pending, recent, motd: config.motd ?? '', csrf: req.dashboardSession.csrf });
 });
 
 router.get('/api/collections', requireAuth, (req, res) => {
@@ -334,16 +335,15 @@ router.post('/api/server-schedule', requireAuth, requireCsrf, (req, res) => {
     const levelId = Number(req.body?.levelId);
     const slot = Number(req.body?.slot);
     const rawExpiresAt = req.body?.expiresAt;
-    const expiresAt = rawExpiresAt === undefined || rawExpiresAt === null || rawExpiresAt === ''
-        ? Math.floor(Date.now() / 1000) + 86400
-        : Number(rawExpiresAt);
+    const expiresAt = Number(rawExpiresAt);
     const type = String(req.body?.type || 'daily');
     const isWeekly = type === 'weekly';
     const isEvent = type === 'event';
 
     if (!Number.isInteger(levelId) || levelId < 1) return res.status(400).json({ error: 'Invalid level ID' });
     if (!Number.isInteger(slot) || slot < 1) return res.status(400).json({ error: 'Invalid slot number' });
-    if (!Number.isFinite(expiresAt) || expiresAt < 0) return res.status(400).json({ error: 'Invalid expiry time' });
+    const now = Math.floor(Date.now() / 1000);
+    if (!Number.isInteger(expiresAt) || expiresAt <= now) return res.status(400).json({ error: 'Schedule levels must have a future expiry' });
 
     const level = db.prepare('SELECT levelID FROM levels WHERE levelID = ?').get(levelId);
     if (!level) return res.status(404).json({ error: 'Level not found' });

@@ -36,6 +36,20 @@ body {
 .brand-mark { font: 600 13px 'DejaVu Sans Mono', monospace; letter-spacing: 1px; }
 .brand-mark span { color: var(--lime); font-size: 10px; margin-left: 8px; }
 .muted { color: var(--muted); margin: .5rem 0 0; }
+.cocos-color-b { color: #4a52e1; }
+.cocos-color-c { color: #ffff96; }
+.cocos-color-g { color: #40e348; }
+.cocos-color-l { color: #60abef; }
+.cocos-color-j { color: #32c8ff; }
+.cocos-color-y { color: #ffff00; }
+.cocos-color-o { color: #ffa54b; }
+.cocos-color-r { color: #ff5a5a; }
+.cocos-color-p { color: #ff00ff; }
+.cocos-color-a { color: #9632ff; }
+.cocos-color-d { color: #ff96ff; }
+.cocos-color-f { color: #96ffff; }
+.cocos-color-s { color: #ffdc41; }
+.cocos-color-unknown { color: #ff0000; }
 .login-panel {
     background: var(--panel); max-width: 430px; margin: 12vh auto 0; padding: 40px;
     border: 1px solid var(--line); border-left: 4px solid var(--pink);

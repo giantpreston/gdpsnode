@@ -3,6 +3,32 @@ let currentLevels = [];
 let dashboardRequestCount = 0;
 const $ = selector => document.querySelector(selector);
 const escapeHtml = value => String(value ?? '').replace(/[&<>"']/g, character => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[character]));
+const cocosColors = new Set('bcgljyopr adfs'.replace(/\s/g, '').split(''));
+function renderCocosText(value) {
+    const source = String(value ?? '');
+    const tagPattern = /<\/?c[a-z]?>/gi;
+    let output = '';
+    let cursor = 0;
+    let open = false;
+    for (const match of source.matchAll(tagPattern)) {
+        output += escapeHtml(source.slice(cursor, match.index));
+        const tag = match[0].toLowerCase();
+        if (tag === '</c>') {
+            if (open) output += '</span>';
+            open = false;
+        } else {
+            if (open) output += '</span>';
+            const colorCode = tag.slice(2, -1);
+            const colorClass = cocosColors.has(colorCode) ? `cocos-color-${colorCode}` : 'cocos-color-unknown';
+            output += `<span class="${colorClass}">`;
+            open = true;
+        }
+        cursor = match.index + match[0].length;
+    }
+    output += escapeHtml(source.slice(cursor));
+    if (open) output += '</span>';
+    return output;
+}
 const demonNames = { 3: 'Easy Demon', 4: 'Medium Demon', 0: 'Hard Demon', 5: 'Insane Demon', 6: 'Extreme Demon' };
 
 function showToast(message, type = 'success') {
@@ -120,6 +146,7 @@ function suggestionText(suggestion) {
 }
 
 function render(data) {
+    $('#server-motd').innerHTML = renderCocosText(data.motd);
     const labels = [['accounts', 'Accounts'], ['levels', 'Levels'], ['moderators', 'Advisors'], ['elders', 'Mods'], ['pending', 'Pending']];
     $('#stats').innerHTML = labels.map(([key, label]) => `<div class="stat"><span>${label}</span><strong>${data.stats[key].toLocaleString()}</strong></div>`).join('');
 
@@ -412,6 +439,18 @@ function getDurationSecondsFromForm(form, selector = { preset: '[name="durationP
     return totalSeconds;
 }
 
+function getScheduleExpiryFromForm(form) {
+    const duration = getDurationSecondsFromForm(form, {
+        preset: '[name="scheduleExpiryPreset"]',
+        days: '[name="scheduleDurationDays"]',
+        hours: '[name="scheduleDurationHours"]',
+        minutes: '[name="scheduleDurationMinutes"]',
+        date: '[name="scheduleExpiresAt"]'
+    });
+    if (duration <= 0) throw new Error('Schedule levels must have an expiry');
+    return Math.floor(Date.now() / 1000) + duration;
+}
+
 function getSecretRewardDurationFromForm(form) {
     return getDurationSecondsFromForm(form);
 }
@@ -541,14 +580,7 @@ $('#server-schedule-form').addEventListener('submit', async event => {
             levelId: Number(formData.get('levelId')),
             slot: Number(formData.get('slot')),
             type: formData.get('type'),
-            expiresAt: getDurationSecondsFromForm(form, {
-                preset: '[name="scheduleExpiryPreset"]',
-                days: '[name="scheduleDurationDays"]',
-                hours: '[name="scheduleDurationHours"]',
-                minutes: '[name="scheduleDurationMinutes"]',
-                date: '[name="scheduleExpiresAt"]',
-                never: '[name="scheduleNeverExpires"]'
-            })
+            expiresAt: getScheduleExpiryFromForm(form)
         };
         await request('api/server-schedule', { method: 'POST', body: JSON.stringify(payload) });
         form.reset();
@@ -677,14 +709,13 @@ document.addEventListener('change', event => {
         const form = event.target.closest('#secret-reward-form');
         if (form) updateSecretRewardFormControls(form);
     }
-    if (event.target.matches('[name="scheduleNeverExpires"]') || event.target.matches('[name="scheduleExpiryPreset"]')) {
+    if (event.target.matches('[name="scheduleExpiryPreset"]')) {
         const form = event.target.closest('#server-schedule-form');
         if (form) updateScheduleExpiryControls(form);
     }
 });
 
 function updateScheduleExpiryControls(form) {
-    const neverExpires = form.querySelector('[name="scheduleNeverExpires"]')?.checked;
     const preset = form.querySelector('[name="scheduleExpiryPreset"]')?.value || 'custom';
     const durationFields = form.querySelector('.schedule-duration-fields');
     const dateField = form.querySelector('.schedule-expiry-date');
@@ -692,12 +723,12 @@ function updateScheduleExpiryControls(form) {
     const hours = form.querySelector('[name="scheduleDurationHours"]');
     const minutes = form.querySelector('[name="scheduleDurationMinutes"]');
 
-    const useDateField = !neverExpires && preset === 'date';
-    if (durationFields) durationFields.hidden = neverExpires || useDateField;
-    if (dateField) dateField.hidden = neverExpires || !useDateField;
-    if (days) days.disabled = neverExpires || useDateField;
-    if (hours) hours.disabled = neverExpires || useDateField;
-    if (minutes) minutes.disabled = neverExpires || useDateField;
+    const useDateField = preset === 'date';
+    if (durationFields) durationFields.hidden = useDateField;
+    if (dateField) dateField.hidden = !useDateField;
+    if (days) days.disabled = useDateField;
+    if (hours) hours.disabled = useDateField;
+    if (minutes) minutes.disabled = useDateField;
 }
 
 const secretRewardForm = document.getElementById('secret-reward-form');
