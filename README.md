@@ -44,6 +44,8 @@ The account must already exist and have `modLevel=2` (moderator). Change the def
 
 API routes are loaded automatically from `endpoints/`. All game requests use `POST` form data, matching the Geometry Dash client protocol.
 
+The server starts at `/` by default. You don't need to append `/database` to your links, simply use the hostname, the port (if necessary) and the endpoint.
+
 ## Configuration
 
 See `.env.example` for all available settings, including daily chest wait times and reward ranges.
