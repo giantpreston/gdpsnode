@@ -203,14 +203,8 @@ db.exec(`
         videoID TEXT DEFAULT '',
         youtubeURL TEXT DEFAULT '',
         allowedForUse INTEGER NOT NULL DEFAULT 1,
-        songPriority INTEGER,
         link TEXT NOT NULL,
-        nongEnum INTEGER NOT NULL DEFAULT 0,
-        extraArtistIDs TEXT DEFAULT '',
-        isNew INTEGER NOT NULL DEFAULT 0,
-        newType INTEGER NOT NULL DEFAULT 0,
-        size INTEGER NOT NULL DEFAULT 0, -- size in MB, rounded to 2 decimal places
-        extraArtistNames TEXT DEFAULT '',
+        size INTEGER NOT NULL DEFAULT 0, -- size in MB, rounded to 2 decimal places: value 1.98 would be 1.98MB
         downloadSoundtrackOverride TEXT NOT NULL DEFAULT ''
     );
 
@@ -347,6 +341,26 @@ db.exec(`
     CREATE INDEX IF NOT EXISTS idx_platscores_account_level ON platscores(accountID, levelID);
     CREATE INDEX IF NOT EXISTS idx_platscores_level_points ON platscores(levelID, points DESC);
 `);
+
+const removedSongColumns = [
+    'songPriority',
+    'nongEnum',
+    'extraArtistIDs',
+    'isNew',
+    'newType',
+    'extraArtistNames'
+];
+const songColumns = new Set(
+    db.prepare('PRAGMA table_info(songs)').all().map(column => column.name)
+);
+
+db.transaction(() => {
+    for (const column of removedSongColumns) {
+        if (songColumns.has(column)) {
+            db.exec(`ALTER TABLE songs DROP COLUMN ${column}`);
+        }
+    }
+})();
 
 db.pragma('optimize');
 
