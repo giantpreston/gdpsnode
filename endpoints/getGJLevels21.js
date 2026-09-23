@@ -357,7 +357,10 @@ module.exports = {
                 42: level.starEpic || 0,
                 43: level.starDemonDiff || 0,
                 45: level.objects || 0,
+                46: level.wt || 0,
+                47: level.wt2 || 0,
                 54: 0,
+                57: level.ts || 0,
                 62: level.uploadDate || 0,
                 63: level.updateDate || 0
             };

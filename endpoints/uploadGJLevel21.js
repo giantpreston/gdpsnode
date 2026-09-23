@@ -75,12 +75,15 @@ module.exports = {
         const gjp2 = utils.remove(rawGjp2 || '');
         const levelName = utils.charclean(rawLevelName || '');
         const levelDesc = (rawLevelDesc || '').trim();
+        const wt = (utils.number(parseInt(body.wt, 10)) || 0).trim();
+        const wt2 = (utils.number(parseInt(body.wt2, 10)) || 0).trim();
+        const ts = (utils.number(parseInt(body.ts)) || 0).trim();
         const levelString = (rawLevelString || '').trim();
         const seed2 = (rawSeed2 || '').trim();
 
         let rawPassword = String(body.password ?? '');
         if (gameVersion == 22 && rawPassword == '0') rawPassword = '1';
-        let normalizedPassword = parseInt(rawPassword, 10);
+        let normalizedPassword = (parseInt(rawPassword, 10) || 1).trim();
 
         if (rawPassword && rawPassword !== '1' && rawPassword !== '0' && !rawPassword.startsWith('1')) {
             return res.send('-1');
@@ -89,14 +92,13 @@ module.exports = {
 
         const songIDs = utils.numbercolon(body.songIDs?.trim() || '');
         const sfxIDs = utils.numbercolon(body.sfxIDs?.trim() || '');
-        const extraString = utils.remove(body.extraString?.trim() || '');
 
         if (
             isNaN(gameVersion) || isNaN(accountID) || isNaN(levelID) || isNaN(levelVersion) ||
             isNaN(levelLength) || isNaN(audioTrack) || isNaN(auto) || isNaN(normalizedPassword) ||
             isNaN(original) || isNaN(twoPlayer) || isNaN(songID) || isNaN(objects) ||
-            isNaN(coins) || isNaN(requestedStars) || isNaN(unlisted) || isNaN(ldm) ||
-            !gjp2 || !levelName || levelDesc === undefined || levelDesc === null ||
+            isNaN(coins) || isNaN(requestedStars) || isNaN(unlisted) || isNaN(wt) || isNaN(wt2) ||
+            isNaN(ldm) || !gjp2 || !levelName || levelDesc === undefined || levelDesc === null ||
             !levelString || !seed2
         ) return res.send('-1');
 
@@ -115,6 +117,7 @@ module.exports = {
         if (unlisted < 0 || unlisted > 2) return res.send('-1');
         if (ldm > 1 || ldm < 0) return res.send('-1');
         if (!utils.isURLBase64(levelString)) return res.send('-1');
+        if (wt < 0 || wt2 < 0) return res.send('-1');
 
         const expectedSeed = generateUploadSeed(levelString);
         if (seed2 !== expectedSeed) return res.send('-1'); // seed2 implementation
@@ -167,6 +170,9 @@ module.exports = {
                     twoPlayer = ?,
                     songID = ?,
                     objects = ?,
+                    wt = ?,
+                    wt2 = ?,
+                    ts = ?,
                     coins = ?,
                     requestedStars = ?,
                     updateDate = ?,
@@ -175,18 +181,16 @@ module.exports = {
                     isLDM = ?,
                     gameVersion = ?,
                     songIDs = ?,
-                    sfxIDs = ?,
-                    extraString = ?
+                    sfxIDs = ?
                 WHERE levelID = ?
             `;
             const updateValues = [
                 existingLevel.levelVersion + 1, levelLength,
-                audioTrack, normalizedPassword, twoPlayer, songID, objects, coins,
+                audioTrack, normalizedPassword, twoPlayer, songID, objects, wt, wt2, ts, coins,
                 requestedStars, Math.floor(Date.now() / 1000),
                 unlisted, original, ldm, gameVersion,
                 songIDs,
                 sfxIDs,
-                extraString,
                 levelID
             ];
             const updateLvl = db.prepare(updateQuery);
@@ -222,15 +226,15 @@ module.exports = {
         } else {
             const columns = [
                 'accountID', 'levelName', 'levelDesc', 'levelVersion', 'levelLength',
-                'audioTrack', 'password', 'twoPlayer', 'songID', 'objects', 'coins',
+                'audioTrack', 'password', 'twoPlayer', 'songID', 'objects', 'wt', 'wt2', 'ts', 'coins',
                 'requestedStars', 'uploadDate', 'updateDate', 'unlisted', 'originalReup',
-                'isLDM', 'gameVersion', 'songIDs', 'sfxIDs', 'extraString'
+                'isLDM', 'gameVersion', 'songIDs', 'sfxIDs'
             ];
             const values = [
                 accountID, levelName, levelDesc, 1, levelLength,
-                audioTrack, normalizedPassword, twoPlayer, songID, objects, coins,
+                audioTrack, normalizedPassword, twoPlayer, songID, objects, wt, wt2, ts, coins,
                 requestedStars, Math.floor(Date.now() / 1000), Math.floor(Date.now() / 1000),
-                unlisted, original, ldm, gameVersion, songIDs, sfxIDs, extraString
+                unlisted, original, ldm, gameVersion, songIDs, sfxIDs
             ];
 
             const placeholders = values.map(() => '?').join(', ');

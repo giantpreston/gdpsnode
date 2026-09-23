@@ -94,7 +94,6 @@ db.exec(`
         objects INTEGER NOT NULL DEFAULT 0,
         coins INTEGER NOT NULL DEFAULT 0,
         requestedStars INTEGER NOT NULL DEFAULT 0,
-        extraString TEXT NOT NULL DEFAULT '',
         starDifficulty INTEGER NOT NULL DEFAULT 0,
         downloads INTEGER NOT NULL DEFAULT 0,
         likes INTEGER NOT NULL DEFAULT 0,
@@ -114,6 +113,9 @@ db.exec(`
         starDemonDiff INTEGER NOT NULL DEFAULT 0,
         unlisted INTEGER NOT NULL DEFAULT 0,
         originalReup INTEGER NOT NULL DEFAULT 0,
+        wt INTEGER NOT NULL DEFAULT 0,
+        wt2 INTEGER NOT NULL DEFAULT 0,
+        ts INTEGER NOT NULL DEFAULT 0,
         isLDM INTEGER NOT NULL DEFAULT 0,
         gameVersion INTEGER NOT NULL DEFAULT 22
     );
@@ -342,22 +344,40 @@ db.exec(`
     CREATE INDEX IF NOT EXISTS idx_platscores_level_points ON platscores(levelID, points DESC);
 `);
 
-const removedSongColumns = [
-    'songPriority',
-    'nongEnum',
-    'extraArtistIDs',
-    'isNew',
-    'newType',
-    'extraArtistNames'
+const removedColumns = [
+    { table: 'songs', column: 'songPriority' },
+    { table: 'songs', column: 'nongEnum' },
+    { table: 'songs', column: 'extraArtistIDs' },
+    { table: 'songs', column: 'isNew' },
+    { table: 'songs', column: 'newType' },
+    { table: 'songs', column: 'extraArtistNames' },
+    { table: 'levels', column: 'extraString' }
 ];
-const songColumns = new Set(
-    db.prepare('PRAGMA table_info(songs)').all().map(column => column.name)
-);
+const addedColumns = [
+    { table: 'levels', column: 'wt', definition: 'INTEGER NOT NULL DEFAULT 0' },
+    { table: 'levels', column: 'wt2', definition: 'INTEGER NOT NULL DEFAULT 0' },
+    { table: 'levels', column: 'ts', definition: 'INTEGER NOT NULL DEFAULT 0' }
+];
 
 db.transaction(() => {
-    for (const column of removedSongColumns) {
-        if (songColumns.has(column)) {
-            db.exec(`ALTER TABLE songs DROP COLUMN ${column}`);
+    const columnsByTable = new Map();
+    for (const { table } of [...removedColumns, ...addedColumns]) {
+        if (!columnsByTable.has(table)) {
+            columnsByTable.set(table, new Set(
+                db.prepare(`PRAGMA table_info(${table})`).all().map(column => column.name)
+            ));
+        }
+    }
+
+    for (const { table, column } of removedColumns) {
+        if (columnsByTable.get(table).has(column)) {
+            db.exec(`ALTER TABLE ${table} DROP COLUMN ${column}`);
+        }
+    }
+
+    for (const { table, column, definition } of addedColumns) {
+        if (!columnsByTable.get(table).has(column)) {
+            db.exec(`ALTER TABLE ${table} ADD COLUMN ${column} ${definition}`);
         }
     }
 })();

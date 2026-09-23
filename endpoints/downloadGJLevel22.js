@@ -153,13 +153,13 @@ module.exports = {
             `43:${level.starDemonDiff || 0}`,
             `44:${level.inGauntlet || 0}`,
             `45:${level.objects || 0}`,
-            `46:0`,
-            `47:0`,
+            `46:${level.wt}`,
+            `47:${level.wt2}`,
             `48:`,
             `52:${level.songIDs || ''}`,
             `53:${level.sfxIDs || ''}`,
             `54:0`,
-            `57:0`,
+            `57:${level.ts}`,
             `62:${level.uploadDate}`,
             `63:${level.updateDate}`
         ].join(':');
