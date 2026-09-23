@@ -83,7 +83,7 @@ module.exports = {
 
         let rawPassword = String(body.password ?? '');
         if (gameVersion == 22 && rawPassword == '0') rawPassword = '1';
-        let normalizedPassword = (parseInt(rawPassword, 10) || 1).trim();
+        let normalizedPassword = (utils.number(parseInt(rawPassword, 10)) || 1).trim();
 
         if (rawPassword && rawPassword !== '1' && rawPassword !== '0' && !rawPassword.startsWith('1')) {
             return res.send('-1');
@@ -98,7 +98,7 @@ module.exports = {
             isNaN(levelLength) || isNaN(audioTrack) || isNaN(auto) || isNaN(normalizedPassword) ||
             isNaN(original) || isNaN(twoPlayer) || isNaN(songID) || isNaN(objects) ||
             isNaN(coins) || isNaN(requestedStars) || isNaN(unlisted) || isNaN(wt) || isNaN(wt2) ||
-            isNaN(ldm) || !gjp2 || !levelName || levelDesc === undefined || levelDesc === null ||
+            isNaN(ldm) || isNaN(ts) || !gjp2 || !levelName || levelDesc === undefined || levelDesc === null ||
             !levelString || !seed2
         ) return res.send('-1');
 
