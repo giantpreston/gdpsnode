@@ -659,6 +659,25 @@ router.get('/api/levels/:levelId', requireAuth, (req, res) => {
     res.json({ level, suggestions, ratings });
 });
 
+router.put('/api/levels/:levelId/details', requireAuth, requireCsrf, (req, res) => {
+    const levelId = Number(req.params.levelId);
+    const levelName = utils.charclean(String(req.body?.levelName || '').trim());
+    const levelDescription = String(req.body?.levelDescription || '');
+    const starCoins = Number(req.body?.starCoins);
+    const encodedDescription = Buffer.from(levelDescription, 'utf8').toString('base64')
+        .replace(/\+/g, '-').replace(/\//g, '_');
+    if (!Number.isInteger(levelId) || levelId < 1 || !levelName || levelName.length > 20 ||
+        encodedDescription.length > 240 || ![0, 1].includes(starCoins)) {
+        return res.status(400).json({ error: 'Invalid level details' });
+    }
+    const result = db.prepare(`UPDATE levels SET levelName = ?, levelDesc = ?, starCoins = ?,
+        updateDate = ? WHERE levelID = ?`).run(
+        levelName, encodedDescription, starCoins, Math.floor(Date.now() / 1000), levelId
+    );
+    if (!result.changes) return res.status(404).json({ error: 'Level not found' });
+    res.status(204).end();
+});
+
 router.post('/api/rate', requireAuth, requireCsrf, (req, res) => {
     const levelId = Number(req.body?.levelId);
     const stars = Number(req.body?.stars);

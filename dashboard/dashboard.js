@@ -105,7 +105,9 @@ const selected = (current, value) => Number(current) === Number(value) ? ' selec
 function decodeBase64Url(value) {
     if (!value) return '';
     try {
-        const binary = atob(value.replace(/-/g, '+').replace(/_/g, '/'));
+        const normalized = value.replace(/-/g, '+').replace(/_/g, '/');
+        const padded = normalized.padEnd(Math.ceil(normalized.length / 4) * 4, '=');
+        const binary = atob(padded);
         return new TextDecoder().decode(Uint8Array.from(binary, character => character.charCodeAt(0)));
     } catch { return '[Invalid description encoding]'; }
 }
@@ -179,6 +181,8 @@ function renderLevelDetail(data) {
     const feature = level.starEpic ? level.starEpic + 1 : level.featured ? 1 : 0;
     $('#level-detail').hidden = false;
     $('#level-detail').innerHTML = `<div class="detail-heading"><div><p class="eyebrow">Level #${level.levelID}</p><h3>${escapeHtml(level.levelName)}</h3></div><button class="close-detail" type="button">Close</button></div><p class="detail-description">${escapeHtml(level.levelDesc || 'No description')}</p><div class="detail-facts"><span>Official <b>${official}</b></span><span>Difficulty <b>${difficulty}</b></span><span>Rarity <b>${rarity}</b></span><span>Users <b>${level.userRates || 0} ratings · ${level.avgUserRate || 0}★ avg</b></span><span>Stats <b>${level.downloads || 0} downloads · ${level.likes || 0} likes</b></span></div><div class="detail-columns"><div><h4>Moderator suggestions (${data.suggestions.length})</h4>${data.suggestions.length ? data.suggestions.map(suggestion => `<div class="suggestion">${suggestionText(suggestion)}</div>`).join('') : '<p class="empty">None</p>'}</div><div><h4>User ratings</h4>${data.ratings.length ? data.ratings.map(rating => `<div class="user-rating"><span>${escapeHtml(rating.userName || `Account #${rating.accountID}`)} · ${rating.stars}★</span><button class="remove-rating" data-account="${rating.accountID}" type="button">Remove</button></div>`).join('') : '<p class="empty">No user ratings</p>'}</div></div><div class="detail-actions"><label>Difficulty<select class="detail-difficulty"${level.starStars ? ' disabled' : ''}><option value="0"${selected(level.starDifficulty, 0)}>Unset</option><option value="1"${selected(level.starDifficulty, 1)}>Easy</option><option value="2"${selected(level.starDifficulty, 2)}>Normal</option><option value="3"${selected(level.starDifficulty, 3)}>Hard</option><option value="4"${selected(level.starDifficulty, 4)}>Harder</option><option value="5"${selected(level.starDifficulty, 5)}>Insane</option></select></label><button class="detail-difficulty-save" type="button"${level.starStars ? ' disabled' : ''}>Save difficulty</button><label>Stars<select class="detail-stars"><option value="0"${selected(level.starStars, 0)}>Unrate</option><option value="1"${selected(level.starStars, 1)}>1</option><option value="2"${selected(level.starStars, 2)}>2</option><option value="3"${selected(level.starStars, 3)}>3</option><option value="4"${selected(level.starStars, 4)}>4</option><option value="5"${selected(level.starStars, 5)}>5</option><option value="6"${selected(level.starStars, 6)}>6</option><option value="7"${selected(level.starStars, 7)}>7</option><option value="8"${selected(level.starStars, 8)}>8</option><option value="9"${selected(level.starStars, 9)}>9</option><option value="10"${selected(level.starStars, 10)}>10</option></select></label><label>Feature<select class="detail-feature"><option value="0"${selected(feature, 0)}>None</option><option value="1"${selected(feature, 1)}>Featured</option><option value="2"${selected(feature, 2)}>Epic</option><option value="3"${selected(feature, 3)}>Legendary</option><option value="4"${selected(feature, 4)}>Mythic</option></select></label><label>Demon<select class="detail-demon"><option value="0"${selected(level.starDemon ? level.starDemonDiff : 0, 0)}>None / Hard</option><option value="3"${selected(level.starDemonDiff, 3)}>Easy</option><option value="4"${selected(level.starDemonDiff, 4)}>Medium</option><option value="5"${selected(level.starDemonDiff, 5)}>Insane</option><option value="6"${selected(level.starDemonDiff, 6)}>Extreme</option></select></label><button class="detail-rate" type="button">Save rating</button></div>`;
+    $('#level-detail').querySelector('.detail-description').textContent = decodeBase64Url(level.levelDesc) || 'No description';
+    $('#level-detail').insertAdjacentHTML('beforeend', `<div class="detail-metadata"><label>Name<input class="detail-level-name" maxlength="20" value="${escapeHtml(level.levelName)}" required></label><label>Description<textarea class="detail-level-description">${escapeHtml(decodeBase64Url(level.levelDesc))}</textarea></label><label class="detail-coins"><input class="detail-star-coins" type="checkbox"${level.starCoins ? ' checked' : ''}> Verified Coins</label><button class="detail-metadata-save" type="button">Save level details</button></div>`);
     syncDemonControl($('#level-detail'));
 }
 
@@ -544,6 +548,11 @@ $('#level-detail').addEventListener('click', async event => {
             const stars = Number(detail.querySelector('.detail-stars').value);
             if (stars === 0) await request(`api/levels/${currentLevel}/unrate`, { method: 'POST', body: '{}' });
             else await request('api/rate', { method: 'POST', body: JSON.stringify({ levelId: Number(currentLevel), stars, feature: Number(detail.querySelector('.detail-feature').value), demonDiff: Number(detail.querySelector('.detail-demon').value) }) });
+        } else if (event.target.classList.contains('detail-metadata-save')) {
+            const name = detail.querySelector('.detail-level-name').value.trim();
+            const description = detail.querySelector('.detail-level-description').value;
+            if (!name) throw new Error('Level name is required');
+            await request(`api/levels/${currentLevel}/details`, { method: 'PUT', body: JSON.stringify({ levelName: name, levelDescription: description, starCoins: detail.querySelector('.detail-star-coins').checked ? 1 : 0 }) });
         } else return;
         renderLevelDetail(await request(`api/levels/${currentLevel}`));
     } catch (error) { $('#app-error').textContent = error.message; }

@@ -47,7 +47,9 @@ module.exports = {
                 let params = [];
                 
                 updates.push('starStars = ?');
+                updates.push('starCoins = ?');
                 params.push(stars);
+                params.push(1);
 
                 if (stars === 0) {
                     updates.push('starAuto = 0');
