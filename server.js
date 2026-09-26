@@ -29,7 +29,7 @@ const path = require('path');
 const dashboard = require('./dashboard');
 const { closeDB } = require('./database');
 
-const VERSION = '3.6R';
+const VERSION = '3.7R';
 const VERSION_URL = 'https://raw.githubusercontent.com/giantpreston/gdpsnode/refs/heads/main/version.txt';
 
 async function checkForUpdates() {

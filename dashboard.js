@@ -477,14 +477,12 @@ router.post('/api/songs', requireAuth, requireCsrf, async (req, res) => {
 
     await fs.mkdir(songsDirectory, { recursive: true });
     const result = db.prepare(`INSERT INTO songs
-        (name, artistID, artistName, videoID, youtubeURL, allowedForUse, songPriority, link,
-        nongEnum, extraArtistIDs, isNew, newType, size, extraArtistNames, downloadSoundtrackOverride)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`).run(
+        (name, artistID, artistName, videoID, youtubeURL, allowedForUse, link, size, downloadSoundtrackOverride)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`).run(
         name, artistID, artistName, String(fields.videoID || ''), String(fields.youtubeURL || ''),
-        Number(fields.allowedForUse ?? 1) ? 1 : 0, Number(fields.songPriority || 0), '',
-        Number(fields.nongEnum || 0), String(fields.extraArtistIDs || ''), Number(fields.isNew || 0) ? 1 : 0,
-        Number(fields.newType || 0), Math.round(upload.file.content.length / 1048576 * 100) / 100,
-        String(fields.extraArtistNames || ''), String(fields.downloadSoundtrackOverride || '')
+        Number(fields.allowedForUse ?? 1) ? 1 : 0, '',
+        Math.round(upload.file.content.length / 1048576 * 100) / 100,
+        String(fields.downloadSoundtrackOverride || '')
     );
     const songID = Number(result.lastInsertRowid);
     const fileName = `${songID}${extension}`;
