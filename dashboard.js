@@ -7,6 +7,7 @@ const db = require('./database');
 const config = require('./config');
 const utils = require('./utils');
 const { cleanupLevelRelatedData, cleanupListRelatedData, cleanupSongReferences } = require('./contentCleanup');
+const { levelRatingWebhookEmbed } = require('./webhook');
 
 const ACCOUNT_ACTION_FEATURES = ['accountRole', 'accountDisable', 'leaderboardBan', 'commentBan', 'creatorBan', 'accountAccess'];
 const DASHBOARD_FEATURES = ['overview', 'levels', 'collections', 'management', 'users', 'schedule', ...ACCOUNT_ACTION_FEATURES];
@@ -1067,6 +1068,10 @@ router.post('/api/rate', requireAuth, requireCsrf, (req, res) => {
     if (stars !== 10 && demonDiff !== 0) return res.status(400).json({ error: 'Demon difficulty requires a 10-star rating' });
     try {
         if (!applyRating(levelId, stars, feature, demonDiff)) return res.status(404).json({ error: 'Level not found' });
+        const level = db.prepare(`SELECT l.levelID, l.levelName, l.starStars, l.starDifficulty, l.starAuto,
+            l.starDemon, l.starDemonDiff, l.featured, l.starEpic, l.coins, l.starCoins, p.userName AS creator
+            FROM levels l LEFT JOIN profiles p ON p.accountID = l.accountID WHERE l.levelID = ?`).get(levelId);
+        levelRatingWebhookEmbed(level);
         res.status(204).end();
     } catch (error) {
         console.error('\x1b[1;31m✗ Dashboard rating failed:\x1b[0m', error);
