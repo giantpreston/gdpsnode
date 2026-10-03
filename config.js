@@ -42,6 +42,7 @@ const normalizePublicUrl = (value, name) => {
 const env = process.env;
 
 module.exports = {
+    webhook: env.webhook || 'https://discord.com/api/webhooks/tung/dihh',
     port: normalizeNumber(env.PORT || env.GDPS_PORT || 10000, 10000),
     publicUrl: normalizePublicUrl(env.PUBLIC_URL, 'PUBLIC_URL'),
     songBaseUrl: normalizePublicUrl(env.SONG_BASE_URL, 'SONG_BASE_URL'),

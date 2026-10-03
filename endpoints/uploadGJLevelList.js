@@ -2,6 +2,8 @@ const { llMid } = require('../middleware/secrets');
 const db = require('../database');
 const utils = require('../utils');
 const crypto = require('crypto');
+const { infoWebhookEmbed, errorWebhookEmbed, warnWebhookEmbed, hook } = require('../webhook.js');
+
 
 function generateListSeed(listLevels, accountID, seed2) {
     const chars = 50;
@@ -127,6 +129,7 @@ module.exports = {
             const inf = addlist.run(...values);
 
             const newListID = inf.lastInsertRowid;
+            infoWebhookEmbed(`New list uploaded!\n List ID: ${newListID}\n List Name: ${listName}`, hook);
             
             return res.send(String(newListID));
         }

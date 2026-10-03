@@ -1,3 +1,4 @@
+const { infoWebhookEmbed, errorWebhookEmbed, warnWebhookEmbed, hook } = require('./webhook.js');
 // security check block
 try {
     process.loadEnvFile();
@@ -32,7 +33,7 @@ const { loadPlugins, hooks } = require('./hooks');
 const { closeDB } = require('./database');
 const soundlib = require("./soundlib")
 
-const VERSION = '4.6R';
+const VERSION = '4.7R';
 const VERSION_URL = 'https://raw.githubusercontent.com/giantpreston/gdpsnode/refs/heads/main/version.txt';
 
 async function checkForUpdates() {
@@ -43,9 +44,11 @@ async function checkForUpdates() {
         const latestVersion = (await response.text()).trim();
         if (latestVersion && latestVersion !== VERSION) {
             console.warn(`\x1b[1;31m⚠ This server is outdated (v${VERSION}). Latest version: v${latestVersion}. Run 'git pull' to update!\x1b[0m`);
+            warnWebhookEmbed("The GDPS is outdated. Please update the GDPS: https://github.com/GiantPreston/GDPSnode")
         }
     } catch (err) {
         console.warn(`\x1b[1;33m⚠ Could not check for updates: ${err.message}\x1b[0m`);
+        warnWebhookEmbed("Failed to check for updates. The GDPS may be outdated. Please manually check for updates: https://github.com/GiantPreston/GDPSnode")
     }
 }
 
@@ -173,6 +176,7 @@ loadPlugins(path.join(__dirname, config.plugins.directory), app).then(() => {
     const server = app.listen(port, () => {
         hooks.trigger('server:listening', { app, config, port });
         console.log(`\x1b[1;32m✓ GDPS Running Successfully! Port: ${port}\x1b[0m`);
+        infoWebhookEmbed('Server has started!', hook);
         if (!isElevated() && port === 80 || !isElevated() && port === 443) { console.log('\x1b[1;33m⚠ Running on a privileged port without elevated permissions!'); console.log('\x1b[1;33m  This server is most likely NOT listening on the set port, to do so, elevate this process.'); }
 
         if (process.stdin.isTTY) {
@@ -190,6 +194,7 @@ loadPlugins(path.join(__dirname, config.plugins.directory), app).then(() => {
     const handleShutdown = (signal) => {
         if (isShuttingDown) return;
         isShuttingDown = true;
+        infoWebhookEmbed("Server is shutting down..", hook);
 
         console.log(`\x1b[1;33m⚠ Received ${signal}. Cleaning up...\x1b[0m`);
 
@@ -200,9 +205,13 @@ loadPlugins(path.join(__dirname, config.plugins.directory), app).then(() => {
         });
 
         setTimeout(() => {
-            console.error('\x1b[1;31m✗ Shutdown timed out, forcing exit.\x1b[0m');
-            closeDB();
-            process.exit(1);
+            errorWebhookEmbed(`Force closing server due to timeout`, hook);
+            // delay for a bit so webhook can send
+            setTimeout(() => {
+                console.error('\x1b[1;31m✗ Shutdown timed out, forcing exit.\x1b[0m');
+                closeDB();
+                process.exit(1);
+            }, 450);
         }, 5000);
     };
 

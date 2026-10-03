@@ -11,7 +11,7 @@ module.exports = {
         const gjp2 = utils.remove(req.body?.gjp2 || '');
 
         // sanity checks
-        if (!accountId || !gjp2) return res.send('-1'); // not getting in buddy nuh uh
+        if (!accountId || !gjp2) return res.send('-1'); // not getting in buddy nuh uh :)
         if (isNaN(accountId)) return res.send('-1');
         if (gjp2.length !== 40) return res.send('-1');
 

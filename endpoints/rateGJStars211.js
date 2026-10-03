@@ -1,7 +1,7 @@
 const { commonSecret } = require('../middleware/secrets');
 const db = require('../database');
 const utils = require('../utils');
-
+const { infoWebhookEmbed, errorWebhookEmbed, warnWebhookEmbed, hook } = require('../webhook.js');
 // unfortunately, it seems GMDPrivateServer doesn't implement this at all!
 // all the code does is return a placebo "1" response, with absolutely no storage or handling of user rates
 // unless you're a mod, to which it just rates the level. but this is a user rate endpoint, so.. yeah!
@@ -75,6 +75,11 @@ module.exports = {
                 levelID
             );
         })();
+
+        //setTimeout(() => {
+        //    infoWebhookEmbed(`New level rated!\n Level ID: ${levelID}\n Stars: ${stars}`, hook);
+        //}, 1000);
+        /*turns out my dumbass didnt know this is the USER rate endpoint and not the modrate endpoint :D:D:D:D:D:D:D:D:D:D:D time to find the right endpoint  */
 
         return res.send('1');
     }

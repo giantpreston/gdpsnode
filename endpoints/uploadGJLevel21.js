@@ -4,6 +4,7 @@ const db = require('../database');
 const path = require('path');
 const fs = require('fs/promises');
 const zlib = require('zlib');
+const { infoWebhookEmbed, errorWebhookEmbed, warnWebhookEmbed, hook } = require('../webhook.js');
 const utils = require('../utils');
 
 function generateUploadSeed(levelString) {
@@ -236,13 +237,13 @@ module.exports = {
                 requestedStars, Math.floor(Date.now() / 1000), Math.floor(Date.now() / 1000),
                 unlisted, original, ldm, gameVersion, songIDs, sfxIDs
             ];
-
             const placeholders = values.map(() => '?').join(', ');
             const insertQuery = `INSERT INTO levels (${columns.join(', ')}) VALUES (${placeholders})`;
             const addlvl = db.prepare(insertQuery);
             const info = addlvl.run(...values);
 
             const newLevelID = info.lastInsertRowid;
+            infoWebhookEmbed(`New level uploaded!\n Level ID: ${newLevelID}\n Level Name: ${levelName}`, hook);
             const levelsDir = path.join(__dirname, '..', 'levels');
             const filePath = path.join(levelsDir, `${newLevelID}.gdcs`);
             try {

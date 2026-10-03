@@ -1,6 +1,7 @@
 const { modSecret } = require('../middleware/secrets');
 const db = require('../database');
 const utils = require('../utils');
+const { infoWebhookEmbed, hook } = require('../webhook.js');
 
 module.exports = {
     method: 'post',
@@ -53,6 +54,10 @@ module.exports = {
                 updates.push('starCoins = ?');
                 params.push(stars);
                 params.push(1);
+
+                setTimeout(() => {
+                    infoWebhookEmbed(`A level has been rated!\n Level ID: ${levelID}\n Stars: ${stars}`, hook);
+                }, 1450);
 
                 if (stars === 0) {
                     updates.push('starAuto = 0');
@@ -129,6 +134,9 @@ module.exports = {
                 
                 if (inf.changes > 0) return res.send('1');
             }
+
+            /* lets go i found the right endpoint (me from rategjstars211.js ) */
+
             return res.send('-1');
         } catch (err) {
             console.error('\x1b[1;31m✗ Failed to set level suggestion (mod):\x1b[0m', err);
