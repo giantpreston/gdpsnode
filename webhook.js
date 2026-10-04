@@ -52,7 +52,7 @@ function levelRatingWebhookEmbed(level, webhook = hook) {
     const difficulty = level.starDemon ? demonDifficulties[level.starDemonDiff] || 'hardDemon' :
         level.starAuto ? 'auto' : difficulties[level.starDifficulty] || 'na';
     const coins = level.coins > 0 ? `${level.coins}${level.starCoins ? 'v' : 'u'}` : 'none';
-    const rating = level.starStars > 0 ? `${level.starStars}s` : 'none';
+    const rating = level.starStars > 0 ? `${level.starStars}${level.levelLength >= 5 ? 'm' : 's'}` : 'none';
     const faceUrl = `https://autonick.github.io/diff-faces/levels/${tier}/${difficulty}/${coins}/${rating}.png`;
     const tierColors = { mythic: 0xe74c3c, legendary: 0xf1c40f, epic: 0x9b59b6, feature: 0x3498db, none: 0x2596be };
     const fields = [

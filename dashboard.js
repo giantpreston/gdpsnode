@@ -1079,7 +1079,7 @@ router.post('/api/rate', requireAuth, requireCsrf, (req, res) => {
     if (stars !== 10 && demonDiff !== 0) return res.status(400).json({ error: 'Demon difficulty requires a 10-star rating' });
     try {
         if (!applyRating(levelId, stars, feature, demonDiff)) return res.status(404).json({ error: 'Level not found' });
-        const level = db.prepare(`SELECT l.levelID, l.levelName, l.starStars, l.starDifficulty, l.starAuto,
+        const level = db.prepare(`SELECT l.levelID, l.levelName, l.levelLength, l.starStars, l.starDifficulty, l.starAuto,
             l.starDemon, l.starDemonDiff, l.featured, l.starEpic, l.coins, l.starCoins, p.userName AS creator
             FROM levels l LEFT JOIN profiles p ON p.accountID = l.accountID WHERE l.levelID = ?`).get(levelId);
         levelRatingWebhookEmbed(level);

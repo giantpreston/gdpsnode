@@ -129,7 +129,7 @@ module.exports = {
                 const inf = transaction();
                 
                 if (inf.changes > 0) {
-                    const ratedLevel = db.prepare(`SELECT l.levelID, l.levelName, l.starStars, l.starDifficulty, l.starAuto,
+                    const ratedLevel = db.prepare(`SELECT l.levelID, l.levelName, l.levelLength, l.starStars, l.starDifficulty, l.starAuto,
                         l.starDemon, l.starDemonDiff, l.featured, l.starEpic, l.coins, l.starCoins, p.userName AS creator
                         FROM levels l LEFT JOIN profiles p ON p.accountID = l.accountID WHERE l.levelID = ?`).get(levelID);
                     levelRatingWebhookEmbed(ratedLevel);
