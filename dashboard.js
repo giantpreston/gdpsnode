@@ -44,7 +44,7 @@ const dashboardUser = process.env.DASHBOARD_USER;
 const dashboardPassword = process.env.DASHBOARD_PASSWORD;
 const dashboardAccountId = Number(process.env.DASHBOARD_ACCOUNT_ID);
 const secureCookies = process.env.DASHBOARD_SECURE_COOKIES === '1';
-const dashboardPath = (process.env.DASHBOARD_PATH || '/dashboard').replace(/\/+$/, '').replace(/^([^/])/, '/$1') || '/dashboard';
+const dashboardPath = config.dashboard.path;
 const songsDirectory = path.join(__dirname, 'songs');
 
 function decodeBase64Url(value) {
@@ -236,13 +236,13 @@ function applyRating(levelId, stars, feature, demonDiff) {
 function clearRating(levelId) {
     const clear = db.prepare(`UPDATE levels SET starStars = 0,
         starAuto = 0, starDemon = 0, featured = 0, starEpic = 0, starDemonDiff = 0,
-        isSent = 0, lastSent = 0 WHERE levelID = ?`);
-    const getLevel = db.prepare('SELECT accountID, starStars, featured, starEpic FROM levels WHERE levelID = ?');
+        isSent = 0, lastSent = 0, starDifficulty = ? WHERE levelID = ?`);
+    const getLevel = db.prepare('SELECT accountID, starStars, featured, starEpic, avgUserRate FROM levels WHERE levelID = ?');
     const updateCreatorPoints = db.prepare('UPDATE profiles SET creatorPoints = creatorPoints - ? WHERE accountID = ?');
     const transaction = db.transaction(() => {
         const level = getLevel.get(levelId);
         if (!level) return 0;
-        const result = clear.run(levelId);
+        const result = clear.run(difficultyFromAverage(level.avgUserRate), levelId);
         const oldFeature = level.featured ? level.starEpic + 1 : 0;
         const points = utils.creatorPointsForRating(level.starStars, oldFeature);
         if (points) updateCreatorPoints.run(points, level.accountID);
@@ -256,15 +256,26 @@ function applyDifficulty(levelId, difficulty) {
     return db.prepare('UPDATE levels SET starDifficulty = ? WHERE levelID = ?').run(difficulty, levelId).changes;
 }
 
+function difficultyFromAverage(average) {
+    if (average <= 0) return 0;
+    if (average <= 2) return 1;
+    if (average === 3) return 2;
+    if (average <= 5) return 3;
+    if (average <= 7) return 4;
+    return 5;
+}
+
 function refreshUserRatingStats(levelId) {
     const ratings = db.prepare('SELECT stars FROM level_ratings WHERE levelID = ?').all(levelId).map(row => row.stars);
     const average = ratings.length ? Math.round(ratings.reduce((sum, stars) => sum + stars, 0) / ratings.length) : 0;
+    const difficulty = difficultyFromAverage(average);
     const filtered = ratings.filter(stars => stars > 1 && stars < 10);
     const filteredAverage = filtered.length ? Math.round(filtered.reduce((sum, stars) => sum + stars, 0) / filtered.length) : 0;
     db.prepare(`UPDATE levels SET userRates = ?, avgUserRate = ?, noMinMaxAvgUserRate = ?,
-        noMinMaxMinUserRate = ?, noMinMaxMaxUserRate = ? WHERE levelID = ?`).run(
+        noMinMaxMinUserRate = ?, noMinMaxMaxUserRate = ?,
+        starDifficulty = CASE WHEN starStars = 0 THEN ? ELSE starDifficulty END WHERE levelID = ?`).run(
         ratings.length, average, filteredAverage, filtered.length ? Math.min(...filtered) : 0,
-        filtered.length ? Math.max(...filtered) : 0, levelId
+        filtered.length ? Math.max(...filtered) : 0, difficulty, levelId
     );
 }
 

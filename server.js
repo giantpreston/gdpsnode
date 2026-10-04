@@ -1,4 +1,3 @@
-const { infoWebhookEmbed, errorWebhookEmbed, warnWebhookEmbed, hook } = require('./webhook.js');
 // security check block
 try {
     process.loadEnvFile();
@@ -7,9 +6,10 @@ try {
 }
 
 const config = require('./config');
+const { infoWebhookEmbed, errorWebhookEmbed, warnWebhookEmbed, hook } = require('./webhook.js');
 const port = Number(config.port);
 const dashboardPath = config.dashboard.path;
-const isDefaultPath = (process.env.DASHBOARD_PATH || '/dashboard') === '/dashboard';
+const isDefaultPath = dashboardPath === '/dashboard';
 const isDefaultPass = process.env.DASHBOARD_PASSWORD === 'replace-with-a-long-random-password';
 
 if (isDefaultPath || isDefaultPass) {
@@ -33,7 +33,7 @@ const { loadPlugins, hooks } = require('./hooks');
 const { closeDB } = require('./database');
 const soundlib = require("./soundlib")
 
-const VERSION = '4.8R';
+const VERSION = '4.9R';
 const VERSION_URL = 'https://raw.githubusercontent.com/giantpreston/gdpsnode/refs/heads/main/version.txt';
 
 async function checkForUpdates() {
@@ -176,6 +176,7 @@ loadPlugins(path.join(__dirname, config.plugins.directory), app).then(() => {
     const server = app.listen(port, () => {
         hooks.trigger('server:listening', { app, config, port });
         console.log(`\x1b[1;32m✓ GDPS Running Successfully! Port: ${port}\x1b[0m`);
+        console.log(`\x1b[1;34m𝐢 Dashboard route: ${dashboardPath}/\x1b[0m`);
         infoWebhookEmbed('Server has started!', hook);
         if (!isElevated() && port === 80 || !isElevated() && port === 443) { console.log('\x1b[1;33m⚠ Running on a privileged port without elevated permissions!'); console.log('\x1b[1;33m  This server is most likely NOT listening on the set port, to do so, elevate this process.'); }
 

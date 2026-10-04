@@ -37,8 +37,8 @@ module.exports = {
             if (profile.modLevel === 1) {
                 if (stars === 0) return res.send('-1');
                 const submitted = db.transaction(() => {
-                    const suggestion = db.prepare('INSERT INTO modsuggest (accountID, levelID, stars, feature) VALUES (?, ?, ?, ?)')
-                        .run(accountID, levelID, stars, feature);
+                    const suggestion = db.prepare('INSERT INTO modsuggest (accountID, levelID, stars, demonDiff, feature) VALUES (?, ?, ?, ?, ?)')
+                        .run(accountID, levelID, stars, 0, feature);
                     const updatedLevel = db.prepare('UPDATE levels SET isSent = 1, lastSent = ? WHERE levelID = ?')
                         .run(Math.floor(Date.now() / 1000), levelID);
                     if (suggestion.changes === 0 || updatedLevel.changes === 0) throw new Error('Suggestion was not fully applied');

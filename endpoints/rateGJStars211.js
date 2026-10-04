@@ -32,7 +32,10 @@ module.exports = {
         if (account.gjp2 !== gjp2) return res.send('-1');
         if (account.isDisabled === 1) return res.send('-1');
 
-        db.transaction(() => {
+        const accepted = db.transaction(() => {
+            const currentLevel = db.prepare('SELECT starStars FROM levels WHERE levelID = ?').get(levelID);
+            if (!currentLevel || currentLevel.starStars > 0) return false;
+
             db.prepare(`
                 INSERT INTO level_ratings (levelID, accountID, stars)
                 VALUES (?, ?, ?)
@@ -44,6 +47,12 @@ module.exports = {
 
             const totalSum = allRatings.reduce((acc, curr) => acc + curr, 0);
             const avgUserRate = Math.round(totalSum / userRates);
+            const starDifficulty = userRates === 0 ? 0
+                : avgUserRate <= 2 ? 1
+                    : avgUserRate === 3 ? 2
+                        : avgUserRate <= 5 ? 3
+                            : avgUserRate <= 7 ? 4
+                                : 5; // im so smart i know i know
 
             const filtered = allRatings.filter(s => s > 1 && s < 10);
 
@@ -64,7 +73,8 @@ module.exports = {
                     avgUserRate = ?,
                     noMinMaxAvgUserRate = ?,
                     noMinMaxMinUserRate = ?,
-                    noMinMaxMaxUserRate = ?
+                    noMinMaxMaxUserRate = ?,
+                    starDifficulty = ?
                 WHERE levelID = ?
             `).run(
                 userRates,
@@ -72,9 +82,13 @@ module.exports = {
                 noMinMaxAvgUserRate,
                 noMinMaxMinUserRate,
                 noMinMaxMaxUserRate,
+                starDifficulty,
                 levelID
             );
+            return true;
         })();
+
+        if (!accepted) return res.send('-1');
 
         //setTimeout(() => {
         //    infoWebhookEmbed(`New level rated!\n Level ID: ${levelID}\n Stars: ${stars}`, hook);
