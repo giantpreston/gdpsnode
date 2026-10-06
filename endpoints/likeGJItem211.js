@@ -63,6 +63,8 @@ module.exports = {
                 db.prepare('INSERT INTO content_increments (accountID, contentID, contentType) VALUES (?, ?, ?)').run(accountID, itemID, content);
                 return true;
             })();
+            // isSpam bit write
+            if (type === 2) db.prepare('UPDATE comments SET isSpam = CASE WHEN likes < -3 THEN 1 ELSE 0 END WHERE commentID = ? AND isSpam != (likes < -3)').run(itemID);
 
             if (result) return res.send('1');
         } catch (err) {
