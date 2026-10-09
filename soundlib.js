@@ -153,12 +153,15 @@ function ensureMusicLib(currentVersion) {
 }
 
 async function updateMusicLibrary(currentVersion) {
-    const schedule = db.prepare("SELECT version, verified FROM lib_update_scheduling WHERE id=0").get();
+    const schedule = db.prepare("SELECT version, scheduled, verified FROM lib_update_scheduling WHERE id=0").get();
+    const hasSongs = db.prepare('SELECT 1 FROM songs LIMIT 1').get();
+
+    if (currentVersion === 0 && hasSongs && schedule?.verified === 1 && schedule.scheduled > Date.now()) return;
+
     if (currentVersion === 0) {
         currentVersion = schedule?.verified === 1 ? schedule.version : 0;
     }
 
-    const hasSongs = db.prepare('SELECT 1 FROM songs LIMIT 1').get();
     if (!hasSongs) currentVersion = 0;
 
     const response = await fetch("https://geometrydashfiles.b-cdn.net/music/musiclibrary_version_02.txt");

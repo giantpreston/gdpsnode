@@ -33,7 +33,7 @@ const { loadPlugins, hooks } = require('./hooks');
 const { closeDB } = require('./database');
 const soundlib = require("./soundlib")
 
-const VERSION = '5.1R';
+const VERSION = '5.2R';
 const VERSION_URL = 'https://raw.githubusercontent.com/giantpreston/gdpsnode/refs/heads/main/version.txt';
 
 async function checkForUpdates() {
@@ -135,8 +135,6 @@ app.use('/songs', express.static(path.join(__dirname, 'songs'), {
 const endpointsDir = path.join(__dirname, 'endpoints');
 
 async function registerEndpoints() {
-    await checkForUpdates();
-
     const files = await fs.readdir(endpointsDir);
 
     for (const file of files) {
@@ -178,6 +176,7 @@ loadPlugins(path.join(__dirname, config.plugins.directory), app).then(() => {
         console.log(`\x1b[1;32m✓ GDPS Running Successfully! Port: ${port}\x1b[0m`);
         console.log(`\x1b[1;34m𝐢 Dashboard route: ${dashboardPath}/\x1b[0m`);
         infoWebhookEmbed('Server has started!', hook);
+        void checkForUpdates();
         if (!isElevated() && port === 80 || !isElevated() && port === 443) { console.log('\x1b[1;33m⚠ Running on a privileged port without elevated permissions!'); console.log('\x1b[1;33m  This server is most likely NOT listening on the set port, to do so, elevate this process.'); }
 
         if (process.stdin.isTTY) {
