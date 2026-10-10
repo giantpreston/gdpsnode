@@ -74,7 +74,8 @@ PLUGINS_DIR=plugins
 ## Working with the project layout
 
 - `server.js` boots the HTTP server and loads the routes
-- `endpoints/` contains Geometry Dash-compatible HTTP handlers
+- `endpoints/` contains Geometry Dash-compatible handlers grouped by domain (`accounts/`, `comments/`, `friends/`, `levels/`, `messages/`, `moderation/`, `rewards/`, `scores/`, `songs/`, `system/`, and `users/`)
+- `endpoints/content/` contains local content files served before the CDN fallback
 - `dashboard/` contains the web dashboard UI and auth logic
 - `database.js` initializes and manages the SQLite database
 - `config.js` normalizes settings from environment values
