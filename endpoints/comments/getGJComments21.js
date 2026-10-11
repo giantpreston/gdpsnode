@@ -68,7 +68,7 @@ module.exports = {
             for (const comment of comments) {
                 const uploadDate = utils.getRelative(comment.timestamp);
                 const accountID = comment.accountID || 0;
-                commentString += `2~${comment.comment}~3~${accountID + 1}~4~${comment.likes}~5~0~7~${comment.isSpam}~9~${uploadDate}~6~${comment.commentID}~10~${comment.percent}`;
+                commentString += `2~${comment.comment}~3~${accountID + 1}~4~${comment.likes}~5~0~7~${comment.isSpam}~9~${uploadDate}~6~${comment.commentID}~10~${comment.percent}~15~${comment.timestamp}`;
 
                 if (comment.userName) {
                     const modLevel = comment.modLevel || 0;
