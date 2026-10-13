@@ -38,7 +38,7 @@ module.exports = {
             db.prepare(`
                 INSERT INTO level_ratings (levelID, accountID, stars)
                 VALUES (?, ?, ?)
-                ON CONFLICT(levelID, accountID) DO UPDATE SET stars = excluded.stars
+                ON CONFLICT(levelID, accountID) DO NOTHING
             `).run(levelID, accountID, stars);
 
             const allRatings = db.prepare('SELECT stars FROM level_ratings WHERE levelID = ?').all(levelID).map(r => r.stars);
