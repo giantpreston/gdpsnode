@@ -1,7 +1,6 @@
-const { commonSecret } = require('../../middleware/secrets');
-const db = require('../../database');
-const utils = require('../../utils');
-const { infoWebhookEmbed, errorWebhookEmbed, warnWebhookEmbed, hook } = require('../../webhook.js');
+const { commonSecret } = require('../../middleware/secrets.js');
+const db = require('../../database.js');
+const utils = require('../../utils.js');
 // unfortunately, it seems GMDPrivateServer doesn't implement this at all!
 // all the code does is return a placebo "1" response, with absolutely no storage or handling of user rates
 // unless you're a mod, to which it just rates the level. but this is a user rate endpoint, so.. yeah!
