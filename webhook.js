@@ -57,7 +57,7 @@ function levelRatingWebhookEmbed(level, webhook = hook) {
     const tierColors = { mythic: 0xe74c3c, legendary: 0xf1c40f, epic: 0x9b59b6, feature: 0x3498db, none: 0x2596be };
     const fields = [
         { name: 'Level', value: `${level.levelName} (#${level.levelID})`, inline: true },
-        { name: 'Rating', value: `${level.starStars} ${level.starStars === 1 ? 'star' : 'stars'}`, inline: true },
+        { name: 'Rating', value: `${level.starStars} ${level.levelLength >= 5 ? level.starStars === 1 ? 'moon' : 'moons' : level.starStars === 1 ? 'star' : 'stars'}`, inline: true },
         { name: 'Difficulty', value: difficulty.replace(/([A-Z])/g, ' $1').replace(/^./, char => char.toUpperCase()), inline: true },
         { name: 'Tier', value: tier[0].toUpperCase() + tier.slice(1), inline: true },
         { name: 'Coins', value: level.coins > 0 ? `${level.coins} ${level.starCoins ? 'verified' : 'unverified'}` : 'None', inline: true }
