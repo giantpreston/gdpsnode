@@ -1,35 +1,19 @@
 const { commonSecret } = require('../../middleware/secrets');
 const db = require('../../database');
 const utils = require('../../utils');
-
-const chestConfig = {
-    chest1wait: Number(process.env.CHEST1_WAIT || 14400),
-    chest2wait: Number(process.env.CHEST2_WAIT || 86400),
-    chest1minOrbs: Number(process.env.CHEST1_MIN_ORBS || 20),
-    chest1maxOrbs: Number(process.env.CHEST1_MAX_ORBS || 100),
-    chest1minDiamonds: Number(process.env.CHEST1_MIN_DIAMONDS || 1),
-    chest1maxDiamonds: Number(process.env.CHEST1_MAX_DIAMONDS || 3),
-    chest1minKeys: Number(process.env.CHEST1_MIN_KEYS || 1),
-    chest1maxKeys: Number(process.env.CHEST1_MAX_KEYS || 3),
-    chest2minOrbs: Number(process.env.CHEST2_MIN_ORBS || 100),
-    chest2maxOrbs: Number(process.env.CHEST2_MAX_ORBS || 200),
-    chest2minDiamonds: Number(process.env.CHEST2_MIN_DIAMONDS || 5),
-    chest2maxDiamonds: Number(process.env.CHEST2_MAX_DIAMONDS || 10),
-    chest2minKeys: Number(process.env.CHEST2_MIN_KEYS || 1),
-    chest2maxKeys: Number(process.env.CHEST2_MAX_KEYS || 3)
-};
+const config = require('../../config');
 
 function randomBetween(min, max) {
     return Math.floor(Math.random() * (max - min + 1)) + min;
 }
 
-function makeChestReward(prefix) {
+function makeChestReward(chest) {
     const items = [1, 2, 3, 4, 5, 6];
     return [
-        randomBetween(chestConfig[`${prefix}minOrbs`], chestConfig[`${prefix}maxOrbs`]),
-        randomBetween(chestConfig[`${prefix}minDiamonds`], chestConfig[`${prefix}maxDiamonds`]),
+        randomBetween(chest.minOrbs, chest.maxOrbs),
+        randomBetween(chest.minDiamonds, chest.maxDiamonds),
         items[Math.floor(Math.random() * items.length)],
-        randomBetween(chestConfig[`${prefix}minKeys`], chestConfig[`${prefix}maxKeys`])
+        randomBetween(chest.minKeys, chest.maxKeys)
     ].join(',');
 }
 
@@ -67,27 +51,27 @@ module.exports = {
         let chest1count = profile?.chest1count || 0;
         let chest2time = profile?.chest2time || 0;
         let chest2count = profile?.chest2count || 0;
-        let chest1left = Math.max(0, chestConfig.chest1wait - (currentTime - chest1time));
-        let chest2left = Math.max(0, chestConfig.chest2wait - (currentTime - chest2time));
+        let chest1left = Math.max(0, config.rewards.chest1.wait - (currentTime - chest1time));
+        let chest2left = Math.max(0, config.rewards.chest2.wait - (currentTime - chest2time));
 
         if (rewardType === 1 || rewardType === 2) {
             if (profile && (rewardType === 1 ? chest1left : chest2left) !== 0) return res.send('-1');
             if (rewardType === 1) {
                 chest1count++;
                 chest1time = currentTime;
-                chest1left = chestConfig.chest1wait;
+                chest1left = config.rewards.chest1.wait;
                 if (profile) db.prepare('UPDATE profiles SET chest1count = ?, chest1time = ? WHERE accountID = ?').run(chest1count, chest1time, accountID);
             } else {
                 chest2count++;
                 chest2time = currentTime;
-                chest2left = chestConfig.chest2wait;
+                chest2left = config.rewards.chest2.wait;
                 if (profile) db.prepare('UPDATE profiles SET chest2count = ?, chest2time = ? WHERE accountID = ?').run(chest2count, chest2time, accountID);
             }
         }
 
         const decodedChk = decodeCheck(req.body?.chk || '');
         const responsePrefix = 'PrStn';
-        const response = `${responsePrefix}:${profileID}:${decodedChk}:${udid}:${accountID}:${chest1left}:${makeChestReward('chest1')}:${chest1count}:${chest2left}:${makeChestReward('chest2')}:${chest2count}:${rewardType}`;
+        const response = `${responsePrefix}:${profileID}:${decodedChk}:${udid}:${accountID}:${chest1left}:${makeChestReward(config.rewards.chest1)}:${chest1count}:${chest2left}:${makeChestReward(config.rewards.chest2)}:${chest2count}:${rewardType}`;
         const encoded = utils.xorCipher(Buffer.from(response, 'utf8'), '59182').toString('base64')
             .replace(/\//g, '_').replace(/\+/g, '-');
         res.send(`${responsePrefix}${encoded}|${utils.genSolo4(encoded)}`);

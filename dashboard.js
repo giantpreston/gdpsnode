@@ -40,10 +40,10 @@ function getModeratorRank(modLevel) {
 const router = express.Router();
 const sessions = new Map();
 const sessionTtl = 8 * 60 * 60 * 1000;
-const dashboardUser = process.env.DASHBOARD_USER;
-const dashboardPassword = process.env.DASHBOARD_PASSWORD;
-const dashboardAccountId = Number(process.env.DASHBOARD_ACCOUNT_ID);
-const secureCookies = process.env.DASHBOARD_SECURE_COOKIES === '1';
+const dashboardUser = config.dashboard.user;
+const dashboardPassword = config.dashboard.password;
+const dashboardAccountId = config.dashboard.accountId;
+const secureCookies = config.dashboard.secureCookies;
 const dashboardPath = config.dashboard.path;
 const songsDirectory = path.join(__dirname, 'songs');
 
@@ -360,14 +360,16 @@ router.use('/api/secret-rewards', requireAuth, requireDashboardFeature('manageme
 router.use('/api/songs', requireAuth, requireDashboardFeature('management'));
 router.use('/api/quests', requireAuth, requireDashboardFeature('management'));
 
-const loginLimiter = rateLimit({ windowMs: 15 * 60 * 1000, max: 10, standardHeaders: true, legacyHeaders: false });
+const loginLimiter = rateLimit({ windowMs: 15 * 60 * 1000, max: config.security.dashboardAttemptsPerWindow, standardHeaders: true, legacyHeaders: false });
 router.post('/api/login', loginLimiter, (req, res) => {
     const username = utils.remove(String(req.body?.username || '')).trim();
     const password = String(req.body?.password || '');
-    const account = username ? db.prepare('SELECT * FROM accounts WHERE LOWER(userName) = ?').get(utils.normalizeUsername(username)) : null;
+    const accountLoginEnabled = config.dashboard.mode === 'account' || config.dashboard.mode === 'both';
+    const legacyLoginEnabled = config.dashboard.mode === 'legacy' || config.dashboard.mode === 'both';
+    const account = accountLoginEnabled && username ? db.prepare('SELECT * FROM accounts WHERE LOWER(userName) = ?').get(utils.normalizeUsername(username)) : null;
     const profile = account ? db.prepare('SELECT modLevel FROM profiles WHERE accountID = ?').get(account.accountID) : null;
     const validInGameCredentials = Boolean(account && profile && getModeratorRank(profile.modLevel) > 0 && account.gjp2 === utils.generateGJP2(password));
-    const legacyCredentialsConfigured = Boolean(dashboardUser && dashboardPassword && Number.isInteger(dashboardAccountId));
+    const legacyCredentialsConfigured = Boolean(legacyLoginEnabled && dashboardUser && dashboardPassword && Number.isInteger(dashboardAccountId));
     const legacyAccount = legacyCredentialsConfigured ? db.prepare('SELECT userName, modLevel FROM profiles WHERE accountID = ?').get(dashboardAccountId) : null;
     const legacyValid = Boolean(legacyAccount && getModeratorRank(legacyAccount.modLevel) >= getModeratorRank(2) && sameSecret(String(req.body?.username || ''), dashboardUser) && sameSecret(String(req.body?.username || ''), legacyAccount.userName) && sameSecret(String(req.body?.password || ''), dashboardPassword));
 
@@ -375,7 +377,7 @@ router.post('/api/login', loginLimiter, (req, res) => {
         return res.status(401).json({ error: 'Invalid dashboard credentials' });
     }
 
-    const authenticatedAccount = validInGameCredentials ? account : legacyAccount ? db.prepare('SELECT * FROM accounts WHERE accountID = ?').get(dashboardAccountId) : null;
+    const authenticatedAccount = validInGameCredentials ? account : legacyValid ? db.prepare('SELECT * FROM accounts WHERE accountID = ?').get(dashboardAccountId) : null;
     const authenticatedProfile = authenticatedAccount ? db.prepare('SELECT modLevel FROM profiles WHERE accountID = ?').get(authenticatedAccount.accountID) : null;
     if (!authenticatedAccount || !authenticatedProfile || getModeratorRank(authenticatedProfile.modLevel) < 1 || authenticatedAccount.isDisabled === 1) {
         return res.status(403).json({ error: 'Account is not allowed to use the dashboard' });

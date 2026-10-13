@@ -9,6 +9,7 @@ Thanks!
 */
 
 const normalizeNumber = (value, fallback) => {
+    if (value === undefined || value === null || String(value).trim() === '') return fallback;
     const parsed = Number(value ?? fallback);
     return Number.isFinite(parsed) ? parsed : fallback;
 };
@@ -39,6 +40,11 @@ const normalizePublicUrl = (value, name) => {
     return `${parsed.origin}${parsed.pathname.replace(/\/+$/, '')}`;
 };
 
+const normalizeDashboardLoginMode = value => {
+    const mode = String(value || 'account').trim().toLowerCase();
+    return ['account', 'legacy', 'both'].includes(mode) ? mode : 'account';
+};
+
 const env = process.env;
 
 module.exports = {
@@ -56,7 +62,7 @@ module.exports = {
         accountId: normalizeNumber(env.DASHBOARD_ACCOUNT_ID, 0),
         secureCookies: normalizeBoolean(env.DASHBOARD_SECURE_COOKIES, false),
         trustProxyHops: normalizeNumber(env.TRUST_PROXY_HOPS ?? env.TRUST_PROXY, 0),
-        mode: env.DASHBOARD_LOGIN_MODE || 'account'
+        mode: normalizeDashboardLoginMode(env.DASHBOARD_LOGIN_MODE)
     },
     plugins: {
         enabled: normalizeBoolean(env.ENABLE_PLUGINS, true),
@@ -65,6 +71,26 @@ module.exports = {
     security: {
         rateLimitPerMinute: normalizeNumber(env.RATE_LIMIT_PER_MINUTE, 100),
         dashboardAttemptsPerWindow: normalizeNumber(env.DASHBOARD_ATTEMPTS_PER_WINDOW, 10)
+    },
+    rewards: {
+        chest1: {
+            wait: normalizeNumber(env.CHEST1_WAIT, 14400),
+            minOrbs: normalizeNumber(env.CHEST1_MIN_ORBS, 20),
+            maxOrbs: normalizeNumber(env.CHEST1_MAX_ORBS, 100),
+            minDiamonds: normalizeNumber(env.CHEST1_MIN_DIAMONDS, 1),
+            maxDiamonds: normalizeNumber(env.CHEST1_MAX_DIAMONDS, 3),
+            minKeys: normalizeNumber(env.CHEST1_MIN_KEYS, 1),
+            maxKeys: normalizeNumber(env.CHEST1_MAX_KEYS, 3)
+        },
+        chest2: {
+            wait: normalizeNumber(env.CHEST2_WAIT, 86400),
+            minOrbs: normalizeNumber(env.CHEST2_MIN_ORBS, 100),
+            maxOrbs: normalizeNumber(env.CHEST2_MAX_ORBS, 200),
+            minDiamonds: normalizeNumber(env.CHEST2_MIN_DIAMONDS, 5),
+            maxDiamonds: normalizeNumber(env.CHEST2_MAX_DIAMONDS, 10),
+            minKeys: normalizeNumber(env.CHEST2_MIN_KEYS, 1),
+            maxKeys: normalizeNumber(env.CHEST2_MAX_KEYS, 3)
+        }
     }
 };
 

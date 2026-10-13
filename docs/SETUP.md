@@ -69,7 +69,8 @@ PLUGINS_DIR=plugins
 
 - `DASHBOARD_SECURE_COOKIES=1` should be used when you are running under HTTPS.
 - `TRUST_PROXY_HOPS` is important if your server sits behind a reverse proxy like Nginx or Cloudflare.
-- Keep `ENABLE_PLUGINS` enabled if you are using custom plugin modules.
+- `ENABLE_PLUGINS=0` disables automatic plugin loading. `PLUGINS_DIR` selects the directory when enabled.
+- `DASHBOARD_LOGIN_MODE` accepts `account`, `legacy`, or `both`; `account` is the default and uses in-game moderator credentials.
 
 ## Working with the project layout
 

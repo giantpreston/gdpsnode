@@ -10,13 +10,13 @@ const { infoWebhookEmbed, errorWebhookEmbed, warnWebhookEmbed, hook } = require(
 const port = Number(config.port);
 const dashboardPath = config.dashboard.path;
 const isDefaultPath = dashboardPath === '/dashboard';
-const isDefaultPass = process.env.DASHBOARD_PASSWORD === 'replace-with-a-long-random-password';
+const isDefaultPass = config.dashboard.password === 'replace-with-a-long-random-password';
 
 if (isDefaultPath || isDefaultPass) {
     console.warn('\x1b[1;33m⚠ Default environment variables detected!\x1b[0m');
     console.warn('\x1b[1;33m  Change your DASHBOARD_PASSWORD and DASHBOARD_PATH before exposing this server to the internet.\x1b[0m');
     
-    if (process.env.DASHBOARD_SECURE_COOKIES !== '1' && port === 443) {
+    if (!config.dashboard.secureCookies && port === 443) {
         console.warn('\x1b[1;33m⚠ Running on port 443 without DASHBOARD_SECURE_COOKIES=1. HTTPS recommended!\x1b[0m');
     }
 }
@@ -33,7 +33,7 @@ const { loadPlugins, hooks } = require('./hooks');
 const { closeDB } = require('./database');
 const soundlib = require("./soundlib")
 
-const VERSION = '5.6R'; // geometry dash ▣ ▲▲▲
+const VERSION = '5.7R'; // geometry dash ▣ ▲▲▲
 const VERSION_URL = 'https://raw.githubusercontent.com/giantpreston/gdpsnode/refs/heads/main/version.txt';
 
 async function checkForUpdates() {
@@ -76,7 +76,7 @@ soundlib.ensureMusicLib(0);
 const app = express();
 hooks.setApp(app);
 app.disable('x-powered-by');
-app.set('trust proxy', process.env.TRUST_PROXY || config.dashboard.trustProxyHops);
+app.set('trust proxy', config.dashboard.trustProxyHops);
 app.locals.hooks = hooks;
 app.locals.config = config;
 
@@ -91,7 +91,7 @@ const bodyLimit = '25mb'; // levels rarely if ever reach this
 
 const limiter = rateLimit({
     windowMs: 60 * 1000,
-    max: 100,
+    max: config.security.rateLimitPerMinute,
     standardHeaders: true,
     legacyHeaders: false,
     message: '-1',
@@ -173,7 +173,11 @@ async function registerEndpoints() {
     }
 }
 
-loadPlugins(path.join(__dirname, config.plugins.directory), app).then(() => {
+const pluginsReady = config.plugins.enabled
+    ? loadPlugins(path.join(__dirname, config.plugins.directory), app)
+    : Promise.resolve(hooks);
+
+pluginsReady.then(() => {
     hooks.trigger('server:before_start', { app, config, path: __dirname });
     return registerEndpoints();
 }).then(() => {
