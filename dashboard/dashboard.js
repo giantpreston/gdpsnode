@@ -227,7 +227,7 @@ function renderLevelDetail(data) {
 }
 
 function renderCollections(data) {
-    $('#gauntlet-list').innerHTML = Array.from({ length: 61 }, (_, index) => {
+    $('#gauntlet-list').innerHTML = Array.from({ length: 62 }, (_, index) => {
         const id = index + 1;
         const gauntlet = data.gauntlets.find(item => item.ID === id);
         const levels = gauntlet ? [1, 2, 3, 4, 5].map(slot => gauntlet[`level${slot}`]).join(',') : '';
