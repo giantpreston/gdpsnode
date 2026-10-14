@@ -927,7 +927,7 @@ function levelListInput(body) {
         !Number.isInteger(difficulty) || difficulty < -1 || difficulty > 10 ||
         !Number.isInteger(stars) || stars < 0 || stars > 10 ||
         !Number.isInteger(featured) || featured < 0 || featured > 1 ||
-        !Number.isInteger(countForReward) || countForReward < 0 || countForReward > 1 ||
+        !Number.isInteger(countForReward) || countForReward < 0 || countForReward > levels.length ||
         (stars > 0 && countForReward < 1) ||
         !Number.isInteger(original) || original < 0 || original > 1 ||
         !Number.isInteger(unlisted) || unlisted < 0 || unlisted > 2) return null;
