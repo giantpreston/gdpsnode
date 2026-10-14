@@ -524,6 +524,31 @@ router.get('/api/collections', requireAuth, (req, res) => {
     res.json({ gauntlets, mapPacks, lists });
 });
 
+router.get('/api/lists', requireAuth, requireDashboardFeature('collections'), (req, res) => {
+    const query = typeof req.query.q === 'string' ? req.query.q.trim().slice(0, 80) : '';
+    const limit = Math.min(Math.max(Number(req.query.limit) || 10, 1), 100);
+    const offset = Math.max(Number(req.query.offset) || 0, 0);
+    const like = `%${query.replace(/[\\%_]/g, '\\$&')}%`;
+    const total = db.prepare(`SELECT COUNT(*) AS total FROM lists l
+        WHERE (? = '' OR l.listName LIKE ? ESCAPE '\\' OR CAST(l.listID AS TEXT) = ?)`)
+        .get(query, like, query).total;
+    const lists = db.prepare(`SELECT l.*, p.userName AS creator FROM lists l
+        LEFT JOIN profiles p ON p.accountID = l.accountID
+        WHERE (? = '' OR l.listName LIKE ? ESCAPE '\\' OR CAST(l.listID AS TEXT) = ?)
+        ORDER BY l.listID DESC LIMIT ? OFFSET ?`).all(query, like, query, limit, offset)
+        .map(list => ({ ...list, listDesc: decodeBase64Url(list.listDesc) }));
+    res.json({ lists, query, offset, limit, total });
+});
+
+router.get('/api/lists/:id', requireAuth, requireDashboardFeature('collections'), (req, res) => {
+    const id = Number(req.params.id);
+    if (!Number.isInteger(id) || id < 1) return res.status(400).json({ error: 'Invalid level list' });
+    const list = db.prepare(`SELECT l.*, p.userName AS creator FROM lists l
+        LEFT JOIN profiles p ON p.accountID = l.accountID WHERE l.listID = ?`).get(id);
+    if (!list) return res.status(404).json({ error: 'Level list not found' });
+    res.json({ list: { ...list, listDesc: decodeBase64Url(list.listDesc) } });
+});
+
 router.get('/api/users', (req, res) => {
     const query = typeof req.query.q === 'string' ? req.query.q.trim().slice(0, 64) : '';
     const limit = Math.min(Math.max(Number(req.query.limit) || 10, 1), 10);
@@ -861,7 +886,7 @@ router.delete('/api/songs/:id', requireAuth, requireCsrf, async (req, res) => {
 router.put('/api/gauntlets/:id', requireAuth, requireCsrf, (req, res) => {
     const id = Number(req.params.id);
     const levels = collectionLevelIds(req.body?.levels, 5);
-    if (!Number.isInteger(id) || id < 1 || id > 60 || !levels) return res.status(400).json({ error: 'Gauntlets require five existing, unique level IDs' });
+    if (!Number.isInteger(id) || id < 1 || id > 62 || !levels) return res.status(400).json({ error: 'Gauntlets require five existing, unique level IDs' });
     db.prepare(`INSERT INTO gauntlets (ID, level1, level2, level3, level4, level5) VALUES (?, ?, ?, ?, ?, ?)
         ON CONFLICT(ID) DO UPDATE SET level1 = excluded.level1, level2 = excluded.level2,
         level3 = excluded.level3, level4 = excluded.level4, level5 = excluded.level5`).run(id, ...levels);
@@ -870,7 +895,7 @@ router.put('/api/gauntlets/:id', requireAuth, requireCsrf, (req, res) => {
 
 router.delete('/api/gauntlets/:id', requireAuth, requireCsrf, (req, res) => {
     const id = Number(req.params.id);
-    if (!Number.isInteger(id) || id < 1 || id > 60) return res.status(400).json({ error: 'Invalid gauntlet' });
+    if (!Number.isInteger(id) || id < 1 || id > 62) return res.status(400).json({ error: 'Invalid gauntlet' });
     if (!db.prepare('DELETE FROM gauntlets WHERE ID = ?').run(id).changes) return res.status(404).json({ error: 'Gauntlet not found' });
     res.status(204).end();
 });
@@ -925,7 +950,7 @@ function levelListInput(body) {
     const unlisted = Number(body?.unlisted);
     if (!listName || listName.length > 20 || (listDesc && !/^(?:[A-Za-z0-9_-]{4})*(?:[A-Za-z0-9_-]{2}==|[A-Za-z0-9_-]{3}=)$/.test(listDesc)) || !levels ||
         !Number.isInteger(difficulty) || difficulty < -1 || difficulty > 10 ||
-        !Number.isInteger(stars) || stars < 0 || stars > 10 ||
+        !Number.isSafeInteger(stars) || stars < 0 ||
         !Number.isInteger(featured) || featured < 0 || featured > 1 ||
         !Number.isInteger(countForReward) || countForReward < 0 || countForReward > levels.length ||
         (stars > 0 && countForReward < 1) ||
@@ -955,11 +980,11 @@ router.put('/api/lists/:id', requireAuth, requireCsrf, (req, res) => {
     const id = Number(req.params.id);
     const list = levelListInput(req.body);
     if (!Number.isInteger(id) || id < 1 || !list) return res.status(400).json({ error: 'Invalid level list details' });
-    const result = db.prepare(`UPDATE lists SET listName = ?, listDesc = ?, listVersion = listVersion + 1,
+    const result = db.prepare(`UPDATE lists SET listName = ?, listDesc = ?,
         listLevels = ?, starDifficulty = ?, starDemon = ?, starStars = ?, featured = ?, countForReward = ?,
-        updateDate = ?, original = ?, unlisted = ? WHERE listID = ?`).run(
+        original = ?, unlisted = ? WHERE listID = ?`).run(
         list.listName, list.listDesc, list.listLevels, list.difficulty, list.difficulty > 5 ? 1 : 0,
-        list.stars, list.featured, list.countForReward, Math.floor(Date.now() / 1000), list.original, list.unlisted, id
+        list.stars, list.featured, list.countForReward, list.original, list.unlisted, id
     );
     if (!result.changes) return res.status(404).json({ error: 'Level list not found' });
     res.status(204).end();
@@ -1023,9 +1048,9 @@ router.put('/api/levels/:levelId/details', requireAuth, requireCsrf, (req, res) 
         encodedDescription.length > 240 || ![0, 1].includes(starCoins)) {
         return res.status(400).json({ error: 'Invalid level details' });
     }
-    const result = db.prepare(`UPDATE levels SET levelName = ?, levelDesc = ?, starCoins = ?,
-        updateDate = ? WHERE levelID = ?`).run(
-        levelName, encodedDescription, starCoins, Math.floor(Date.now() / 1000), levelId
+    const result = db.prepare(`UPDATE levels SET levelName = ?, levelDesc = ?, starCoins = ?
+        WHERE levelID = ?`).run(
+        levelName, encodedDescription, starCoins, levelId
     );
     if (!result.changes) return res.status(404).json({ error: 'Level not found' });
     res.status(204).end();

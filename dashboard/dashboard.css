@@ -469,6 +469,11 @@ button:disabled { opacity: 0.7; cursor: not-allowed; transform: none; }
 .map-pack-form { border-bottom: 1px solid var(--line); margin-bottom: 10px; padding-bottom: 16px; }
 .map-pack-row { grid-template-columns: 1.2fr 1.4fr 55px 55px 70px 1fr 1fr auto auto; }
 .level-list-form, .level-list-row { grid-template-columns: 1fr 1.5fr 1.4fr 80px 70px 110px 80px 100px 100px auto auto auto; }
+.list-editor { grid-template-columns: repeat(3, minmax(0, 1fr)); align-items: end; border: 0; padding: 16px 0 0; }
+.list-editor label { font-size: 10px; }
+.list-editor textarea { min-height: 40px; resize: vertical; }
+.list-editor .list-meta { grid-column: 1 / -1; }
+.list-editor button { white-space: nowrap; }
 .list-meta { color: var(--muted); font: 11px 'DejaVu Sans Mono', monospace; white-space: nowrap; }
 .color-control { display: flex; gap: 6px; min-width: 0; }
 .color-control .color-picker { width: 42px; min-width: 42px; height: 39px; padding: 3px; cursor: pointer; }
@@ -488,7 +493,7 @@ button:disabled { opacity: 0.7; cursor: not-allowed; transform: none; }
     .topbar { gap: 16px; }
     .login-panel { margin-top: 8vh; padding: 28px; }
     .login-panel h1 { font-size: 29px; }
-    .schedule-form, .collection-form, .map-pack-form, .map-pack-row, .level-list-form, .level-list-row, .song-form, .quest-form { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    .schedule-form, .collection-form, .map-pack-form, .map-pack-row, .level-list-form, .level-list-row, .list-editor, .song-form, .quest-form { grid-template-columns: repeat(2, minmax(0, 1fr)); }
     .schedule-form > label:last-of-type { grid-column: auto; }
     .collection-form strong { grid-column: 1 / -1; }
     .song-row { grid-template-columns: 1fr auto; }

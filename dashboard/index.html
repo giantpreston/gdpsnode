@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>GDPS Dashboard</title>
-<link rel="stylesheet" href="dashboard.css?v=2">
+<link rel="stylesheet" href="dashboard.css?v=3">
 </head>
 <body>
 <main class="shell">
@@ -35,7 +35,7 @@
     <section id="collections-tab" class="collections" data-feature="collections" hidden>
       <div class="panel"><div class="panel-heading"><div><p class="eyebrow">Server-defined</p><h2>Gauntlets</h2></div></div><div id="gauntlet-list" class="collection-list"></div></div>
       <div class="panel"><div class="panel-heading"><div><p class="eyebrow">Server-defined</p><h2>Map packs</h2></div></div><form id="map-pack-form" class="collection-form map-pack-form"><label>Pack name<input name="packName" required></label><label>Level IDs<input name="levels" placeholder="1,2,3,..." pattern="[0-9]+(,[0-9]+)*" required></label><label>Stars<input name="stars" type="number" min="0" required></label><label>Coins<input name="coins" type="number" min="0" required></label><label>Difficulty<input name="difficulty" type="number" min="0" max="5" value="1" required></label><label>Bar color<span class="color-control"><input class="color-picker" type="color" value="#c3f36b" aria-label="Bar color picker"><input name="barColor" value="195,243,107" pattern="[0-9]+,[0-9]+,[0-9]+" aria-label="Bar color RGB" required></span></label><label>Text color<span class="color-control"><input class="color-picker" type="color" value="#111713" aria-label="Text color picker"><input name="textColor" value="17,23,19" pattern="[0-9]+,[0-9]+,[0-9]+" aria-label="Text color RGB" required></span></label><button type="submit">Add pack</button></form><div id="map-pack-list" class="collection-list"></div></div>
-      <div class="panel"><div class="panel-heading"><div><p class="eyebrow">User-made</p><h2>Level lists</h2><p class="muted">Count for reward is the number of list levels that must be completed to earn the diamond reward. Rated lists require at least 1 and cannot exceed the list length.</p></div></div><div id="level-list-list" class="collection-list"></div></div>
+      <div class="panel"><div class="panel-heading"><div><p class="eyebrow">User-made</p><h2>Level lists</h2><p class="muted">Count for reward is the number of list levels that must be completed to earn the diamond reward.</p></div></div><button type="button" class="open-browser" data-browser="lists">Browse lists</button><div id="level-list-list" hidden></div></div>
     </section>
     <section id="management-tab" class="Management" hidden>
       <div class="management-launchers"><button type="button" class="management-launcher" data-browser="accounts" data-feature="users"><span class="eyebrow">Accounts</span><strong>Manage users</strong><small>Roles, bans, disabled accounts, and individual access</small></button><button type="button" id="open-permission-schema" class="management-launcher" data-min-mod-level="2"><span class="eyebrow">Access control</span><strong>Permission schema</strong><small>Configure dashboard features by moderator role</small></button></div>
@@ -67,6 +67,6 @@
     <footer class="window-actions"><button type="button" id="save-permission-schema">Save permission schema</button></footer>
   </div>
 </section>
-<script src="dashboard.js"></script>
+<script src="dashboard.js?v=4"></script>
 </body>
 </html>

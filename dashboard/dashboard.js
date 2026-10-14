@@ -40,6 +40,7 @@ function renderCocosText(value) {
     return output;
 }
 const demonNames = { 3: 'Easy Demon', 4: 'Medium Demon', 0: 'Hard Demon', 5: 'Insane Demon', 6: 'Extreme Demon' };
+const listDemonNames = { 6: 'Easy Demon', 7: 'Medium Demon', 8: 'Hard Demon', 9: 'Insane Demon', 10: 'Extreme Demon' };
 
 function showToast(message, type = 'success') {
     const stack = $('#toast-stack');
@@ -110,7 +111,7 @@ const secretRewardItems = [
     [1013, 'Swing unlock'], [1014, 'Jetpack unlock'], [1015, 'Ship fire unlock']
 ];
 const secretRewardUnlockDefaults = { 1001: 1, 1002: 1, 1003: 1, 1004: 1, 1005: 1, 1006: 63, 1007: 1, 1008: 1, 1009: 1, 1010: 1, 1011: 1, 1012: 1, 1013: 1, 1014: 1, 1015: 1 };
-const gauntletNames = ['Fire', 'Ice', 'Poison', 'Shadow', 'Lava', 'Bonus', 'Chaos', 'Demon', 'Time', 'Crystal', 'Magic', 'Spike', 'Monster', 'Doom', 'Death', 'Forest', 'Rune', 'Force', 'Spooky', 'Dragon', 'Water', 'Haunted', 'Acid', 'Witch', 'Power', 'Potion', 'Snake', 'Toxic', 'Halloween', 'Treasure', 'Ghost', 'Spider', 'Gem', 'Inferno', 'Portal', 'Strange', 'Fantasy', 'Christmas', 'Surprise', 'Mystery', 'Cursed', 'Cyborg', 'Castle', 'Grave', 'Temple', 'World', 'Galaxy', 'Universe', 'Discord', 'Split', 'NCS I', 'NCS II', 'Space', 'Cosmos', 'Random', 'Chance', 'Future', 'Utopia', 'Cinema', 'Love', 'Duality'];
+const gauntletNames = ['Fire', 'Ice', 'Poison', 'Shadow', 'Lava', 'Bonus', 'Chaos', 'Demon', 'Time', 'Crystal', 'Magic', 'Spike', 'Monster', 'Doom', 'Death', 'Forest', 'Rune', 'Force', 'Spooky', 'Dragon', 'Water', 'Haunted', 'Acid', 'Witch', 'Power', 'Potion', 'Snake', 'Toxic', 'Halloween', 'Treasure', 'Ghost', 'Spider', 'Gem', 'Inferno', 'Portal', 'Strange', 'Fantasy', 'Christmas', 'Surprise', 'Mystery', 'Cursed', 'Cyborg', 'Castle', 'Grave', 'Temple', 'World', 'Galaxy', 'Universe', 'Discord', 'Split', 'NCS I', 'NCS II', 'Space', 'Cosmos', 'Random', 'Chance', 'Future', 'Utopia', 'Cinema', 'Love', 'Duality', 'Paradox'];
 const selected = (current, value) => Number(current) === Number(value) ? ' selected' : '';
 function decodeBase64Url(value) {
     if (!value) return '';
@@ -181,6 +182,26 @@ function renderLevels(levels) {
     currentLevels = Array.isArray(levels) ? levels : [];
     const ordered = sortLevelResults(currentLevels);
     $('#browse-results').innerHTML = ordered.length ? ordered.map(level => `<button class="level-result" data-level="${level.levelID}"><span><strong>${escapeHtml(level.levelName)}</strong><small>#${level.levelID} · ${escapeHtml(level.creator || 'unknown')}</small></span><span>${level.starStars ? `${level.starStars}★` : 'unrated'}${level.starDifficulty ? ` · ${difficultyNames[level.starDifficulty]}` : ''} · ${level.userRates || 0} user ratings</span></button>`).join('') : '<p class="empty">No matching levels.</p>';
+}
+
+function renderLists(lists) {
+    $('#browse-results').innerHTML = lists.length ? lists.map(list => `<button class="level-result list-result" data-list="${list.listID}"><span><strong>${escapeHtml(list.listName)}</strong><small>#${list.listID} · ${escapeHtml(list.creator || 'unknown')} · ${String(list.listLevels || '').split(',').filter(Boolean).length} levels</small></span><span>${list.starStars || 0} diamonds · ${listDemonNames[list.starDifficulty] || `Difficulty ${list.starDifficulty}`}</span></button>`).join('') : '<p class="empty">No matching lists.</p>';
+}
+
+function renderListEditor(list) {
+    const levelCount = String(list.listLevels || '').split(',').filter(Boolean).length;
+    const original = Number(list.original) || 0;
+    const detail = $('#level-detail');
+    detail.style.removeProperty('left');
+    detail.style.removeProperty('top');
+    detail.style.removeProperty('transform');
+    detail.classList.remove('is-dragging');
+    detail.hidden = false;
+    detail.innerHTML = `<div class="detail-heading"><div><p class="eyebrow">List #${list.listID}</p><h3>${escapeHtml(list.listName)}</h3></div><button class="close-detail" type="button">Close</button></div><form class="collection-form level-list-row list-editor" data-id="${list.listID}"><label>List name<input name="listName" maxlength="20" value="${escapeHtml(list.listName)}" required></label><label>Description<textarea name="listDesc" maxlength="1000">${escapeHtml(list.listDesc || '')}</textarea></label><label>Level IDs<input name="listLevels" value="${escapeHtml(list.listLevels)}" required></label><label>Difficulty<select name="starDifficulty" required><option value="-1"${selected(list.starDifficulty, -1)}>Unrated</option><option value="0"${selected(list.starDifficulty, 0)}>Auto / None</option><option value="1"${selected(list.starDifficulty, 1)}>Easy</option><option value="2"${selected(list.starDifficulty, 2)}>Normal</option><option value="3"${selected(list.starDifficulty, 3)}>Hard</option><option value="4"${selected(list.starDifficulty, 4)}>Harder</option><option value="5"${selected(list.starDifficulty, 5)}>Insane</option><option value="6"${selected(list.starDifficulty, 6)}>Easy Demon</option><option value="7"${selected(list.starDifficulty, 7)}>Medium Demon</option><option value="8"${selected(list.starDifficulty, 8)}>Hard Demon</option><option value="9"${selected(list.starDifficulty, 9)}>Insane Demon</option><option value="10"${selected(list.starDifficulty, 10)}>Extreme Demon</option></select></label><label>Diamonds reward<input name="starStars" type="number" min="0" step="1" value="${list.starStars}" required></label><label>Featured<select name="featured"><option value="0"${selected(list.featured, 0)}>Not featured</option><option value="1"${selected(list.featured, 1)}>Featured</option></select></label><label>Count for reward<input name="countForReward" type="number" min="0" max="${levelCount}" value="${list.countForReward}" required></label><label>List type<select class="list-original-mode"><option value="0"${selected(original, 0)}>Original</option><option value="1"${original !== 0 ? ' selected' : ''}>Reupload</option></select><input class="list-original-id" type="number" min="1" step="1" value="${original || 1}"${original === 0 ? ' hidden' : ''} aria-label="Original list ID"><input name="original" type="hidden" value="${original}"></label><label>Visibility<select name="unlisted"><option value="0"${selected(list.unlisted, 0)}>Listed</option><option value="1"${selected(list.unlisted, 1)}>Friends</option><option value="2"${selected(list.unlisted, 2)}>Unlisted (by ID)</option></select></label><span class="list-meta">v${list.listVersion} · ${escapeHtml(list.creator || 'unknown')}</span><button type="submit">Save</button><button type="button" class="reject delete-list">Delete</button></form>`;
+    const dragHandle = detail.querySelector('.detail-heading');
+    dragHandle.classList.add('detail-drag-handle');
+    dragHandle.title = 'Drag to move';
+                $('#level-detail').querySelector('.list-original-id').required = Number(list.original) !== 0;
 }
 
 function renderLevelDetail(data) {
@@ -306,9 +327,9 @@ function openPicker(kind) {
     picker.kind = kind;
     picker.query = '';
     picker.offset = 0;
-    $('#browse-kind').textContent = kind === 'levels' ? 'Level search' : kind === 'accounts' ? 'Account management' : 'Custom audio';
-    $('#browse-title').textContent = kind === 'levels' ? 'Browse levels' : kind === 'accounts' ? 'Browse accounts' : 'Browse songs';
-    $('#browse-query').placeholder = kind === 'levels' ? 'Search by level name or ID' : kind === 'accounts' ? 'Search by username or account ID' : 'Search by song, artist, or ID';
+    $('#browse-kind').textContent = kind === 'levels' ? 'Level search' : kind === 'lists' ? 'Level list search' : kind === 'accounts' ? 'Account management' : 'Custom audio';
+    $('#browse-title').textContent = kind === 'levels' ? 'Browse levels' : kind === 'lists' ? 'Browse lists' : kind === 'accounts' ? 'Browse accounts' : 'Browse songs';
+    $('#browse-query').placeholder = kind === 'levels' ? 'Search by level name or ID' : kind === 'lists' ? 'Search by list name or ID' : kind === 'accounts' ? 'Search by username or account ID' : 'Search by song, artist, or ID';
     $('#browse-query').value = '';
     $('#browse-sort').hidden = kind !== 'levels';
     $('#browse-sort').value = 'id';
@@ -322,7 +343,7 @@ function openPicker(kind) {
 async function loadPickerPage() {
     const params = new URLSearchParams({ q: picker.query, limit: picker.limit, offset: picker.offset });
     if (picker.kind === 'levels') params.set('sort', $('#browse-sort').value);
-    const endpoint = picker.kind === 'levels' ? 'api/levels' : picker.kind === 'accounts' ? 'api/users' : 'api/songs';
+    const endpoint = picker.kind === 'levels' ? 'api/levels' : picker.kind === 'lists' ? 'api/lists' : picker.kind === 'accounts' ? 'api/users' : 'api/songs';
     const requestId = (picker.requestId || 0) + 1;
     picker.requestId = requestId;
     try {
@@ -330,6 +351,7 @@ async function loadPickerPage() {
         if (requestId !== picker.requestId) return;
         picker.total = data.total;
         if (picker.kind === 'levels') renderLevels(data.levels);
+        else if (picker.kind === 'lists') renderLists(data.lists);
         else if (picker.kind === 'accounts') renderAccountResults(data.users);
         else renderSongs(data.songs);
         const page = Math.floor(picker.offset / picker.limit) + 1;
@@ -475,6 +497,7 @@ function renderSecretRewards(rewards) {
 function formBody(form) {
     const body = Object.fromEntries(new FormData(form).entries());
     if (form.id === 'level-list-form' || form.classList.contains('level-list-row')) body.listDesc = encodeBase64Url(body.listDesc || '');
+    if (form.classList.contains('level-list-row')) body.original = Number(body.original);
     return body;
 }
 
@@ -513,9 +536,7 @@ async function load() {
         currentModLevel = Number(access.modLevel || 0);
         dashboardFeatures = new Set(access.features || []);
         applyDashboardPermissions();
-        const data = await request('api/bootstrap');
-        csrf = data.csrf;
-        render(data);
+        await refreshOverview();
         if (dashboardFeatures.has('collections')) renderCollections(await request('api/collections'));
         if (dashboardFeatures.has('management')) {
             renderQuests((await request('api/quests')).quests || []);
@@ -527,6 +548,16 @@ async function load() {
     } catch (error) {
         if (!$('#app-view').hidden) $('#app-error').textContent = error.message;
     }
+}
+
+async function refreshOverview() {
+    const data = await request('api/bootstrap');
+    csrf = data.csrf;
+    render(data);
+}
+
+async function refreshCollections() {
+    renderCollections(await request('api/collections'));
 }
 
 $('#login-form').addEventListener('submit', async event => {
@@ -651,7 +682,7 @@ $('#queue').addEventListener('click', async event => {
     if (url.endsWith('/rate')) { body.stars = Number(item.querySelector('.stars').value); body.feature = Number(item.querySelector('.feature').value); body.demonDiff = Number(item.querySelector('.demon').value); }
     const button = event.target;
     setBusyState(button, 'Working…', true);
-    try { await request(url, { method: 'POST', body: JSON.stringify(body) }); await load(); showToast(url.includes('rate') ? 'Suggestion rated' : 'Suggestion rejected', 'success'); }
+    try { await request(url, { method: 'POST', body: JSON.stringify(body) }); await refreshOverview(); showToast(url.includes('rate') ? 'Suggestion rated' : 'Suggestion rejected', 'success'); }
     catch (error) { $('#app-error').textContent = error.message; showToast(error.message, 'error'); }
     finally { setBusyState(button, 'Working…', false); }
 });
@@ -736,6 +767,12 @@ $('#browse-results').addEventListener('click', async event => {
         catch (error) { $('#app-error').textContent = error.message; }
         return;
     }
+    const listResult = event.target.closest('.list-result');
+    if (listResult) {
+        try { renderListEditor((await request(`api/lists/${listResult.dataset.list}`)).list); }
+        catch (error) { $('#app-error').textContent = error.message; }
+        return;
+    }
     const result = event.target.closest('.level-result'); if (!result) return;
     try {
         renderLevelDetail(await request(`api/levels/${result.dataset.level}`));
@@ -814,6 +851,23 @@ $('#level-detail').addEventListener('click', async event => {
         } else return;
         renderLevelDetail(await request(`api/levels/${currentLevel}`));
     } catch (error) { $('#app-error').textContent = error.message; }
+});
+
+document.addEventListener('change', event => {
+    if (!event.target.classList.contains('list-original-mode')) return;
+    const form = event.target.closest('.level-list-row');
+    const sourceId = form.querySelector('.list-original-id');
+    const original = form.querySelector('input[name="original"]');
+    const reupload = event.target.value !== '0';
+    sourceId.hidden = !reupload;
+    sourceId.required = reupload;
+    if (reupload && Number(sourceId.value) < 1) sourceId.value = '1';
+    original.value = reupload ? sourceId.value : '0';
+});
+
+document.addEventListener('input', event => {
+    if (!event.target.classList.contains('list-original-id')) return;
+    event.target.closest('.level-list-row').querySelector('input[name="original"]').value = event.target.value;
 });
 
 $('#logout').addEventListener('click', async () => { try { await request('api/logout', { method: 'POST', body: '{}' }); location.reload(); } catch (error) { $('#app-error').textContent = error.message; } });
@@ -918,21 +972,25 @@ document.addEventListener('submit', async event => {
                 await request(`api/access/${accountId}`, { method: 'PUT', body: JSON.stringify({ features }) });
             }
             $('#account-modal').hidden = true;
-            await load();
+            await refreshOverview();
             if (picker.kind === 'accounts' && !$('#browse-modal').hidden) await loadPickerPage();
             showToast('Account changes saved', 'success');
         } catch (error) { $('#app-error').textContent = error.message; showToast(error.message, 'error'); }
     } else if (form.id === 'map-pack-form' || form.classList.contains('map-pack-row')) {
         event.preventDefault();
-        try { await request(form.dataset.id ? `api/map-packs/${form.dataset.id}` : 'api/map-packs', { method: form.dataset.id ? 'PUT' : 'POST', body: JSON.stringify(formBody(form)) }); await load(); }
+        try { await request(form.dataset.id ? `api/map-packs/${form.dataset.id}` : 'api/map-packs', { method: form.dataset.id ? 'PUT' : 'POST', body: JSON.stringify(formBody(form)) }); await refreshCollections(); }
         catch (error) { $('#app-error').textContent = error.message; }
     } else if (form.classList.contains('level-list-row')) {
         event.preventDefault();
-        try { await request(`api/lists/${form.dataset.id}`, { method: 'PUT', body: JSON.stringify(formBody(form)) }); await load(); }
+        try {
+            await request(`api/lists/${form.dataset.id}`, { method: 'PUT', body: JSON.stringify(formBody(form)) });
+            $('#level-detail').hidden = true;
+            await loadPickerPage();
+        }
         catch (error) { $('#app-error').textContent = error.message; }
     } else if (form.classList.contains('gauntlet-form')) {
         event.preventDefault();
-        try { await request(`api/gauntlets/${form.dataset.id}`, { method: 'PUT', body: JSON.stringify(formBody(form)) }); await load(); }
+        try { await request(`api/gauntlets/${form.dataset.id}`, { method: 'PUT', body: JSON.stringify(formBody(form)) }); await refreshCollections(); }
         catch (error) { $('#app-error').textContent = error.message; }
     } else if (form.id === 'song-form') {
         event.preventDefault();
@@ -1109,7 +1167,7 @@ document.addEventListener('click', async event => {
         if (!confirm(`Delete level #${levelId}? This cannot be undone.`)) return;
         try {
             await request(`api/levels/${levelId}`, { method: 'DELETE' });
-            await load();
+            await refreshOverview();
             $('#level-detail').hidden = true;
             if (picker.kind === 'levels') {
                 if (picker.offset >= picker.total - 1 && picker.offset > 0) picker.offset -= picker.limit;
@@ -1160,7 +1218,14 @@ document.addEventListener('click', async event => {
     const isList = form.classList.contains('level-list-row');
     if (!event.target.classList.contains(isList ? 'delete-list' : isGauntlet ? 'delete-gauntlet' : 'delete-pack')) return;
     if (!confirm('Delete this collection item?')) return;
-    try { await request(`api/${isList ? 'lists' : isGauntlet ? 'gauntlets' : 'map-packs'}/${form.dataset.id}`, { method: 'DELETE' }); await load(); showToast('Collection item deleted', 'success'); }
+    try {
+        await request(`api/${isList ? 'lists' : isGauntlet ? 'gauntlets' : 'map-packs'}/${form.dataset.id}`, { method: 'DELETE' });
+        if (isList) {
+            $('#level-detail').hidden = true;
+            await loadPickerPage();
+        } else await refreshCollections();
+        showToast('Collection item deleted', 'success');
+    }
     catch (error) { $('#app-error').textContent = error.message; showToast(error.message, 'error'); }
 });
 
