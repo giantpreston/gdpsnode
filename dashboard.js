@@ -514,7 +514,7 @@ router.get('/api/bootstrap', requireAuth, (req, res) => {
 });
 
 router.get('/api/collections', requireAuth, (req, res) => {
-    const gauntlets = db.prepare('SELECT * FROM gauntlets WHERE ID BETWEEN 1 AND 60 ORDER BY ID').all();
+    const gauntlets = db.prepare('SELECT * FROM gauntlets WHERE ID BETWEEN 1 AND 62 ORDER BY ID').all();
     const mapPacks = db.prepare('SELECT * FROM mapPacks ORDER BY packID').all();
     const lists = db.prepare(`SELECT l.*, p.userName AS creator FROM lists l
         LEFT JOIN profiles p ON p.accountID = l.accountID ORDER BY l.listID`).all().map(list => ({

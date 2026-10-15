@@ -14,7 +14,7 @@ const isDefaultPass = config.dashboard.password === 'replace-with-a-long-random-
 
 if (isDefaultPath || isDefaultPass) {
     console.warn('\x1b[1;33m⚠ Default environment variables detected!\x1b[0m');
-    console.warn('\x1b[1;33m  Change your DASHBOARD_PASSWORD and DASHBOARD_PATH before exposing this server to the internet.\x1b[0m');
+    console.warn('\x1b[1;33m  Change your DASHBOARD_PASSWORD (if using legacy password) and DASHBOARD_PATH before exposing this server to the internet.\x1b[0m');
     
     if (!config.dashboard.secureCookies && port === 443) {
         console.warn('\x1b[1;33m⚠ Running on port 443 without DASHBOARD_SECURE_COOKIES=1. HTTPS recommended!\x1b[0m');
@@ -33,7 +33,7 @@ const { loadPlugins, hooks } = require('./hooks');
 const { closeDB } = require('./database');
 const soundlib = require("./soundlib")
 
-const VERSION = '5.9R'; // geometry dash ▣ ▲▲▲
+const VERSION = '6.0R'; // geometry dash ▣ ▲▲▲
 const VERSION_URL = 'https://raw.githubusercontent.com/giantpreston/gdpsnode/refs/heads/main/version.txt';
 
 async function checkForUpdates() {
