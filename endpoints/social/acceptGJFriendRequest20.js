@@ -24,10 +24,12 @@ module.exports = {
         if (account.gjp2 !== gjp2) return res.send('-1');
         if (account.isDisabled === 1) return res.send('-1');
 
+        let acceptedRequest;
         try {
             const accepted = db.transaction(() => {
                 const request = db.prepare('SELECT accountID, toAccountID FROM friendreqs WHERE ID = ?').get(requestID);
                 if (!request || request.toAccountID !== accountID || request.accountID === accountID) return false;
+                acceptedRequest = request;
 
                 const senderFriendCount = db.prepare('SELECT COUNT(*) as count FROM friendships WHERE person1 = ? OR person2 = ?').get(request.accountID, request.accountID).count;
                 const recipientFriendCount = db.prepare('SELECT COUNT(*) as count FROM friendships WHERE person1 = ? OR person2 = ?').get(accountID, accountID).count;
@@ -41,7 +43,19 @@ module.exports = {
                 return true;
             })();
 
-            if (accepted) return res.send('1');
+            if (accepted) {
+                utils.notifAdd({
+                    toAccountID: acceptedRequest.accountID,
+                    notificationMask: 32,
+                    type: 14,
+                    emoteIcon: 'handshake',
+                    title: 'New Friend!',
+                    description: `<cg>${account.userName}</c> has accepted your friend request!`,
+                    accountID,
+                    username: account.userName
+                });
+                return res.send('1');
+            }
         } catch (err) {
             console.error('\x1b[1;31m✗ Failed to accept friend request:\x1b[0m', err);
         }

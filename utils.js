@@ -1,4 +1,5 @@
 const crypto = require('crypto');
+const db = require('./database');
 
 function generateGJP2(password = "", salt = "mI29fmAnxgTs") {
     const combined = password + salt;
@@ -147,4 +148,88 @@ function getPublicBaseUrl(req, configuredUrl = '') {
     }
 }
 
-module.exports = { generateGJP2, isURLBase64, remove, normalizeUsername, charclean, numbercolon, number, getRelative, xorCipher, genSolo3, genSolo4, randomString, creatorPointsForRating, getPublicBaseUrl };
+function notifAdd(notification) {
+    const toFlag = value => value === true ? 1 : value === false ? 0 : value ?? 0;
+    const result = db.prepare(`
+        INSERT INTO notifications (
+            toAccountID, notificationMask, type, emoteIcon, title, description, age, isNew, hasLevel,
+            levelID, achievement, hasChest, chestType, accountID, username, createdAt
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `).run(
+        notification.toAccountID ?? 0,
+        notification.notificationMask ?? 0,
+        notification.type,
+        notification.emoteIcon ?? '',
+        Buffer.from(String(notification.title ?? ''), 'utf8').toString('base64'),
+        Buffer.from(String(notification.description ?? ''), 'utf8').toString('base64'),
+        notification.age ?? '0 seconds',
+        toFlag(notification.isNew ?? 1),
+        toFlag(notification.hasLevel),
+        notification.levelID ?? 0,
+        notification.achievement ?? '',
+        toFlag(notification.hasChest),
+        notification.chestType ?? 0,
+        notification.accountID ?? 0,
+        notification.username ?? '',
+        notification.createdAt ?? Math.floor(Date.now() / 1000)
+    );
+    return result.lastInsertRowid;
+}
+
+function notifLevelRating(level, previousLevel) {
+    const recipientID = level.accountID;
+    const username = level.creator || level.username || '';
+    const oldFeature = previousLevel.featured
+        ? previousLevel.starEpic >= 3 ? 3 : previousLevel.starEpic >= 2 ? 2 : 1
+        : 0;
+    const feature = level.featured
+        ? level.starEpic >= 3 ? 3 : level.starEpic >= 2 ? 2 : 1
+        : 0;
+    const difficultyIcons = {
+        '0': 'harddemon',
+        '3': 'easydemon',
+        '4': 'mediumdemon',
+        '5': 'insanedemon',
+        '6': 'extremedemon'
+    };
+
+    if (previousLevel.starStars === 0 && level.starStars > 0) {
+        const emoteIcon = level.starAuto ? 'auto'
+            : level.starDemon ? difficultyIcons[String(level.starDemonDiff)] || 'harddemon'
+                : ['easy', 'normal', 'hard', 'harder', 'insane'][Math.max(0, Math.min(4, level.starDifficulty - 1))];
+        notifAdd({
+            toAccountID: recipientID,
+            type: 15,
+            emoteIcon,
+            title: 'Rated!',
+            description: `<cg>${username}</c>'s level is now <cy>rated</c>!`,
+            notificationMask: 64,
+            hasLevel: true,
+            levelID: level.levelID,
+            accountID: recipientID,
+            username
+        });
+    }
+
+    if (feature > oldFeature) {
+        const tiers = {
+            1: { name: 'Featured', color: 'cy', icon: 'featured' },
+            2: { name: 'Legendary', color: 'cd', icon: 'legendary' },
+            3: { name: 'Mythic', color: 'cj', icon: 'mythic' }
+        };
+        const tier = tiers[feature];
+        notifAdd({
+            toAccountID: recipientID,
+            type: 15,
+            emoteIcon: tier.icon,
+            title: `${tier.name}!`,
+            description: `<cy>${username}</c>'s level <cy>${level.levelName}</c> is now <${tier.color}>${tier.name}</c>!`,
+            hasLevel: true,
+            levelID: level.levelID,
+            accountID: recipientID,
+            username
+        });
+    }
+}
+
+module.exports = { generateGJP2, isURLBase64, remove, normalizeUsername, charclean, numbercolon, number, getRelative, xorCipher, genSolo3, genSolo4, randomString, creatorPointsForRating, getPublicBaseUrl, notifAdd, notifLevelRating };

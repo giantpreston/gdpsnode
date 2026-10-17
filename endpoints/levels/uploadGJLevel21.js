@@ -66,6 +66,7 @@ module.exports = {
         const requestedStars = parseInt(body.requestedStars, 10);
         const unlisted = parseInt(body.unlisted, 10);
         const ldm = parseInt(body.ldm, 10);
+        const notify = body.notify == null || body.notify === '' ? 0 : parseInt(body.notify, 10);
         const {
             gjp2: rawGjp2,
             levelName: rawLevelName,
@@ -103,7 +104,7 @@ module.exports = {
             isNaN(levelLength) || isNaN(audioTrack) || isNaN(auto) || isNaN(normalizedPassword) ||
             isNaN(original) || isNaN(twoPlayer) || isNaN(songID) || isNaN(objects) ||
             isNaN(coins) || isNaN(requestedStars) || isNaN(unlisted) || isNaN(wtValue) || isNaN(wt2Value) ||
-            isNaN(ldm) || isNaN(tsValue) || !gjp2 || !levelName || levelDesc === undefined || levelDesc === null ||
+            isNaN(ldm) || isNaN(tsValue) || isNaN(notify) || !gjp2 || !levelName || levelDesc === undefined || levelDesc === null ||
             !levelString || !seed2
         ) return res.send('-1');
 
@@ -121,6 +122,7 @@ module.exports = {
         if (requestedStars > 10 || requestedStars < 0) return res.send('-1');
         if (unlisted < 0 || unlisted > 2) return res.send('-1');
         if (ldm > 1 || ldm < 0) return res.send('-1');
+        if (notify < 0 || notify > 3) return res.send('-1');
         if (!utils.isURLBase64(levelString)) return res.send('-1');
         if (wt < 0 || wt2 < 0) return res.send('-1');
 
@@ -258,6 +260,34 @@ module.exports = {
                 await fs.unlink(filePath).catch(() => {});
                 console.error('\x1b[1;31m✗ Failed to save level string:\x1b[0m', err);
                 return res.send('-1');
+            }
+
+            const recipients = new Map();
+            if (notify === 1 || notify === 3) {
+                const friends = db.prepare(`
+                    SELECT person2 AS accountID FROM friendships WHERE person1 = ?
+                    UNION
+                    SELECT person1 AS accountID FROM friendships WHERE person2 = ?
+                `).all(accountID, accountID);
+                for (const friend of friends) recipients.set(friend.accountID, (recipients.get(friend.accountID) || 0) | 1);
+            }
+            if (notify === 2 || notify === 3) {
+                const followers = db.prepare('SELECT person1 AS accountID FROM follows WHERE person2 = ?').all(accountID);
+                for (const follower of followers) recipients.set(follower.accountID, (recipients.get(follower.accountID) || 0) | 2);
+            }
+            for (const [recipientID, notificationMask] of recipients) {
+                utils.notifAdd({
+                    toAccountID: recipientID,
+                    notificationMask,
+                    type: 10,
+                    emoteIcon: 'cube',
+                    title: 'New Level!',
+                    description: `<cg>${account.userName}</c> uploaded <cy>${levelName}</c>!`,
+                    hasLevel: true,
+                    levelID: newLevelID,
+                    accountID,
+                    username: account.userName
+                });
             }
 
             res.send(String(newLevelID));

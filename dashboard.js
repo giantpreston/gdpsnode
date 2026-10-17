@@ -705,7 +705,7 @@ router.post('/api/server-schedule', requireAuth, requireCsrf, (req, res) => {
     const now = Math.floor(Date.now() / 1000);
     if (!Number.isInteger(expiresAt) || expiresAt <= now) return res.status(400).json({ error: 'Schedule levels must have a future expiry' });
 
-    const level = db.prepare('SELECT levelID FROM levels WHERE levelID = ?').get(levelId);
+    const level = db.prepare('SELECT levelID, accountID, levelName, dailyNumber FROM levels WHERE levelID = ?').get(levelId);
     if (!level) return res.status(404).json({ error: 'Level not found' });
 
     const targetNumber = scheduleTargetNumber(type, slot);
@@ -722,6 +722,23 @@ router.post('/api/server-schedule', requireAuth, requireCsrf, (req, res) => {
     db.transaction(() => {
         db.prepare('UPDATE levels SET dailyNumber = ?, dailyTime = ? WHERE levelID = ?').run(targetNumber, expiresAt, levelId);
     })();
+
+    if (type === 'daily' && scheduleTypeFromNumber(level.dailyNumber) !== 'daily') {
+        const creator = db.prepare('SELECT userName FROM profiles WHERE accountID = ?').get(level.accountID);
+        const username = creator?.userName || '';
+        utils.notifAdd({
+            toAccountID: level.accountID,
+            type: 15,
+            emoteIcon: 'royal',
+            title: 'Daily!',
+            description: `<cg>${username}</c>'s level is now <cy>daily!</c>`,
+            age: '0 seconds',
+            hasLevel: true,
+            levelID,
+            accountID: level.accountID,
+            username
+        });
+    }
 
     res.status(204).end();
 });
@@ -1124,11 +1141,14 @@ router.post('/api/rate', requireAuth, requireCsrf, (req, res) => {
     if (stars === 10 && ![0, 3, 4, 5, 6].includes(demonDiff)) return res.status(400).json({ error: 'Invalid demon difficulty' });
     if (stars !== 10 && demonDiff !== 0) return res.status(400).json({ error: 'Demon difficulty requires a 10-star rating' });
     try {
+        const previousLevel = db.prepare('SELECT accountID, starStars, featured, starEpic FROM levels WHERE levelID = ?').get(levelId);
+        if (!previousLevel) return res.status(404).json({ error: 'Level not found' });
         if (!applyRating(levelId, stars, feature, demonDiff)) return res.status(404).json({ error: 'Level not found' });
-        const level = db.prepare(`SELECT l.levelID, l.levelName, l.levelLength, l.starStars, l.starDifficulty, l.starAuto,
+        const level = db.prepare(`SELECT l.levelID, l.accountID, l.levelName, l.levelLength, l.starStars, l.starDifficulty, l.starAuto,
             l.starDemon, l.starDemonDiff, l.featured, l.starEpic, l.coins, l.starCoins, p.userName AS creator
             FROM levels l LEFT JOIN profiles p ON p.accountID = l.accountID WHERE l.levelID = ?`).get(levelId);
         levelRatingWebhookEmbed(level);
+        utils.notifLevelRating(level, previousLevel);
         res.status(204).end();
     } catch (error) {
         console.error('\x1b[1;31m✗ Dashboard rating failed:\x1b[0m', error);

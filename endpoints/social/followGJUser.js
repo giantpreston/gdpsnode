@@ -26,7 +26,22 @@ module.exports = {
 
         // set logic!!!
         const inf = db.prepare('INSERT OR IGNORE INTO follows (person1, person2, timestamp) VALUES (?, ?, ?)').run(accountID, targetAccountID, Math.floor(Date.now() / 1000));
-        if (inf.changes > 0) return res.send('1');
+        if (inf.changes > 0) {
+            const followerCount = db.prepare('SELECT COUNT(*) AS count FROM follows WHERE person2 = ?').get(targetAccountID).count;
+            if (followerCount === 1) {
+                utils.notifAdd({
+                    toAccountID: targetAccountID,
+                    notificationMask: 16,
+                    type: 13,
+                    emoteIcon: 'party',
+                    title: 'First Follower!',
+                    description: 'Someone is now <cy>following</c> you!',
+                    accountID,
+                    username: check.userName
+                });
+            }
+            return res.send('1');
+        }
 
         return res.send('-1'); // fallback value if for whatever reason we reach this line
     }

@@ -66,7 +66,7 @@ module.exports = {
             if (!level) return res.send('-1');
         }
 
-        const ownerAccount = db.prepare('SELECT isDisabled FROM accounts WHERE accountID = ?').get(level.accountID);
+        const ownerAccount = db.prepare('SELECT isDisabled, userName FROM accounts WHERE accountID = ?').get(level.accountID);
         if (!ownerAccount || ownerAccount.isDisabled === 1) return res.send('-1');
 
         if (level.unlisted === 1) {
@@ -108,6 +108,21 @@ module.exports = {
                 db.prepare('INSERT INTO content_increments (accountID, contentID, contentType) VALUES (?, ?, ?)').run(accountID, level.levelID, 'level');
                 return true;
             })();
+        }
+
+        if (incremented && level.downloads < 50000 && level.downloads + 1 >= 50000) {
+            utils.notifAdd({
+                toAccountID: level.accountID,
+                notificationMask: 4,
+                type: 11,
+                emoteIcon: 'download',
+                title: '50,000 Downloads!',
+                description: `Your level <cg>${level.levelName}</c> reached <cy>50,000</c> downloads!`,
+                hasLevel: true,
+                levelID: level.levelID,
+                accountID: level.accountID,
+                username: ownerAccount.userName
+            });
         }
 
         const hash = generateDownloadHash(levelString);

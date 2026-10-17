@@ -336,6 +336,26 @@ db.exec(`
         isNew INTEGER NOT NULL DEFAULT 1
     );
 
+    CREATE TABLE IF NOT EXISTS notifications (
+        notificationID INTEGER PRIMARY KEY AUTOINCREMENT,
+        toAccountID INTEGER NOT NULL DEFAULT 0,
+        notificationMask INTEGER NOT NULL DEFAULT 0,
+        type INTEGER NOT NULL,
+        emoteIcon TEXT NOT NULL DEFAULT '',
+        title TEXT NOT NULL DEFAULT '',
+        description TEXT NOT NULL DEFAULT '',
+        age TEXT NOT NULL DEFAULT '',
+        isNew INTEGER NOT NULL DEFAULT 1,
+        hasLevel INTEGER NOT NULL DEFAULT 0,
+        levelID INTEGER NOT NULL DEFAULT 0,
+        achievement TEXT NOT NULL DEFAULT '',
+        hasChest INTEGER NOT NULL DEFAULT 0,
+        chestType INTEGER NOT NULL DEFAULT 0,
+        accountID INTEGER NOT NULL DEFAULT 0,
+        username TEXT NOT NULL DEFAULT '',
+        createdAt INTEGER NOT NULL DEFAULT 0
+    );
+
     CREATE TABLE IF NOT EXISTS quests (
         questID INTEGER PRIMARY KEY AUTOINCREMENT,
         type INTEGER NOT NULL,
@@ -465,7 +485,10 @@ const addedColumns = [
     { table: 'levels', column: 'ts', definition: 'INTEGER NOT NULL DEFAULT 0' },
     { table: 'friendships', column: 'friendsSince', definition: 'INTEGER NOT NULL DEFAULT 0' },
     { table: 'accounts', column: 'leaderboardBan', definition: 'INTEGER NOT NULL DEFAULT 0' },
-    { table: 'dashboard_access', column: 'permissionsVersion', definition: 'INTEGER NOT NULL DEFAULT 1' }
+    { table: 'dashboard_access', column: 'permissionsVersion', definition: 'INTEGER NOT NULL DEFAULT 1' },
+    { table: 'notifications', column: 'toAccountID', definition: 'INTEGER NOT NULL DEFAULT 0' },
+    { table: 'notifications', column: 'notificationMask', definition: 'INTEGER NOT NULL DEFAULT 0' },
+    { table: 'notifications', column: 'createdAt', definition: 'INTEGER NOT NULL DEFAULT 0' }
 ];
 
 db.transaction(() => {
@@ -492,6 +515,19 @@ db.transaction(() => {
 })();
 
 db.exec('CREATE INDEX IF NOT EXISTS idx_accounts_leaderboardBan ON accounts(leaderboardBan)');
+db.exec('CREATE INDEX IF NOT EXISTS idx_notifications_recipient ON notifications(toAccountID, notificationID DESC)');
+db.exec(`
+    UPDATE notifications
+    SET notificationMask = CASE
+        WHEN type = 10 THEN 3
+        WHEN type = 11 THEN 4
+        WHEN type = 13 THEN 16
+        WHEN type = 14 THEN 32
+        WHEN type = 15 AND title = 'UmF0ZWQh' THEN 64
+        ELSE notificationMask
+    END
+    WHERE notificationMask = 0
+`);
 
 db.pragma('optimize');
 
