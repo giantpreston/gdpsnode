@@ -67,6 +67,8 @@ db.exec(`
         dinfo TEXT DEFAULT '',
         mS INTEGER NOT NULL DEFAULT 0,
         frS INTEGER NOT NULL DEFAULT 0,
+        gF INTEGER NOT NULL DEFAULT 0,
+        gO INTEGER NOT NULL DEFAULT 2,
         cS INTEGER NOT NULL DEFAULT 0,
         youtubeurl TEXT NOT NULL DEFAULT '',
         twitter TEXT NOT NULL DEFAULT '',
@@ -104,7 +106,6 @@ db.exec(`
         levelLength INTEGER NOT NULL DEFAULT 0,
         audioTrack INTEGER NOT NULL,
         password INTEGER NOT NULL,
-        levelReports INTEGER NOT NULL DEFAULT 0,
         lastSent INTEGER NOT NULL DEFAULT 0,
         twoPlayer INTEGER NOT NULL DEFAULT 0,
         songID INTEGER NOT NULL DEFAULT 0,
@@ -149,6 +150,47 @@ db.exec(`
         likes INTEGER NOT NULL DEFAULT 0,
         percent INTEGER NOT NULL DEFAULT 0,
         isSpam INTEGER NOT NULL DEFAULT 0
+    );
+
+    CREATE TABLE IF NOT EXISTS editorpackcomments (
+        accountID INTEGER NOT NULL,
+        userName TEXT NOT NULL,
+        comment TEXT NOT NULL,
+        editorpackID INTEGER NOT NULL,
+        commentID INTEGER PRIMARY KEY AUTOINCREMENT,
+        timestamp INTEGER NOT NULL,
+        likes INTEGER NOT NULL DEFAULT 0,
+        isSpam INTEGER NOT NULL DEFAULT 0
+    );
+
+    CREATE TABLE IF NOT EXISTS editor_sounds (
+        soundID INTEGER PRIMARY KEY AUTOINCREMENT,
+        accountID INTEGER NOT NULL,
+        soundName TEXT NOT NULL,
+        soundDesc TEXT NOT NULL DEFAULT '',
+        soundData TEXT NOT NULL,
+        version INTEGER NOT NULL DEFAULT 1,
+        downloads INTEGER NOT NULL DEFAULT 0,
+        likes INTEGER NOT NULL DEFAULT 0,
+        actionCount INTEGER NOT NULL DEFAULT 0,
+        soundCount INTEGER NOT NULL DEFAULT 0,
+        unlisted INTEGER NOT NULL DEFAULT 0,
+        emote TEXT NOT NULL DEFAULT '',
+        featured INTEGER NOT NULL DEFAULT 0,
+        awarded INTEGER NOT NULL DEFAULT 0,
+        uploadDate INTEGER NOT NULL,
+        updateDate INTEGER NOT NULL
+    );
+
+    CREATE TABLE IF NOT EXISTS reports (
+        reportID INTEGER PRIMARY KEY AUTOINCREMENT,
+        accountID INTEGER NOT NULL,
+        targetID INTEGER NOT NULL,
+        type INTEGER NOT NULL,
+        reasons TEXT NOT NULL,
+        messageID INTEGER,
+        special INTEGER,
+        reportedAt INTEGER NOT NULL
     );
 
     CREATE TABLE IF NOT EXISTS acccomments (
@@ -252,6 +294,22 @@ db.exec(`
         friendsSince INTEGER NOT NULL DEFAULT 0
     );
 
+    CREATE TABLE IF NOT EXISTS follows (
+        ID INTEGER PRIMARY KEY AUTOINCREMENT,
+        person1 INTEGER NOT NULL DEFAULT 0,
+        person2 INTEGER NOT NULL DEFAULT 0,
+        timestamp INTEGER NOT NULL DEFAULT 0,
+        UNIQUE (person1, person2)
+    );
+
+    CREATE TABLE IF NOT EXISTS mutes (
+        ID INTEGER PRIMARY KEY AUTOINCREMENT,
+        person1 INTEGER NOT NULL DEFAULT 0,
+        person2 INTEGER NOT NULL DEFAULT 0,
+        timestamp INTEGER NOT NULL DEFAULT 0,
+        UNIQUE (person1, person2)
+    );
+
     CREATE TABLE IF NOT EXISTS blocks (
         ID INTEGER PRIMARY KEY AUTOINCREMENT,
         person1 INTEGER NOT NULL,
@@ -329,6 +387,9 @@ db.exec(`
     CREATE INDEX IF NOT EXISTS idx_accounts_gjp2 ON accounts(gjp2);
     CREATE INDEX IF NOT EXISTS idx_dashboard_access_accountID ON dashboard_access(accountID);
 
+    CREATE INDEX IF NOT EXISTS idx_follows_person2 ON follows (person2);
+    CREATE INDEX IF NOT EXISTS idx_mutes_person2 ON mutes (person2);
+
     CREATE INDEX IF NOT EXISTS idx_profiles_userName ON profiles(userName);
     CREATE INDEX IF NOT EXISTS idx_profiles_accountID ON profiles(accountID);
     CREATE INDEX IF NOT EXISTS idx_profiles_modLevel ON profiles(modLevel);
@@ -347,6 +408,11 @@ db.exec(`
     CREATE INDEX IF NOT EXISTS idx_levels_featured_likes ON levels(featured, likes DESC, levelID DESC);
 
     CREATE INDEX IF NOT EXISTS idx_comments_levelID_commentID ON comments(levelID, commentID DESC);
+    CREATE INDEX IF NOT EXISTS idx_editorpackcomments_pack_comment ON editorpackcomments(editorpackID, commentID DESC);
+    CREATE INDEX IF NOT EXISTS idx_editor_sounds_publication ON editor_sounds(unlisted, uploadDate DESC);
+    CREATE INDEX IF NOT EXISTS idx_editor_sounds_accountID ON editor_sounds(accountID, soundID DESC);
+    CREATE INDEX IF NOT EXISTS idx_reports_type_targetID ON reports(type, targetID);
+    CREATE INDEX IF NOT EXISTS idx_reports_accountID ON reports(accountID, reportedAt DESC);
     CREATE INDEX IF NOT EXISTS idx_comments_levelID_likes ON comments(levelID, likes DESC, commentID DESC);
     CREATE INDEX IF NOT EXISTS idx_comments_accountID ON comments(accountID, commentID DESC);
     CREATE INDEX IF NOT EXISTS idx_acccomments_accountID ON acccomments(accountID, commentID DESC);
@@ -380,6 +446,7 @@ db.exec(`
 `);
 
 const removedColumns = [
+    { table: 'levels', column: 'levelReports' },
     { table: 'songs', column: 'songPriority' },
     { table: 'songs', column: 'nongEnum' },  // renamed to "platform"
     { table: 'songs', column: 'extraArtistIDs' },
@@ -390,6 +457,8 @@ const removedColumns = [
 ];
 const addedColumns = [
     { table: 'songs', column: 'platform', definition: 'INTEGER DEFAULT 0' },
+    { table: 'profiles', column: 'gF', definition: 'INTEGER NOT NULL DEFAULT 0' },
+    { table: 'profiles', column: 'gO', definition: 'INTEGER NOT NULL DEFAULT 0' },
     { table: 'lib_update_scheduling', column: 'verified', definition: 'INTEGER NOT NULL DEFAULT 0' },
     { table: 'levels', column: 'wt', definition: 'INTEGER NOT NULL DEFAULT 0' },
     { table: 'levels', column: 'wt2', definition: 'INTEGER NOT NULL DEFAULT 0' },

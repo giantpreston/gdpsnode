@@ -6,11 +6,14 @@ module.exports = {
     path: '/getGJChallenges.php',
     handler: (req, res) => {
         try {
-            let accountID = parseInt(utils.number(req.body?.accountID || '0'), 10);
+            const rawAccountID = req.body?.accountID;
+            const accountID = rawAccountID == null || rawAccountID === '' ? 0 : parseInt(utils.number(rawAccountID), 10);
             let udid = utils.remove(req.body?.udid || '');
-            const userID = parseInt(utils.number(req.body?.uuid), 10);
+            const rawUserID = req.body?.uuid;
+            const userID = rawUserID == null || rawUserID === '' ? 0 : parseInt(utils.number(rawUserID), 10);
             let chk = utils.remove(req.body?.chk || '');
 
+            if (!Number.isInteger(accountID) || accountID < 0 || !Number.isInteger(userID) || userID < 0) return res.send('-1');
             if (/^\d+$/.test(udid)) return res.send('-1');
 
             if (accountID && accountID != 0) {

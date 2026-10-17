@@ -5,6 +5,12 @@
 
 GDPSnode is a Geometry Dash private server backend written in Node.js. It includes account handling, level and score APIs, social features, custom songs, rewards, dashboard moderation tools, and a plugin system so the server can be extended without editing the core codebase.
 
+> [!NOTE]
+> GDPSnode only supports the latest Geometry Dash version (2.209 as of right now). Any older version will have support immediately dropped if a newer one comes out, so don't **ANY** expect backwards compatibility with older versions!
+
+> [!WARNING]
+> The 2.209 implementation is still not fully done! As more discoveries are made, these endpoints will be added here. I added only the information that is 100% confirmed as of right now, so please be patient while we figure this out! This warning will be removed once it is fully complete and your servers won't show an update pop up until I entirely complete this version.
+
 ## Documentation
 
 - [First steps and quick setup](docs/SETUP.md)

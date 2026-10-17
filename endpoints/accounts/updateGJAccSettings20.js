@@ -27,7 +27,9 @@ module.exports = {
 
         const fieldMap = {
             mS: value => clamp(value, 0, 2),
-            frS: value => clamp(value, 0, 1),
+            frS: value => clamp(value, 0, 2),
+            gF: value => clamp(value, 0, 2),
+            gO: value => utils.number(value), // unknown. won't clamp for now since can't know max or min.
             cS: value => clamp(value, 0, 2),
             youtubeurl: value => utils.remove(value),
             twitter: value => utils.remove(value),

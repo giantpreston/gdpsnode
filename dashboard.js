@@ -47,6 +47,21 @@ const secureCookies = config.dashboard.secureCookies;
 const dashboardPath = config.dashboard.path;
 const songsDirectory = path.join(__dirname, 'songs');
 
+function getPagination(req, res, maxLimit) {
+    const rawLimit = req.query.limit;
+    const rawOffset = req.query.offset;
+    const parsedLimit = rawLimit == null || rawLimit === '' ? 10 : Number(rawLimit);
+    const parsedOffset = rawOffset == null || rawOffset === '' ? 0 : Number(rawOffset);
+    if (!Number.isSafeInteger(parsedLimit) || !Number.isSafeInteger(parsedOffset)) {
+        res.status(400).json({ error: 'Invalid pagination' });
+        return null;
+    }
+    return {
+        limit: Math.min(Math.max(parsedLimit || 10, 1), maxLimit),
+        offset: Math.max(parsedOffset, 0)
+    };
+}
+
 function decodeBase64Url(value) {
     if (!value) return '';
     try {
@@ -526,8 +541,9 @@ router.get('/api/collections', requireAuth, (req, res) => {
 
 router.get('/api/lists', requireAuth, requireDashboardFeature('collections'), (req, res) => {
     const query = typeof req.query.q === 'string' ? req.query.q.trim().slice(0, 80) : '';
-    const limit = Math.min(Math.max(Number(req.query.limit) || 10, 1), 100);
-    const offset = Math.max(Number(req.query.offset) || 0, 0);
+    const pagination = getPagination(req, res, 100);
+    if (!pagination) return;
+    const { limit, offset } = pagination;
     const like = `%${query.replace(/[\\%_]/g, '\\$&')}%`;
     const total = db.prepare(`SELECT COUNT(*) AS total FROM lists l
         WHERE (? = '' OR l.listName LIKE ? ESCAPE '\\' OR CAST(l.listID AS TEXT) = ?)`)
@@ -551,8 +567,9 @@ router.get('/api/lists/:id', requireAuth, requireDashboardFeature('collections')
 
 router.get('/api/users', (req, res) => {
     const query = typeof req.query.q === 'string' ? req.query.q.trim().slice(0, 64) : '';
-    const limit = Math.min(Math.max(Number(req.query.limit) || 10, 1), 10);
-    const offset = Math.max(Number(req.query.offset) || 0, 0);
+    const pagination = getPagination(req, res, 10);
+    if (!pagination) return;
+    const { limit, offset } = pagination;
     const like = `%${query.replace(/[\\%_]/g, '\\$&')}%`;
     const total = db.prepare(`SELECT COUNT(*) AS total FROM accounts a
         LEFT JOIN profiles p ON p.accountID = a.accountID
@@ -799,8 +816,9 @@ router.delete('/api/secret-rewards/:id', requireAuth, requireCsrf, (req, res) =>
 
 router.get('/api/songs', requireAuth, (req, res) => {
     const query = typeof req.query.q === 'string' ? req.query.q.trim().slice(0, 64) : '';
-    const limit = Math.min(Math.max(Number(req.query.limit) || 10, 1), 10);
-    const offset = Math.max(Number(req.query.offset) || 0, 0);
+    const pagination = getPagination(req, res, 10);
+    if (!pagination) return;
+    const { limit, offset } = pagination;
     const like = `%${query.replace(/[\\%_]/g, '\\$&')}%`;
     const where = "link != '-' AND (? = '' OR name LIKE ? ESCAPE '\\' OR artistName LIKE ? ESCAPE '\\' OR CAST(ID AS TEXT) = ?)";
     const total = db.prepare(`SELECT COUNT(*) AS total FROM songs WHERE ${where}`).get(query, like, like, query).total;
@@ -1004,8 +1022,9 @@ router.delete('/api/lists/:id', requireAuth, requireCsrf, (req, res) => {
 
 router.get('/api/levels', requireAuth, (req, res) => {
     const query = typeof req.query.q === 'string' ? req.query.q.trim().slice(0, 80) : '';
-    const limit = Math.min(Math.max(Number(req.query.limit) || 10, 1), 10);
-    const offset = Math.max(Number(req.query.offset) || 0, 0);
+    const pagination = getPagination(req, res, 10);
+    if (!pagination) return;
+    const { limit, offset } = pagination;
     const like = `%${query.replace(/[\\%_]/g, '\\$&')}%`;
     const sort = ['name', 'stars'].includes(req.query.sort) ? req.query.sort : 'id';
     const orderBy = sort === 'name' ? 'l.levelName COLLATE NOCASE ASC, l.levelID DESC' :

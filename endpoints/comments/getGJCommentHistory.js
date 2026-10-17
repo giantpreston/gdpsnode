@@ -9,18 +9,20 @@ module.exports = {
     handler: (req, res) => {
         let accountID = parseInt(utils.number(req.body?.userID), 10);
         accountID = accountID - 1;
-        const ownAcc = parseInt(utils.number(req.body?.accountID), 10);
+        const rawOwnAcc = req.body?.accountID;
+        const ownAcc = rawOwnAcc == null || rawOwnAcc === '' ? 0 : parseInt(utils.number(rawOwnAcc), 10);
         const gjp2 = utils.remove(req.body?.gjp2 || '');
-        const page = parseInt(utils.number(req.body?.mode), 10);
+        const page = parseInt(utils.number(req.body?.page), 10);
         const mode = parseInt(utils.number(req.body?.mode), 10);
 
         // sanity checks
-        if (page < 0) return res.send('-1');
-        if (mode < 0 || mode > 1) return res.send('-1');
+        if (!Number.isInteger(accountID) || accountID < 0 || !Number.isInteger(ownAcc) || ownAcc < 0) return res.send('-1');
+        if (!Number.isInteger(page) || page < 0) return res.send('-1');
+        if (!Number.isInteger(mode) || mode < 0 || mode > 1) return res.send('-1');
 
         // db checks
-        const lvcm = db.prepare('SELECT * FROM comments WHERE accountID = ?').get(accountID);
-        const check = db.prepare('SELECT * FROM accounts WHERE accountID = ?').get(ownAcc);
+        const lvcm = db.prepare('SELECT 1 FROM comments WHERE accountID = ?').get(accountID);
+        const check = db.prepare('SELECT gjp2 FROM accounts WHERE accountID = ?').get(ownAcc);
         const user = db.prepare('SELECT cS FROM profiles WHERE accountID = ?').get(accountID);
         const areFriends = ownAcc && db.prepare('SELECT ID FROM friendships WHERE (person1 = ? AND person2 = ?) OR (person2 = ? AND person1 = ?)').get(ownAcc, accountID, ownAcc, accountID);
 

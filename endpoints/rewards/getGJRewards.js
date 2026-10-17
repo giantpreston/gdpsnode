@@ -30,12 +30,14 @@ module.exports = {
     path: '/getGJRewards.php',
     middleware: [commonSecret],
     handler: (req, res) => {
-        const accountID = parseInt(utils.number(req.body?.accountID || ''), 10) || 0;
-        const uuid = parseInt(utils.number(req.body?.uuid || ''), 10) || 0;
-        const rewardType = parseInt(utils.number(req.body?.rewardType || '0'), 10) || 0;
+        const parseDefaultZero = value => value == null || value === '' ? 0 : parseInt(utils.number(value), 10);
+        const accountID = parseDefaultZero(req.body?.accountID);
+        const uuid = parseDefaultZero(req.body?.uuid);
+        const rewardType = parseDefaultZero(req.body?.rewardType);
         const udid = utils.remove(req.body?.udid || '');
         const gjp2 = utils.remove(req.body?.gjp2 || '');
 
+        if (![accountID, uuid, rewardType].every(Number.isInteger)) return res.send('-1');
         if (/^\d+$/.test(udid) || (!accountID && !uuid && !udid)) return res.send('-1');
         if (accountID) {
             const account = db.prepare('SELECT accountID, gjp2, isDisabled FROM accounts WHERE accountID = ?').get(accountID);

@@ -50,6 +50,7 @@ module.exports = {
     middleware: [commonSecret],
     handler: async (req, res) => {
         const body = req.body || {};
+        const parseOptionalInteger = value => value == null || value === '' ? 0 : parseInt(value, 10);
         const gameVersion = parseInt(body.gameVersion, 10);
         const accountID = parseInt(body.accountID, 10);
         let levelID = parseInt(body.levelID, 10);
@@ -76,9 +77,12 @@ module.exports = {
         const gjp2 = utils.remove(rawGjp2 || '');
         const levelName = utils.charclean(rawLevelName || '');
         const levelDesc = (rawLevelDesc || '').trim();
-        const wt = (utils.number(parseInt(body.wt, 10)) || 0).trim();
-        const wt2 = (utils.number(parseInt(body.wt2, 10)) || 0).trim();
-        const ts = (utils.number(parseInt(body.ts)) || 0).trim();
+        const wtValue = parseOptionalInteger(body.wt);
+        const wt2Value = parseOptionalInteger(body.wt2);
+        const tsValue = parseOptionalInteger(body.ts);
+        const wt = (utils.number(wtValue) || 0).trim();
+        const wt2 = (utils.number(wt2Value) || 0).trim();
+        const ts = (utils.number(tsValue) || 0).trim();
         const levelString = (rawLevelString || '').trim();
         const seed2 = (rawSeed2 || '').trim();
 
@@ -98,8 +102,8 @@ module.exports = {
             isNaN(gameVersion) || isNaN(accountID) || isNaN(levelID) || isNaN(levelVersion) ||
             isNaN(levelLength) || isNaN(audioTrack) || isNaN(auto) || isNaN(normalizedPassword) ||
             isNaN(original) || isNaN(twoPlayer) || isNaN(songID) || isNaN(objects) ||
-            isNaN(coins) || isNaN(requestedStars) || isNaN(unlisted) || isNaN(wt) || isNaN(wt2) ||
-            isNaN(ldm) || isNaN(ts) || !gjp2 || !levelName || levelDesc === undefined || levelDesc === null ||
+            isNaN(coins) || isNaN(requestedStars) || isNaN(unlisted) || isNaN(wtValue) || isNaN(wt2Value) ||
+            isNaN(ldm) || isNaN(tsValue) || !gjp2 || !levelName || levelDesc === undefined || levelDesc === null ||
             !levelString || !seed2
         ) return res.send('-1');
 

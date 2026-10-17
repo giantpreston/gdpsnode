@@ -15,12 +15,13 @@ function generateMulti(lists) {
 }
 
 function integer(value, fallback = 0) {
+    if (value == null || value === '') return fallback;
     const parsed = parseInt(value, 10);
-    return Number.isNaN(parsed) ? fallback : parsed;
+    return Number.isNaN(parsed) ? null : parsed;
 }
 
 function hasValue(body, name) {
-    return body[name] !== undefined && body[name] !== '';
+    return body[name] != null && body[name] !== '';
 }
 
 module.exports = {
@@ -30,14 +31,19 @@ module.exports = {
     handler: (req, res) => {
         try {
             const body = req.body || {};
-            const accountID = body.accountID ? parseInt(utils.number(body.accountID), 10) : 0;
+            const rawAccountID = body.accountID;
+            const accountID = rawAccountID == null || rawAccountID === '' ? 0 : parseInt(utils.number(rawAccountID), 10);
             const gjp2 = utils.remove(body.gjp2 || '');
             const type = integer(body.type);
-            const page = Math.max(integer(body.page), 0);
+            const rawPage = integer(body.page);
+            const star = integer(body.star);
+            const featured = integer(body.featured);
+            const demonFilter = integer(body.demonFilter);
+            if (![accountID, type, rawPage, star, featured, demonFilter].every(Number.isInteger) || accountID < 0) return res.send('-1');
+            const page = Math.max(rawPage, 0);
             const offset = page * pageSize;
             const str = hasValue(body, 'str') ? utils.remove(String(body.str)) : '';
             const diff = hasValue(body, 'diff') ? utils.numbercolon(String(body.diff)) : '-';
-            const demonFilter = integer(body.demonFilter);
             if (accountID) {
                 const account = db.prepare('SELECT gjp2, isDisabled FROM accounts WHERE accountID = ?').get(accountID);
                 if (!account || account.isDisabled === 1 || !gjp2 || account.gjp2 !== gjp2) return res.send('-1');
@@ -47,7 +53,7 @@ module.exports = {
             const params = [];
             let order = 'likes DESC';
 
-            if (integer(body.star) !== 0 || integer(body.featured) === 1) {
+            if (star !== 0 || featured === 1) {
                 conditions.push('starStars != 0');
             }
 

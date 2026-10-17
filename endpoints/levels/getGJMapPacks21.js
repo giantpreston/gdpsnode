@@ -14,7 +14,10 @@ module.exports = {
     middleware: [commonSecret],
     handler: (req, res) => {
         try {
-            const page = Math.max(parseInt(req.body?.page || 0, 10) || 0, 0);
+            const rawPage = req.body?.page;
+            const parsedPage = rawPage == null || rawPage === '' ? 0 : parseInt(rawPage, 10);
+            if (!Number.isInteger(parsedPage)) return res.send('-1');
+            const page = Math.max(parsedPage, 0);
             const pageSize = 10;
             const offset = page * pageSize;
 

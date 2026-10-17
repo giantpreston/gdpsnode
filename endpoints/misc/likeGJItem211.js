@@ -11,13 +11,12 @@ module.exports = {
         const type = parseInt(utils.number(req.body?.type), 10);
         const accountID = parseInt(utils.number(req.body?.accountID), 10);
         const gjp2 = utils.remove(req.body?.gjp2);
-        let like = parseInt(utils.number(req.body?.like), 10);
+        const like = req.body?.like == null ? 1 : parseInt(utils.number(req.body.like), 10);
 
         // sanity checks
-        if (like === null || like === undefined) like = 1;
         if (!itemID || !type) return res.send('-1');
-        if (!accountID || !gjp2) return res.send('1'); // unauthenticated users never really increment counters, but regardless get 1.
-        if (itemID < 0 || type < 1 || type > 4 || like < 0 || like > 1) return res.send('-1');
+        if (!accountID || !gjp2) return res.send('-1'); // this was finally fixed in 2.209! now unauthenticated users get an error pop-up telling to create an account, so we can safely return -1.
+        if (itemID < 0 || type < 1 || type > 5 || (like !== 0 && like !== 1)) return res.send('-1');
         if (gjp2.length !== 40) return res.send('-1');
 
         // db checks
@@ -49,6 +48,11 @@ module.exports = {
                 table = "lists";
                 content = "likes_lists";
                 column = "listID";
+                break;
+            case 5:
+                table = "editor_sounds";
+                content = "likes_editor_sounds";
+                column = "soundID";
                 break;
         }
 

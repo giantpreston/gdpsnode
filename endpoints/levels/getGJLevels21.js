@@ -10,10 +10,11 @@ module.exports = {
     handler: (req, res) => {
         try {
             const body = req.body || {};
-            const has = name => body[name] !== undefined && body[name] !== '';
+            const has = name => body[name] != null && body[name] !== '';
             const int = (name, fallback = 0) => {
+                if (!has(name)) return fallback;
                 const value = parseInt(body[name], 10);
-                return Number.isNaN(value) ? fallback : value;
+                return Number.isNaN(value) ? null : value;
             };
             const numericList = (name, fallback = '') => {
                 const rawValue = body[name];
@@ -42,11 +43,14 @@ module.exports = {
             const mythic = int('legendary'); // the client sends this field name incorrectly
             const legendary = int('mythic'); // the client sends this field name incorrectly
             const songProvided = has('song');
-            let song = Number(utils.number(body.song || ''));
+            const songValue = utils.number(body.song || '');
+            let song = songValue === '' ? NaN : Number(songValue);
             const customSong = int('customSong');
             const star = int('star');
             const noStar = int('noStar');
             const demonFilter = int('demonFilter');
+            if ([accountID, type, page, uncompleted, onlyCompleted, featured, original, twoPlayer, coins, epic, mythic, legendary, customSong, star, noStar, demonFilter].includes(null)) return res.send('-1');
+            if (songProvided && !Number.isInteger(song)) return res.send('-1');
         
         const {
             followed: rawFollowed,
@@ -65,11 +69,10 @@ module.exports = {
 
         // db
         if (accountID > 0) {
-            const account = db.prepare('SELECT * FROM accounts WHERE accountID = ?').get(accountID);
+            const account = db.prepare('SELECT gjp2 FROM accounts WHERE accountID = ?').get(accountID);
             if (!account) return res.send('-1');
             if (account.gjp2 !== gjp2) return res.send('-1');
         }
-        let sql = 'SELECT * FROM levels';
         let order;
         let conditions = [];
         let params = [];
@@ -86,13 +89,13 @@ module.exports = {
             params.push(...completedLevelIDs);
         }
         if (customSong === 1 && songProvided) {
-            song = song - 1;
-            conditions.push("audioTrack = 0 AND songID = ?");
-            params.push(song);
+            const legacySongID = song - 1;
+            conditions.push("audioTrack = 0 AND (songID = ? OR songID = ? OR instr(',' || songIDs || ',', ',' || CAST(? AS INTEGER) || ',') > 0)");
+            params.push(legacySongID, song, song);
         } else if (songProvided) {
-            song = song - 1;
-            conditions.push("audioTrack = ?");
-            params.push(song);
+            const legacyAudioTrack = song - 1;
+            conditions.push("(audioTrack = ? OR songID = ? OR songID = ? OR instr(',' || songIDs || ',', ',' || CAST(? AS INTEGER) || ',') > 0)");
+            params.push(legacyAudioTrack, song, legacyAudioTrack, song);
         }
         if (twoPlayer === 1) conditions.push('twoPlayer = 1');
         if (star === 1) conditions.push('NOT starStars = 0');
@@ -140,10 +143,6 @@ module.exports = {
             order = 'uploadDate DESC';
             conditions.push('objects > 9999'); // nice job github.com/Cvolton/GMDprivateServer/blob/master/incl/levels/getGJLevels.php (line 205)
             conditions.push('starStars = 0'); // typically only unrated lvls on magic
-        }
-        if (type === 27) {
-            conditions.push('isSent = 1');
-            order = 'lastSent DESC'; // yay
         }
         if (type === 10) {
             const levelIDs = String(str).split(',').map(Number).filter(n => !Number.isNaN(n));
@@ -200,6 +199,23 @@ module.exports = {
             conditions.push('dailyNumber > 200000');
             order = 'uploadDate DESC';
         }
+        if (type === 32) {
+            conditions.push('NOT dailyNumber = 0');
+            conditions.push('dailyNumber < 100001'); // exclude weekly
+            conditions.push('levelID != (SELECT levelID FROM levels WHERE dailyNumber != 0 AND dailyNumber < 100001 ORDER BY uploadDate DESC LIMIT 1)');
+            order = 'uploadDate DESC';
+        }
+        if (type === 33) {
+            conditions.push('dailyNumber > 100000'); // exclude daily
+            conditions.push('dailyNumber < 200001')
+            conditions.push('levelID != (SELECT levelID FROM levels WHERE dailyNumber > 100000 AND dailyNumber < 200001 ORDER BY uploadDate DESC LIMIT 1)');
+            order = 'uploadDate DESC';
+        }
+        if (type === 34) {
+            conditions.push('dailyNumber > 200000');
+            conditions.push('levelID != (SELECT levelID FROM levels WHERE dailyNumber > 200000 ORDER BY uploadDate DESC LIMIT 1)');
+            order = 'uploadDate DESC';
+        }
         if (type === 25) {
             const levelIDs = String(str).split(',').map(Number).filter(n => !Number.isNaN(n));
             if (levelIDs.length > 0) {
@@ -208,6 +224,13 @@ module.exports = {
                 params.push(...levelIDs);
             }
         }
+        const hypeHour = Math.floor(Date.now() / 3600000);
+        if (type === 31) {
+            conditions.push('isSent = 1');
+            conditions.push('lastSent >= ?');
+            params.push(Math.floor(Date.now() / 1000) - 7 * 24 * 60 * 60);
+        }
+        
         if (diff === '-1') {
             conditions.push('starDifficulty = 0');
         } else if (diff === '-3') {
@@ -233,7 +256,7 @@ module.exports = {
             conditions.push(`levelLength IN (${placeholders})`);
             params.push(...lenValues);
         }
-        const searchedByID = (type === 0 && isNumericStr) || type === 10 || type === 25;
+        const searchedByID = (type === 0 && isNumericStr) || type === 5 || type === 10 || type === 25;
         conditions.push('accountID IN (SELECT accountID FROM accounts WHERE isDisabled = 0)');
         if (!searchedByID) {
             conditions.push('unlisted = 0');
@@ -253,9 +276,26 @@ module.exports = {
         const totalRow = countStmt.get(...params);
         const total = totalRow ? totalRow.total : 0;
 
-        const mainSql = `SELECT * FROM levels${whereClause} ORDER BY ${order} LIMIT ? OFFSET ?`;
+        const mainSql = `SELECT levelID, levelName, levelDesc, levelVersion, accountID,
+            starDifficulty, downloads, audioTrack, gameVersion, likes, levelLength, dislikes,
+            starDemon, starStars, featured, starAuto, originalReup, twoPlayer, songID, songIDs,
+            extraString, coins, starCoins, requestedStars, starEpic, starDemonDiff, objects,
+            wt, wt2, ts, uploadDate, updateDate, unlisted, dailyNumber
+            FROM levels${whereClause}${type === 31 ? '' : ` ORDER BY ${order} LIMIT ? OFFSET ?`}`;
         const stmt = db.prepare(mainSql);
-        let levels = stmt.all(...params, limit, offset);
+        let levels;
+        if (type === 31) {
+            levels = stmt.all(...params)
+                .map(level => ({
+                    level,
+                    order: crypto.createHash('sha256').update(`${hypeHour}:${level.levelID}`).digest('hex')
+                }))
+                .sort((left, right) => left.order.localeCompare(right.order) || left.level.levelID - right.level.levelID)
+                .slice(offset, offset + limit)
+                .map(item => item.level);
+        } else {
+            levels = stmt.all(...params, limit, offset);
+        }
         
         if (searchedByID && levels.length > 0) {
             let friendIDs = new Set();
@@ -270,6 +310,7 @@ module.exports = {
                 }
             }
             levels = levels.filter(level => {
+                if (type === 5 && level.unlisted === 2) return level.accountID === accountID;
                 if (level.unlisted === 0 || level.unlisted === 2) return true;
                 if (level.unlisted === 1 && (level.accountID === accountID || friendIDs.has(level.accountID))) return true;
                 return false;
@@ -366,7 +407,8 @@ module.exports = {
                 54: 0,
                 57: level.ts || 0,
                 62: level.uploadDate || 0,
-                63: level.updateDate || 0
+                63: level.updateDate || 0,
+                65: [32, 33, 34].includes(type) ? level.dailyNumber : undefined
             };
             const sortedLevel = Object.fromEntries(
                 Object.entries(levelObj).sort(([a], [b]) => Number(a) - Number(b))

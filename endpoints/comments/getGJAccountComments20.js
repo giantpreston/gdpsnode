@@ -15,10 +15,12 @@ module.exports = {
         }
         
         const parsedAccountID = Number(String(rawAccountID ?? '').replace(/[^0-9-]/g, ''));
-        const parsedPage = Number(String(rawPage ?? '').replace(/[^0-9-]/g, ''));
+        const sanitizedPage = String(rawPage ?? '').replace(/[^0-9-]/g, '');
+        const parsedPage = rawPage == null || rawPage === '' ? 0 : sanitizedPage === '' ? NaN : Number(sanitizedPage);
 
         const accountID = Number.isInteger(parsedAccountID) && parsedAccountID > 0 ? parsedAccountID : NaN;
-        const page = Number.isInteger(parsedPage) && parsedPage >= 0 ? parsedPage : 0;
+        if (!Number.isInteger(parsedPage)) return res.send('-1');
+        const page = parsedPage >= 0 ? parsedPage : 0;
 
         if (!Number.isInteger(accountID) || !Number.isFinite(accountID) || accountID < 1) {
             return res.send('-1');

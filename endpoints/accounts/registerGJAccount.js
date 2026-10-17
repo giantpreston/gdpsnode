@@ -7,12 +7,12 @@ module.exports = {
     path: '/accounts/registerGJAccount.php',
     middleware: [accountSecret],
     handler: (req, res) => {
-        const username = utils.remove(req.body?.userName || '')
-        const password = utils.remove(req.body?.password || '')
+        const username = utils.remove(req.body?.userName || '');
+        const password = utils.remove(req.body?.password || '');
         const normalizedUsername = utils.normalizeUsername(username);
         
         // sanity checks
-        if (!username || !password) return res.send('-1');
+        if (!username || !password || !req.body?.rsession) return res.send('-1');
         if (password.length < 6) return res.send('-8');
         if (username.length < 3) return res.send('-9');
         if (password.length > 50) return res.send('-5');

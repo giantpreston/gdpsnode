@@ -8,17 +8,21 @@ module.exports = {
     middleware: [commonSecret],
     handler: (req, res) => {
         const body = req.body || {};
-        const stars = parseInt(body.stars, 10) || 0;
-        const demons = parseInt(body.demons, 10) || 0;
-        const icon = parseInt(body.icon, 10) || 0;
-        const color1 = parseInt(body.color1, 10) || 0;
-        const color2 = parseInt(body.color2, 10) || 0;
-        const accountID = parseInt(utils.number(body.accountID || ''), 10);
+        const parseIntegerOrZero = value => value == null || value === '' ? 0 : parseInt(value, 10);
+        const stars = parseIntegerOrZero(body.stars);
+        const demons = parseIntegerOrZero(body.demons);
+        const icon = parseIntegerOrZero(body.icon);
+        const color1 = parseIntegerOrZero(body.color1);
+        const color2 = parseIntegerOrZero(body.color2);
+        const rawAccountID = body.accountID;
+        const accountID = rawAccountID == null || rawAccountID === '' ? 0 : parseInt(utils.number(rawAccountID), 10);
         const gjp2 = utils.remove(body.gjp2 || '');
 
         // sanity checks
-        if (!accountID || !gjp2) return res.send('-1');
+        if (!Number.isInteger(accountID)) return res.send('-1');
+        if (!accountID || !gjp2) return res.send('1'); // to prevent signed-out clients from not rendering scores UI or comments?? i have no idea why this affects comments, but whatever... go figure
         if (gjp2.length !== 40) return res.send('-1');
+        if (![stars, demons, icon, color1, color2].every(Number.isInteger)) return res.send('-1');
 
         // db checks
         const check = db.prepare('SELECT * FROM profiles WHERE accountID = ?');
@@ -30,26 +34,33 @@ module.exports = {
         if (gjp2 !== account.gjp2) return res.send('-1');
         if (account.isDisabled === 1) return res.send('-1');
 
-        const coins = parseInt(body.coins, 10) || 0;
-        const iconType = parseInt(body.iconType, 10) || 0;
-        const userCoins = parseInt(body.userCoins, 10) || 0;
-        const special = parseInt(body.special, 10) || 0;
-        const accIcon = parseInt(body.accIcon, 10) || 0;
-        const accShip = parseInt(body.accShip, 10) || 0;
-        const accBall = parseInt(body.accBall, 10) || 0;
-        const accBird = parseInt(body.accBird, 10) || 0;
-        const accDart = parseInt(body.accDart, 10) || 0;
-        const accRobot = parseInt(body.accRobot, 10) || 0;
-        const accGlow = parseInt(body.accGlow, 10) || 0;
-        const accSpider = parseInt(body.accSpider, 10) || 0;
-        const accExplosion = parseInt(body.accExplosion, 10) || 0;
-        const accSwing = parseInt(body.accSwing, 10) || 0;
-        const accJetpack = parseInt(body.accJetpack, 10) || 0;
-        const diamonds = parseInt(body.diamonds, 10) || 0;
-        const moons = parseInt(body.moons, 10) || 0;
-        const color3 = parseInt(body.color3, 10) || 0;
+        const coins = parseIntegerOrZero(body.coins);
+        const iconType = parseIntegerOrZero(body.iconType);
+        const userCoins = parseIntegerOrZero(body.userCoins);
+        const special = parseIntegerOrZero(body.special);
+        const accIcon = parseIntegerOrZero(body.accIcon);
+        const accShip = parseIntegerOrZero(body.accShip);
+        const accBall = parseIntegerOrZero(body.accBall);
+        const accBird = parseIntegerOrZero(body.accBird);
+        const accDart = parseIntegerOrZero(body.accDart);
+        const accRobot = parseIntegerOrZero(body.accRobot);
+        const accGlow = parseIntegerOrZero(body.accGlow);
+        const accSpider = parseIntegerOrZero(body.accSpider);
+        const accExplosion = parseIntegerOrZero(body.accExplosion);
+        const accSwing = parseIntegerOrZero(body.accSwing);
+        const accJetpack = parseIntegerOrZero(body.accJetpack);
+        const diamonds = parseIntegerOrZero(body.diamonds);
+        const moons = parseIntegerOrZero(body.moons);
+        const color3 = parseIntegerOrZero(body.color3);
+        const demonInfoWins = parseIntegerOrZero(body.dinfow);
+        const demonInfoGauntlets = parseIntegerOrZero(body.dinfog);
+        const starInfoDemons = parseIntegerOrZero(body.sinfod);
+        const starInfoGauntlets = parseIntegerOrZero(body.sinfog);
+        if (![coins, iconType, userCoins, special, accIcon, accShip, accBall, accBird, accDart, accRobot, accGlow, accSpider, accExplosion, accSwing, accJetpack, diamonds, moons, color3].every(Number.isInteger)) return res.send('-1');
         const dinfo = utils.numbercolon(body.dinfo || '');
         const sinfo = utils.numbercolon(body.sinfo || '');
+        if ((dinfo && ![demonInfoWins, demonInfoGauntlets].every(Number.isInteger)) ||
+            (sinfo && ![starInfoDemons, starInfoGauntlets].every(Number.isInteger))) return res.send('-1');
 
         let processedDinfo = dinfo;
         if (dinfo) {
@@ -86,8 +97,8 @@ module.exports = {
                 demonCounts.hardPlatformer,
                 demonCounts.insanePlatformer,
                 demonCounts.extremePlatformer,
-                parseInt(body.dinfow, 10) || 0,
-                parseInt(body.dinfog, 10) || 0
+                demonInfoWins,
+                demonInfoGauntlets
             ].join(',');
         }
 
@@ -96,8 +107,8 @@ module.exports = {
         if (sinfo) {
             const sinfoArr = sinfo.split(',');
             const starsCount = sinfoArr.slice(0, 6).concat([
-                parseInt(body.sinfod, 10) || 0,
-                parseInt(body.sinfog, 10) || 0
+                starInfoDemons,
+                starInfoGauntlets
             ]).join(',');
             
             const platformerCount = sinfoArr.slice(6, 12).concat([0]).join(',');

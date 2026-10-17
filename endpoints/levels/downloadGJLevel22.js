@@ -149,7 +149,7 @@ module.exports = {
             `38:${level.starCoins || 0}`,
             `39:${level.requestedStars || 0}`,
             `40:${level.isLDM || 0}`,
-            ...(levelID === -1 || levelID === -2 || levelID === -3 ? [`41:${level.dailyNumber || ''}`] : []),
+            ...(levelID === -1 || levelID === -2 || levelID === -3 || req.body?.dailyID !== 0 ? [`41:${level.dailyNumber || ''}`] : []),
             `42:${level.starEpic || 0}`,
             `43:${level.starDemonDiff || 0}`,
             `44:${level.inGauntlet || 0}`,

@@ -58,15 +58,17 @@ module.exports = {
         const listVersion = parseInt(utils.number(body.listVersion), 10);
         const original = parseInt(utils.number(body.original), 10);
         const unlisted = parseInt(utils.number(body.unlisted), 10);
+        const gameVersion = Number(body.gameVersion);
+        const binaryVersion = Number(body.binaryVersion);
         const seed = utils.remove(body.seed);
         const seed2 = utils.remove(body.seed2);
 
         // sanity checks
-        if (!accountID || !gjp2 || !listLevels || listID === null || listID === undefined || listName === null || listName === undefined || listDesc === null || listDesc === undefined || difficulty === null || difficulty === undefined || listVersion === null || listVersion === undefined || original === null || original === undefined || unlisted === null || unlisted === undefined || !seed || !seed2 || !body.gameVersion || !body.binaryVersion) return res.send('-1'); // fah
+        if (!accountID || !gjp2 || !listLevels || !Number.isInteger(listID) || listName === null || listName === undefined || listDesc === null || listDesc === undefined || !Number.isInteger(difficulty) || !Number.isInteger(listVersion) || !Number.isInteger(original) || !Number.isInteger(unlisted) || !body.gameVersion || !body.binaryVersion || !Number.isInteger(gameVersion) || !Number.isInteger(binaryVersion) || !seed || !seed2) return res.send('-1'); // fah
         if (!validateListLevels(listLevels)) return res.send('-1');
         if (generateListSeed(listLevels, accountID, seed2) !== seed) return res.send('-100');
-        if (body.gameVersion > 22) return res.send('-1');
-        if (body.binaryVersion > 49) return res.send('-1');
+        if (gameVersion > 22) return res.send('-1');
+        if (binaryVersion > 49) return res.send('-1');
         if (gjp2.length !== 40) return res.send('-1');
         if (listName.length > 20 || listName.length < 0) return res.send('-1');
         if (listDesc && !utils.isURLBase64(listDesc)) return res.send('-1');

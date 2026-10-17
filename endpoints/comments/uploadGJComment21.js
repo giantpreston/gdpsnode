@@ -30,23 +30,33 @@ module.exports = {
         const comment = utils.remove(req.body?.comment);
         const rawLevelID = String(req.body?.levelID ?? '').trim();
         const levelID = /^-?\d+$/.test(rawLevelID) ? parseInt(rawLevelID, 10) : NaN;
+        const cType = req.body?.cType == null || req.body.cType === '' ? 0 : parseInt(utils.number(req.body.cType), 10);
         const chk = utils.remove(req.body?.chk);
-        let percent = parseInt(utils.number(req.body?.percent), 10);
+        let percent = req.body?.percent == null ? 0 : parseInt(utils.number(req.body.percent), 10);
 
         // sanity checks
-        if (!accountID || !gjp2 || userName == null || !comment || !levelID || !chk) return res.send('-1');
-        if (!percent) percent = 0;
+        if (!accountID || !gjp2 || userName == null || !comment || !levelID || !chk || !Number.isInteger(cType)) return res.send('-1');
         if (!utils.isURLBase64(comment)) return res.send('-1');
-        if (percent < 0 || percent > 100) return res.send('-1');
+        if (!Number.isInteger(percent) || percent < 0 || percent > 100) return res.send('-1');
         if (comment.length > 140) return res.send('-1');
         
         // db checks
-        const level = db.prepare('SELECT * FROM levels WHERE levelID = ?').get(levelID);
-        const list = db.prepare('SELECT * FROM lists WHERE listID = ?').get(levelID * -1); // oops
+        const isEditorPackComment = cType === 6;
+        let editorPack = null;
+        let level = null;
+        let list = null;
+        if (isEditorPackComment) {
+            editorPack = db.prepare('SELECT * FROM editor_sounds WHERE soundID = ?').get(levelID);
+        } else {
+            level = db.prepare('SELECT * FROM levels WHERE levelID = ?').get(levelID);
+            list = db.prepare('SELECT * FROM lists WHERE listID = ?').get(levelID * -1); // oops
+        }
         const profile = db.prepare('SELECT * FROM profiles WHERE accountID = ?').get(accountID);
         const account = db.prepare('SELECT * FROM accounts WHERE accountID = ?').get(accountID);
         
-        if (((levelID < 0 && !list) || (levelID > 0 && !level)) || !profile || !account) return res.send('-1');
+        if (isEditorPackComment && !editorPack) return res.send('-1');
+        if (!isEditorPackComment && ((levelID < 0 && !list) || (levelID > 0 && !level))) return res.send('-1');
+        if (!profile || !account) return res.send('-1');
         if (userName !== account.userName) return res.send('-1');
         if (chkgen(userName, comment, levelID, percent) !== chk) return res.send('-1');
         if (account.leaderboardBan === 1) percent = 0
@@ -63,8 +73,13 @@ module.exports = {
         try {
             const uploadDate = Math.floor(Date.now() / 1000);
             const inf = db.transaction(() => {
-                const result = db.prepare('INSERT INTO comments (accountID, userName, comment, levelID, timestamp, percent) VALUES (?, ?, ?, ?, ?, ?)').run(accountID, userName, comment, levelID, uploadDate, percent);
-                if (levelID > 0 && percent !== 0) {
+                let result;
+                if (isEditorPackComment) {
+                    result = db.prepare('INSERT INTO editorpackcomments (accountID, userName, comment, editorpackID, timestamp) VALUES (?, ?, ?, ?, ?)').run(accountID, userName, comment, levelID, uploadDate);
+                } else {
+                    result = db.prepare('INSERT INTO comments (accountID, userName, comment, levelID, timestamp, percent) VALUES (?, ?, ?, ?, ?, ?)').run(accountID, userName, comment, levelID, uploadDate, percent);
+                }
+                if (!isEditorPackComment && levelID > 0 && percent !== 0) {
                     const existingScore = db.prepare('SELECT percent FROM levelscores WHERE accountID = ? AND levelID = ?').get(accountID, levelID);
                     if (!existingScore) {
                         db.prepare('INSERT INTO levelscores (accountID, levelID, percent, uploadDate, progresses) VALUES (?, ?, ?, ?, ?)').run(accountID, levelID, percent, uploadDate, '');

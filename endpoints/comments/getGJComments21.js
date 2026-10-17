@@ -2,63 +2,85 @@ const { commonSecret } = require('../../middleware/secrets');
 const utils = require('../../utils');
 const db = require('../../database');
 
+function optionalInteger(value, fallback) {
+    if (value == null || value === '') return fallback;
+    const sanitized = utils.number(value);
+    return sanitized === '' ? NaN : Number(sanitized);
+}
+
 module.exports = {
     method: 'post',
     path: '/getGJComments21.php',
     middleware: [commonSecret],
     handler: (req, res) => {
         const rawLevelID = String(req.body?.levelID ?? '').trim();
-        const rawPage = Number(utils.number(req.body?.page));
-        const rawMode = Number(utils.number(req.body?.mode));
-        const rawCount = Number(utils.number(req.body?.count));
+        const cType = req.body?.cType == null || req.body.cType === ''
+            ? 0
+            : parseInt(utils.number(req.body.cType), 10);
+        const rawPage = optionalInteger(req.body?.page, 0);
+        const rawMode = optionalInteger(req.body?.mode, 0);
+        const rawCount = optionalInteger(req.body?.count, 10);
 
         const levelID = /^-?\d+$/.test(rawLevelID) ? parseInt(rawLevelID, 10) : NaN;
-        const page = Number.isInteger(rawPage) && rawPage >= 0 ? rawPage : 0;
-        const mode = Number.isInteger(rawMode) && rawMode >= 0 && rawMode <= 1 ? rawMode : 0;
-        const count = Number.isInteger(rawCount) && rawCount > 0 ? rawCount : 10;
+        if (![rawPage, rawMode, rawCount, cType].every(Number.isInteger)) return res.send('-1');
+        const page = rawPage >= 0 ? rawPage : 0;
+        const mode = rawMode >= 0 && rawMode <= 1 ? rawMode : 0;
+        const count = rawCount > 0 ? rawCount : 10;
 
         // sanity checks
-        if (!Number.isInteger(levelID) || !Number.isFinite(levelID) || levelID === 0) return res.send('-1');
+        const isEditorPackComment = cType === 6;
+        if (!Number.isInteger(levelID) || !Number.isFinite(levelID) || levelID === 0 || (isEditorPackComment && levelID < 0)) return res.send('-1');
         if (count > 30) return res.send('-1');
 
         // db checks
-        const lv = db.prepare('SELECT * FROM levels WHERE levelID = ?').get(levelID);
-        const list = db.prepare('SELECT * FROM lists WHERE listID = ?').get(Math.abs(levelID));
-        const lvcm = db.prepare('SELECT * FROM comments WHERE levelID = ?').get(levelID);
+        let target;
+        let lvcm;
+        if (isEditorPackComment) {
+            target = db.prepare('SELECT 1 FROM editor_sounds WHERE soundID = ?').get(levelID);
+            lvcm = db.prepare('SELECT 1 FROM editorpackcomments WHERE editorpackID = ?').get(levelID);
+        } else {
+            const level = db.prepare('SELECT 1 FROM levels WHERE levelID = ?').get(levelID);
+            const list = db.prepare('SELECT 1 FROM lists WHERE listID = ?').get(Math.abs(levelID));
+            target = levelID > 0 ? level : list;
+            lvcm = db.prepare('SELECT 1 FROM comments WHERE levelID = ?').get(levelID);
+        }
 
-        if ((levelID > 0 && !lv) || (levelID < 0 && !list)) return res.send('-1');
+        if (!target) return res.send('-1');
         if (!lvcm) return res.send('-2');
 
         const offset = page * count;
         const orderBy = mode === 0 ? 'commentID' : 'likes';
 
         try {
+            const commentTable = isEditorPackComment ? 'editorpackcomments' : 'comments';
+            const targetColumn = isEditorPackComment ? 'editorpackID' : 'levelID';
+            const percentColumn = isEditorPackComment ? '0 AS percent' : 'c.percent';
             const query = `
                 SELECT 
                     c.commentID,
-                    c.levelID,
+                    c.accountID AS commentAccountID,
                     c.timestamp,
                     c.comment,
                     c.likes,
                     c.isSpam,
-                    c.percent,
+                    ${percentColumn},
                     p.userName,
                     p.icon,
                     p.color1,
                     p.color2,
                     p.iconType,
                     p.special,
-                    p.accountID,
+                    p.accountID AS profileAccountID,
                     p.modLevel
-                FROM comments c
+                FROM ${commentTable} c
                 LEFT JOIN profiles p ON p.accountID = c.accountID
-                WHERE c.levelID = ?
+                WHERE c.${targetColumn} = ?
                 ORDER BY c.${orderBy} DESC
                 LIMIT ? OFFSET ?
             `;
 
             const comments = db.prepare(query).all(levelID, count, offset);
-            const countQuery = db.prepare('SELECT COUNT(*) as total FROM comments WHERE levelID = ?');
+            const countQuery = db.prepare(`SELECT COUNT(*) as total FROM ${commentTable} WHERE ${targetColumn} = ?`);
             const totalCount = Number(countQuery.get(levelID).total || 0);
 
             let commentString = '';
@@ -67,7 +89,7 @@ module.exports = {
 
             for (const comment of comments) {
                 const uploadDate = utils.getRelative(comment.timestamp);
-                const accountID = comment.accountID || 0;
+                const accountID = comment.commentAccountID || 0;
                 commentString += `2~${comment.comment}~3~${accountID + 1}~4~${comment.likes}~5~0~7~${comment.isSpam}~9~${uploadDate}~6~${comment.commentID}~10~${comment.percent}~15~${comment.timestamp}`;
 
                 if (comment.userName) {
@@ -81,9 +103,9 @@ module.exports = {
                     }
 
                     commentString += `~11~${modLevel}${colorString}:1~${comment.userName}~7~1~9~${comment.icon}~10~${comment.color1}~11~${comment.color2}~14~${comment.iconType}~15~${comment.special}~16~${accountID}`;
-                } else if (!users.includes(comment.accountID + 1)) {
-                    users.push(comment.accountID + 1);
-                    userString += `${comment.accountID + 1}:${comment.userName}:${accountID}|`;
+                } else if (!users.includes(accountID + 1)) {
+                    users.push(accountID + 1);
+                    userString += `${accountID + 1}:${comment.userName}:${accountID}|`;
                 }
 
                 commentString += '|';

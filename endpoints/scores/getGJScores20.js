@@ -10,14 +10,16 @@ module.exports = {
         const accountID = parseInt(utils.number(req.body?.accountID), 10);
         const gjp2 = utils.remove(req.body?.gjp2 || '');
         let type = utils.remove(req.body?.type);
-        let count = parseInt(utils.number(req.body?.count), 10);
-        let stat = parseInt(utils.number(req.body?.stat), 10);
+        const rawCount = req.body?.count;
+        const rawStat = req.body?.stat;
+        let count = rawCount == null || rawCount === '' ? NaN : parseInt(utils.number(rawCount), 10);
+        let stat = rawStat == null || rawStat === '' ? 0 : parseInt(utils.number(rawStat), 10);
 
         // sanity checks
         if (!type) type = 'top';
-        if (!count) count = type === 'relative' ? 50 : 100;
-        if (!stat) stat = 0;
+        if (rawCount == null || rawCount === '' || count === 0) count = type === 'relative' ? 50 : 100;
         if (!['top', 'relative', 'friends', 'creators'].includes(type)) return res.send('-1');
+        if (!Number.isInteger(count) || !Number.isInteger(stat)) return res.send('-1');
         if (count < 1) return res.send('-1');
         if (count > 100) count = 100;
         if (stat < 0 || stat > 3 || !Number.isInteger(stat)) return res.send('-1');

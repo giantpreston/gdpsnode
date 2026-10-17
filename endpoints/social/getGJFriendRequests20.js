@@ -10,11 +10,10 @@ module.exports = {
         const accountID = parseInt(utils.number(req.body?.accountID), 10);
         const gjp2 = utils.remove(req.body?.gjp2);
         const page = parseInt(utils.number(req.body?.page), 10);
-        let getSent = parseInt(utils.number(req.body?.getSent), 10);
+        const rawGetSent = req.body?.getSent;
+        const getSent = rawGetSent == null || rawGetSent === '' ? 0 : parseInt(utils.number(rawGetSent), 10);
 
         // sanity checks
-        if (!getSent) getSent = 0;
-
         if (!accountID || !gjp2 || isNaN(page)) return res.send('-1');
         if (gjp2.length !== 40) return res.send('-1');
         if (getSent !== 0 && getSent !== 1) return res.send('-1');
