@@ -83,14 +83,15 @@ module.exports = {
         let params = [];
 
         const completedLevelIDs = completedLevels.split(',').filter(value => value !== '').map(Number);
+        const completedLevelColumn = [32, 33, 34].includes(type) ? 'dailyNumber' : 'levelID';
         if (uncompleted === 1) {
             const placeholders = completedLevelIDs.map(() => '?').join(',');
-            conditions.push(`levelID NOT IN (${placeholders})`);
+            conditions.push(`${completedLevelColumn} NOT IN (${placeholders})`);
             params.push(...completedLevelIDs);
         }
         if (onlyCompleted === 1) {
             const placeholders = completedLevelIDs.map(() => '?').join(',');
-            conditions.push(`levelID IN (${placeholders})`);
+            conditions.push(`${completedLevelColumn} IN (${placeholders})`);
             params.push(...completedLevelIDs);
         }
         if (customSong === 1 && songProvided) {

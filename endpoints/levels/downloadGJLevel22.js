@@ -36,6 +36,7 @@ module.exports = {
         const accountID = parseInt(utils.number(req.body.accountID), 10);
         const gjp2 = utils.remove(req.body.gjp2);
         const inc = parseInt(utils.number(req.body.inc), 10);
+        const hasDailyID = req.body?.dailyID !== undefined;
 
         // sanity checks
         if (!levelID) return res.send('-1');
@@ -126,7 +127,7 @@ module.exports = {
         }
 
         const hash = generateDownloadHash(levelString);
-        const feaID = [-1, -2, -3].includes(levelID) || req.body?.dailyID !== 0 ? level.dailyNumber : 0;
+        const feaID = [-1, -2, -3].includes(levelID) || hasDailyID ? level.dailyNumber : 0;
         const storedPassword = level.password != null ? String(level.password) : '';
         const owner = db.prepare('SELECT * FROM profiles WHERE accountID = ?').get(level.accountID);
         const password = storedPassword === '' || storedPassword === '1' ? '1' : storedPassword;
@@ -164,7 +165,7 @@ module.exports = {
             `38:${level.starCoins || 0}`,
             `39:${level.requestedStars || 0}`,
             `40:${level.isLDM || 0}`,
-            ...(levelID === -1 || levelID === -2 || levelID === -3 || req.body?.dailyID !== 0 ? [`41:${level.dailyNumber || ''}`] : []),
+            ...(levelID === -1 || levelID === -2 || levelID === -3 || hasDailyID ? [`41:${level.dailyNumber || ''}`] : []),
             `42:${level.starEpic || 0}`,
             `43:${level.starDemonDiff || 0}`,
             `44:${level.inGauntlet || 0}`,
@@ -180,7 +181,7 @@ module.exports = {
             `63:${level.updateDate}`
         ].join(':');
 
-        if (levelID === -1 || levelID === -2 || levelID === -3) {
+        if (levelID === -1 || levelID === -2 || levelID === -3 || hasDailyID) {
             res.send(`${response}#${hash}#${hash2}#${owner.accountID + 1}:${owner.userName}:${owner.accountID}`);
         } else {
             res.send(`${response}#${hash}#${hash2}`);
