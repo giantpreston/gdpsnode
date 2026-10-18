@@ -282,9 +282,9 @@ module.exports = {
         const total = totalRow ? totalRow.total : 0;
 
         const mainSql = `SELECT levelID, levelName, levelDesc, levelVersion, accountID,
-            starDifficulty, downloads, audioTrack, gameVersion, likes, levelLength, dislikes,
+            starDifficulty, downloads, audioTrack, gameVersion, likes, levelLength,
             starDemon, starStars, featured, starAuto, originalReup, twoPlayer, songID, songIDs,
-            extraString, coins, starCoins, requestedStars, starEpic, starDemonDiff, objects,
+            coins, starCoins, requestedStars, starEpic, starDemonDiff, objects,
             wt, wt2, ts, uploadDate, updateDate, unlisted, dailyNumber
             FROM levels${whereClause}${type === 31 ? '' : ` ORDER BY ${order} LIMIT ? OFFSET ?`}`;
         const stmt = db.prepare(mainSql);
@@ -392,7 +392,6 @@ module.exports = {
                 13: level.gameVersion || 0,
                 14: level.likes || 0,
                 15: level.levelLength || 0,
-                16: level.dislikes || 0,
                 17: level.starDemon ? 1 : 0,
                 18: level.starStars || 0,
                 19: level.featured ? 1 : 0,
@@ -400,7 +399,6 @@ module.exports = {
                 30: level.originalReup || 0,
                 31: level.twoPlayer ? 1 : 0,
                 35: level.songID || 0,
-                36: level.extraString || '',
                 37: level.coins || 0,
                 38: level.starCoins ? 1 : 0,
                 39: level.requestedStars || 0,
