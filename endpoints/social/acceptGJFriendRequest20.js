@@ -51,6 +51,7 @@ module.exports = {
                     emoteIcon: 'handshake',
                     title: 'New Friend!',
                     description: `<cg>${account.userName}</c> has accepted your friend request!`,
+                    hasLevel: true,
                     accountID,
                     username: account.userName
                 });

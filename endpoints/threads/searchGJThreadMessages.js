@@ -18,11 +18,16 @@ module.exports = {
         try {
             const access = threadUtils.getThreadAccess(threadID, auth.accountID);
             if (!access || access.hidden || (access.status === 0 && !access.isDM)) return res.send('-1');
+            const historyCursor = access.clearedBeforeID || 0;
+            const lastVisibleMessageID = access.status === 2
+                ? access.removedAtMessageID
+                : Number.MAX_SAFE_INTEGER;
             const records = db.prepare(`
                 SELECT * FROM thread_messages
-                WHERE threadID = ? AND (? = 0 OR messageID < ?)
+                WHERE threadID = ? AND messageID > ? AND messageID <= ?
+                    AND (? = 0 OR messageID < ?)
                 ORDER BY messageID DESC
-            `).all(threadID, beforeID, beforeID);
+            `).all(threadID, historyCursor, lastVisibleMessageID, beforeID, beforeID);
             const matching = records.filter(message => {
                 if (message.isSystem) return false;
                 const content = Buffer.from(message.content, 'base64').toString('utf8');

@@ -150,6 +150,10 @@ function getPublicBaseUrl(req, configuredUrl = '') {
 
 function notifAdd(notification) {
     const toFlag = value => value === true ? 1 : value === false ? 0 : value ?? 0;
+    const encodeNotificationText = value => Buffer.from(String(value ?? ''), 'utf8')
+        .toString('base64')
+        .replace(/\+/g, '-')
+        .replace(/\//g, '_');
     const result = db.prepare(`
         INSERT INTO notifications (
             toAccountID, notificationMask, type, emoteIcon, title, description, age, isNew, hasLevel,
@@ -160,8 +164,8 @@ function notifAdd(notification) {
         notification.notificationMask ?? 0,
         notification.type,
         notification.emoteIcon ?? '',
-        Buffer.from(String(notification.title ?? ''), 'utf8').toString('base64'),
-        Buffer.from(String(notification.description ?? ''), 'utf8').toString('base64'),
+        encodeNotificationText(notification.title),
+        encodeNotificationText(notification.description),
         notification.age ?? '0 seconds',
         toFlag(notification.isNew ?? 1),
         toFlag(notification.hasLevel),

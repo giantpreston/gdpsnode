@@ -35,9 +35,7 @@ module.exports = {
                     type: 13,
                     emoteIcon: 'party',
                     title: 'First Follower!',
-                    description: 'Someone is now <cy>following</c> you!',
-                    accountID,
-                    username: check.userName
+                    description: 'Someone is now <cy>following</c> you!'
                 });
             }
             return res.send('1');

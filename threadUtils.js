@@ -4,6 +4,19 @@ const utils = require('./utils');
 const PAGE_SIZE = 10;
 const MESSAGE_PAGE_SIZE = 50;
 const REQUEST_TTL_SECONDS = 14 * 24 * 60 * 60;
+const iconLoadoutFields = [
+    [21, 'accIcon'],
+    [22, 'accShip'],
+    [23, 'accBall'],
+    [24, 'accBird'],
+    [25, 'accDart'],
+    [26, 'accRobot'],
+    [28, 'accGlow'],
+    [43, 'accSpider'],
+    [48, 'accExplosion'],
+    [53, 'accSwing'],
+    [54, 'accJetpack']
+];
 
 function parseInteger(value, fallback = 0) {
     if (value === undefined || value === null || value === '') return fallback;
@@ -57,6 +70,14 @@ function encode(value) {
     return Buffer.from(String(value ?? ''), 'utf8').toString('base64');
 }
 
+function getIconLoadout(profile) {
+    return iconLoadoutFields.map(([, field]) => profile?.[field] ?? 0);
+}
+
+function serializeIconLoadout(profile) {
+    return iconLoadoutFields.map(([key, field]) => `${key}:${profile?.[field] ?? 0}`).join(':');
+}
+
 function getProfile(accountID) {
     return db.prepare(`
         SELECT p.*, a.isDisabled
@@ -103,7 +124,7 @@ function canStartDM(accountID, targetAccountID) {
 function getThreadAccess(threadID, accountID) {
     return db.prepare(`
         SELECT t.*, m.status, m.invitedBy, m.invitedAt, m.joinedAt, m.lastReadMessageID,
-            m.ignoredInvite, m.muted, m.pinned, m.hidden
+            m.clearedBeforeID, m.removedAtMessageID, m.ignoredInvite, m.muted, m.pinned, m.hidden
         FROM threads t
         JOIN thread_members m ON m.threadID = t.threadID
         WHERE t.threadID = ? AND m.accountID = ?
@@ -143,7 +164,22 @@ function serializeMessage(message) {
 
 function serializeUser(profile, friendsSince = 0) {
     if (!profile) return '';
-    return `1:${profile.userName}:2:${profile.accountID + 1}:3:${profile.stars}:4:${profile.demons}:8:${Math.round(profile.creatorPoints)}:9:${profile.icon}:10:${profile.color1}:11:${profile.color2}:13:${profile.coins}:14:${profile.iconType}:15:${profile.special}:16:${profile.accountID}:17:${profile.userCoins}:41:0:46:${profile.diamonds}:51:${profile.color3}:52:${profile.moons}:64:${friendsSince}`;
+    return `1:${profile.userName}:2:${profile.accountID + 1}:3:${profile.stars}:4:${profile.demons}:8:${Math.round(profile.creatorPoints)}:9:${profile.icon}:10:${profile.color1}:11:${profile.color2}:13:${profile.coins}:14:${profile.iconType}:15:${profile.special}:16:${profile.accountID}:17:${profile.userCoins}:41:0:46:${profile.diamonds}:51:${profile.color3}:52:${profile.moons}:64:${friendsSince}:${serializeIconLoadout(profile)}`;
+}
+
+function serializeFormerUser(profile) {
+    if (!profile) return '';
+    return [
+        profile.accountID,
+        profile.accountID + 1,
+        encode(profile.userName),
+        profile.icon,
+        profile.color1,
+        profile.color2,
+        profile.color3,
+        profile.iconType,
+        profile.special
+    ].join(':');
 }
 
 function serializeInvite(member) {
@@ -163,10 +199,11 @@ function serializeInvite(member) {
         profile.stars,
         profile.moons,
         profile.demons,
-        0,
+        profile.coins,
         profile.userCoins,
         profile.diamonds,
-        member.invitedAt
+        member.invitedAt,
+        ...getIconLoadout(profile)
     ].join(':');
 }
 
@@ -192,10 +229,18 @@ function serializeThread(thread, accountID) {
         ? db.prepare(`
             SELECT COUNT(*) AS count FROM thread_messages
             WHERE threadID = ? AND messageID > ? AND accountID != ?
-        `).get(thread.threadID, thread.lastReadMessageID, accountID).count
+                AND (? = 0 OR messageID <= ?)
+        `).get(
+            thread.threadID,
+            Math.max(thread.lastReadMessageID, thread.clearedBeforeID || 0),
+            accountID,
+            thread.status === 2 ? 1 : 0,
+            thread.removedAtMessageID || 0
+        ).count
         : 0;
     let status = 0;
-    if (thread.isDM && (thread.status === 0 || counterpartMember?.status === 0)) status = 2;
+    if (!thread.isDM && thread.status === 2) status = 8;
+    else if (thread.isDM && (thread.status === 0 || counterpartMember?.status === 0)) status = 2;
     else if (counterpart && isBlocked(accountID, counterpartID)) status = 7;
     else if (counterpart && counterpart.mS === 2) status = 5;
     else if (counterpart && counterpart.mS === 1 && !isFriend(accountID, counterpartID)) status = 4;
@@ -231,7 +276,7 @@ function serializeThread(thread, accountID) {
 }
 
 function serializeMetadata(thread, memberCount) {
-    return [thread.threadID, thread.invitePermission, memberCount, encode(thread.description), thread.mv, 0, 0, 0, encode(thread.title), thread.locked, 0].join(':');
+    return [thread.threadID, thread.invitePermission, memberCount, encode(thread.description), thread.mv, 0, 0, 0, encode(thread.title), thread.locked, thread.status === 2 ? 8 : 0].join(':');
 }
 
 module.exports = {
@@ -243,6 +288,8 @@ module.exports = {
     authenticate,
     decode,
     encode,
+    getIconLoadout,
+    serializeIconLoadout,
     getProfile,
     isFriend,
     isBlocked,
@@ -254,6 +301,7 @@ module.exports = {
     getLatestMessage,
     serializeMessage,
     serializeUser,
+    serializeFormerUser,
     serializeInvite,
     serializeThread,
     serializeMetadata

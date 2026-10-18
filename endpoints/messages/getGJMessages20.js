@@ -60,6 +60,16 @@ module.exports = {
 
             if (countResult.count === 0) return res.send('-2');
 
+            if (getSent === 0 && messages.length > 0) {
+                const messageIDs = messages.map(message => message.ID);
+                db.prepare(`
+                    UPDATE messages
+                    SET isNew = 0
+                    WHERE toAccountID = ? AND ID IN (${messageIDs.map(() => '?').join(',')})
+                `).run(accountID, ...messageIDs);
+                for (const message of messages) message.isNew = 0;
+            }
+
             let msgstring = '';
             for (const message of messages) {
                 if (message.ID) {

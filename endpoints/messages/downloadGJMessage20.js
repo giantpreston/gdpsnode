@@ -38,7 +38,8 @@ module.exports = {
             let actualIsSender = 0;
 
             if (!isSender) {
-                db.prepare('UPDATE messages SET isNew = 1 WHERE ID = ? AND toAccountID = ?').run(messageID, accountID);
+                db.prepare('UPDATE messages SET isNew = 0 WHERE ID = ? AND toAccountID = ?').run(messageID, accountID);
+                message.isNew = 0;
                 otherAccountID = message.accID;
                 actualIsSender = 0;
             } else {

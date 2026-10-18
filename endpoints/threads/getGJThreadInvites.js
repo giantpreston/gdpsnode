@@ -47,7 +47,8 @@ module.exports = {
                     inviterProfile?.iconType || 0,
                     inviterProfile?.special || 0,
                     invite.emote,
-                    invite.invitedAt
+                    invite.invitedAt,
+                    ...threadUtils.getIconLoadout(inviterProfile)
                 ].join(':');
             }).filter(Boolean);
 

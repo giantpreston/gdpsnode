@@ -14,7 +14,8 @@ module.exports = {
         const rawTotal = req.body?.total;
         const mask = rawMask == null || rawMask === '' ? 65535 : parseInt(utils.number(rawMask), 10);
         const page = rawPage == null || rawPage === '' ? 0 : parseInt(utils.number(rawPage), 10);
-        const total = rawTotal == null || rawTotal === '' ? 10 : parseInt(utils.number(rawTotal), 10);
+        const parsedTotal = rawTotal == null || rawTotal === '' ? 10 : parseInt(utils.number(rawTotal), 10);
+        const total = parsedTotal === 0 ? 10 : parsedTotal;
 
         // sanity checks
         if (!accountID || !gjp2 || gjp2.length !== 40) return res.send('-1');
@@ -48,6 +49,17 @@ module.exports = {
                 ORDER BY n.notificationID DESC
                 LIMIT ? OFFSET ?
             `).all(accountID, mask, accountID, total, offset);
+
+            if (notifications.length > 0) {
+                const notificationIDs = notifications.map(notification => notification.notificationID);
+                db.prepare(`
+                    UPDATE notifications
+                    SET isNew = 0
+                    WHERE toAccountID = ? AND isNew = 1
+                        AND notificationID IN (${notificationIDs.map(() => '?').join(',')})
+                `).run(accountID, ...notificationIDs);
+                for (const notification of notifications) notification.isNew = 0;
+            }
 
             const notificationString = notifications.map(notification => {
                 const age = notification.createdAt > 0

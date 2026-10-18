@@ -18,10 +18,12 @@ module.exports = {
 
         try {
             const members = db.prepare(`
-                SELECT t.*, m.status, m.lastReadMessageID, m.muted, m.pinned
+                SELECT t.*, m.status, m.lastReadMessageID, m.clearedBeforeID, m.removedAtMessageID, m.muted, m.pinned
                 FROM threads t
                 JOIN thread_members m ON m.threadID = t.threadID
-                WHERE m.accountID = ? AND (m.status = 1 OR (t.isDM = 1 AND m.status = 0)) AND m.hidden = 0
+                WHERE m.accountID = ?
+                    AND (m.status = 1 OR (t.isDM = 1 AND m.status = 0) OR (t.isDM = 0 AND m.status = 2))
+                    AND m.hidden = 0
                     AND (? = 0 OR (? = 1 AND t.isDM = 1) OR (? = 2 AND t.isDM = 0))
                 ORDER BY t.updatedAt DESC, t.threadID DESC
             `).all(auth.accountID, filter, filter, filter);

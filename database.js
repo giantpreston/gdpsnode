@@ -359,6 +359,8 @@ db.exec(`
         invitedAt INTEGER NOT NULL DEFAULT 0,
         joinedAt INTEGER NOT NULL DEFAULT 0,
         lastReadMessageID INTEGER NOT NULL DEFAULT 0,
+        clearedBeforeID INTEGER NOT NULL DEFAULT 0,
+        removedAtMessageID INTEGER NOT NULL DEFAULT 0,
         ignoredInvite INTEGER NOT NULL DEFAULT 0,
         muted INTEGER NOT NULL DEFAULT 0,
         pinned INTEGER NOT NULL DEFAULT 0,
@@ -515,8 +517,6 @@ const removedColumns = [
     { table: 'songs', column: 'newType' },
     { table: 'songs', column: 'extraArtistNames' },
     { table: 'levels', column: 'extraString' },
-    { table: 'thread_members', column: 'clearedBeforeID' },
-    { table: 'thread_members', column: 'removedAtMessageID' },
     { table: 'thread_messages', column: 'isDeleted' }
 ];
 const addedColumns = [
@@ -528,6 +528,8 @@ const addedColumns = [
     { table: 'levels', column: 'wt2', definition: 'INTEGER NOT NULL DEFAULT 0' },
     { table: 'levels', column: 'ts', definition: 'INTEGER NOT NULL DEFAULT 0' },
     { table: 'friendships', column: 'friendsSince', definition: 'INTEGER NOT NULL DEFAULT 0' },
+    { table: 'thread_members', column: 'clearedBeforeID', definition: 'INTEGER NOT NULL DEFAULT 0' },
+    { table: 'thread_members', column: 'removedAtMessageID', definition: 'INTEGER NOT NULL DEFAULT 0' },
     { table: 'accounts', column: 'leaderboardBan', definition: 'INTEGER NOT NULL DEFAULT 0' },
     { table: 'dashboard_access', column: 'permissionsVersion', definition: 'INTEGER NOT NULL DEFAULT 1' },
     { table: 'notifications', column: 'toAccountID', definition: 'INTEGER NOT NULL DEFAULT 0' },
@@ -550,9 +552,6 @@ db.transaction(() => {
         if (columnsByTable.get(table).has(column)) {
             if (table === 'thread_messages' && column === 'isDeleted') {
                 db.prepare('DELETE FROM thread_messages WHERE isDeleted = 1').run();
-            }
-            if (table === 'thread_members' && column === 'removedAtMessageID') {
-                db.prepare('DELETE FROM thread_members WHERE status = 2').run();
             }
             db.exec(`ALTER TABLE ${table} DROP COLUMN ${column}`);
         }
@@ -579,7 +578,6 @@ db.transaction(() => {
         db.prepare('DELETE FROM thread_members WHERE threadID = ?').run(thread.threadID);
         db.prepare('DELETE FROM threads WHERE threadID = ?').run(thread.threadID);
     }
-    db.prepare('DELETE FROM thread_members WHERE status = 2').run();
 })();
 
 db.exec('CREATE INDEX IF NOT EXISTS idx_accounts_leaderboardBan ON accounts(leaderboardBan)');
@@ -595,6 +593,27 @@ db.exec(`
         ELSE notificationMask
     END
     WHERE notificationMask = 0
+`);
+
+db.prepare(`
+    UPDATE notifications
+    SET hasLevel = 1, levelID = 0
+    WHERE type = 14 AND accountID > 0
+`).run();
+db.prepare(`
+    UPDATE notifications
+    SET accountID = 0, username = ?, description = ?
+    WHERE type = 13
+`).run(
+    '',
+    Buffer.from('Someone is now <cy>following</c> you!', 'utf8').toString('base64').replace(/\+/g, '-').replace(/\//g, '_')
+);
+db.exec(`
+    UPDATE notifications
+    SET title = REPLACE(REPLACE(title, '+', '-'), '/', '_'),
+        description = REPLACE(REPLACE(description, '+', '-'), '/', '_')
+    WHERE title LIKE '%+%' OR title LIKE '%/%'
+        OR description LIKE '%+%' OR description LIKE '%/%'
 `);
 
 db.pragma('optimize');
