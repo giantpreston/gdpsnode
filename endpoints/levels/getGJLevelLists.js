@@ -155,7 +155,12 @@ module.exports = {
 
             conditions.push('accountID IN (SELECT accountID FROM accounts WHERE isDisabled = 0)');
             if (!isIdSearch) {
-                conditions.push('unlisted = 0');
+                if (type === 5 && accountID && Number(str) === accountID) {
+                    conditions.push('(unlisted IN (0, 2) OR (unlisted = 1 AND accountID = ?))');
+                    params.push(accountID);
+                } else {
+                    conditions.push('unlisted = 0');
+                }
             }
 
             const where = ` WHERE ${conditions.join(' AND ')}`;

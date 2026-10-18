@@ -24,6 +24,8 @@ module.exports = {
             };
             const accountID = int('accountID');
             const type = int('type');
+            let local = int('local');
+            if (local === null || local === undefined) local = 0;
             const strProvided = has('str');
             const isNumericStr = strProvided && /^\d+$/.test(String(body.str));
             let str;
@@ -50,6 +52,7 @@ module.exports = {
             const noStar = int('noStar');
             const demonFilter = int('demonFilter');
             if ([accountID, type, page, uncompleted, onlyCompleted, featured, original, twoPlayer, coins, epic, mythic, legendary, customSong, star, noStar, demonFilter].includes(null)) return res.send('-1');
+            if (![0, 1].includes(local)) return res.send('-1');
             if (songProvided && !Number.isInteger(song)) return res.send('-1');
         
         const {
@@ -69,10 +72,12 @@ module.exports = {
 
         // db
         if (accountID > 0) {
-            const account = db.prepare('SELECT gjp2 FROM accounts WHERE accountID = ?').get(accountID);
+            const account = db.prepare('SELECT gjp2, isDisabled FROM accounts WHERE accountID = ?').get(accountID);
             if (!account) return res.send('-1');
             if (account.gjp2 !== gjp2) return res.send('-1');
+            if (account.isDisabled === 1) return res.send('-1');
         }
+        if (local === 1 && (type !== 5 || accountID <= 0 || Number(str) - 1 !== accountID)) return res.send('-1');
         let order;
         let conditions = [];
         let params = [];
@@ -258,7 +263,7 @@ module.exports = {
         }
         const searchedByID = (type === 0 && isNumericStr) || type === 5 || type === 10 || type === 25;
         conditions.push('accountID IN (SELECT accountID FROM accounts WHERE isDisabled = 0)');
-        if (!searchedByID) {
+        if (!searchedByID && local !== 1) {
             conditions.push('unlisted = 0');
         }
         let whereClause = '';
@@ -310,9 +315,9 @@ module.exports = {
                 }
             }
             levels = levels.filter(level => {
-                if (type === 5 && level.unlisted === 2) return level.accountID === accountID;
+                if (type === 5 && level.unlisted === 2) return local === 1 && level.accountID === accountID;
                 if (level.unlisted === 0 || level.unlisted === 2) return true;
-                if (level.unlisted === 1 && (level.accountID === accountID || friendIDs.has(level.accountID))) return true;
+                if (level.unlisted === 1 && ((local === 1 && level.accountID === accountID) || friendIDs.has(level.accountID))) return true;
                 return false;
             });
         }
