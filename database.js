@@ -322,7 +322,8 @@ db.exec(`
         toAccountID INTEGER NOT NULL,
         comment TEXT NOT NULL,
         uploadDate INTEGER NOT NULL,
-        isNew INTEGER NOT NULL DEFAULT 1
+        isNew INTEGER NOT NULL DEFAULT 1,
+        ignored INTEGER NOT NULL DEFAULT 0
     );
 
     CREATE TABLE IF NOT EXISTS messages (
@@ -334,6 +335,47 @@ db.exec(`
         toAccountID INTEGER NOT NULL,
         timestamp INTEGER NOT NULL,
         isNew INTEGER NOT NULL DEFAULT 1
+    );
+
+    CREATE TABLE IF NOT EXISTS threads (
+        threadID INTEGER PRIMARY KEY AUTOINCREMENT,
+        title TEXT NOT NULL DEFAULT '',
+        description TEXT NOT NULL DEFAULT '',
+        emote TEXT NOT NULL DEFAULT '',
+        isDM INTEGER NOT NULL DEFAULT 0,
+        ownerID INTEGER NOT NULL,
+        locked INTEGER NOT NULL DEFAULT 0,
+        invitePermission INTEGER NOT NULL DEFAULT 0,
+        createdAt INTEGER NOT NULL,
+        updatedAt INTEGER NOT NULL,
+        mv INTEGER NOT NULL DEFAULT 0
+    );
+
+    CREATE TABLE IF NOT EXISTS thread_members (
+        threadID INTEGER NOT NULL,
+        accountID INTEGER NOT NULL,
+        status INTEGER NOT NULL DEFAULT 0,
+        invitedBy INTEGER NOT NULL DEFAULT 0,
+        invitedAt INTEGER NOT NULL DEFAULT 0,
+        joinedAt INTEGER NOT NULL DEFAULT 0,
+        lastReadMessageID INTEGER NOT NULL DEFAULT 0,
+        clearedBeforeID INTEGER NOT NULL DEFAULT 0,
+        removedAtMessageID INTEGER NOT NULL DEFAULT 0,
+        ignoredInvite INTEGER NOT NULL DEFAULT 0,
+        muted INTEGER NOT NULL DEFAULT 0,
+        pinned INTEGER NOT NULL DEFAULT 0,
+        hidden INTEGER NOT NULL DEFAULT 0,
+        PRIMARY KEY (threadID, accountID)
+    );
+
+    CREATE TABLE IF NOT EXISTS thread_messages (
+        messageID INTEGER PRIMARY KEY AUTOINCREMENT,
+        threadID INTEGER NOT NULL,
+        accountID INTEGER NOT NULL DEFAULT 0,
+        content TEXT NOT NULL,
+        timestamp INTEGER NOT NULL,
+        isDeleted INTEGER NOT NULL DEFAULT 0,
+        isSystem INTEGER NOT NULL DEFAULT 0
     );
 
     CREATE TABLE IF NOT EXISTS notifications (
@@ -457,6 +499,8 @@ db.exec(`
     CREATE INDEX IF NOT EXISTS idx_friendreqs_accountID_toAccountID ON friendreqs(accountID, toAccountID);
     CREATE INDEX IF NOT EXISTS idx_messages_toAccountID_timestamp ON messages(toAccountID, timestamp DESC);
     CREATE INDEX IF NOT EXISTS idx_messages_accID_timestamp ON messages(accID, timestamp DESC);
+    CREATE INDEX IF NOT EXISTS idx_thread_members_account_status ON thread_members(accountID, status, hidden, threadID);
+    CREATE INDEX IF NOT EXISTS idx_thread_messages_thread_message ON thread_messages(threadID, messageID DESC);
 
     CREATE INDEX IF NOT EXISTS idx_levelscores_account_level_daily ON levelscores(accountID, levelID, dailyID);
     CREATE INDEX IF NOT EXISTS idx_levelscores_level_daily_percent ON levelscores(levelID, dailyID, percent DESC);
@@ -488,7 +532,8 @@ const addedColumns = [
     { table: 'dashboard_access', column: 'permissionsVersion', definition: 'INTEGER NOT NULL DEFAULT 1' },
     { table: 'notifications', column: 'toAccountID', definition: 'INTEGER NOT NULL DEFAULT 0' },
     { table: 'notifications', column: 'notificationMask', definition: 'INTEGER NOT NULL DEFAULT 0' },
-    { table: 'notifications', column: 'createdAt', definition: 'INTEGER NOT NULL DEFAULT 0' }
+    { table: 'notifications', column: 'createdAt', definition: 'INTEGER NOT NULL DEFAULT 0' },
+    { table: 'friendreqs', column: 'ignored', definition: 'INTEGER NOT NULL DEFAULT 0' }
 ];
 
 db.transaction(() => {

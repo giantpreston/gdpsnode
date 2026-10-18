@@ -15,6 +15,7 @@ module.exports = {
         // sanity checks
         if (!accountID || !gjp2 || !targetAccountID) return res.send('-1');
         if (gjp2.length !== 40) return res.send('-1');
+        if (isSender !== 0 && isSender !== 1) return res.send('-1');
 
         // db checks
         const account = db.prepare('SELECT * FROM accounts WHERE accountID = ?').get(accountID);
@@ -25,7 +26,11 @@ module.exports = {
 
         try {
             let inf;
-            if (isSender === 1) { inf = db.prepare('DELETE FROM friendreqs WHERE accountID = ? AND toAccountID = ? LIMIT 1').run(accountID, targetAccountID); } else { inf = db.prepare('DELETE FROM friendreqs WHERE toAccountID = ? AND accountID = ? LIMIT 1').run(accountID, targetAccountID); }
+            if (isSender === 1) {
+                inf = db.prepare('DELETE FROM friendreqs WHERE accountID = ? AND toAccountID = ? LIMIT 1').run(accountID, targetAccountID);
+            } else {
+                inf = db.prepare('UPDATE friendreqs SET ignored = 1 WHERE toAccountID = ? AND accountID = ? AND ignored = 0').run(accountID, targetAccountID);
+            }
             if (inf.changes > 0) return res.send('1');
         } catch (err) {
             console.error('\x1b[1;31m✗ Failed to delete friend request:\x1b[0m', err);

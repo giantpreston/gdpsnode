@@ -2,7 +2,7 @@ const { commonSecret } = require('../../middleware/secrets');
 const db = require('../../database');
 const utils = require('../../utils');
 
-const MAX_FRIENDS = 400;
+const MAX_FRIENDS = 940;
 
 module.exports = {
     method: 'post',
@@ -34,8 +34,8 @@ module.exports = {
         const isBlocked = db.prepare('SELECT ID FROM blocks WHERE person1 = ? AND person2 = ?').get(toAccountID, accountID);
         if (isBlocked) return res.send('-1');
 
-        // check if friend requests only
-        if (profile && profile.frS === 1) return res.send('-1');
+        // enforce the recipient's friend request settings
+        if (profile && (profile.frS === 1 || (profile.frS === 0 && comment))) return res.send('-1');
 
         // check if request already exists
         const existingRequest = db.prepare('SELECT COUNT(*) as count FROM friendreqs WHERE (accountID = ? AND toAccountID = ?) OR (toAccountID = ? AND accountID = ?)').get(accountID, toAccountID, accountID, toAccountID);

@@ -51,13 +51,13 @@ module.exports = {
         if (accountID && accountID === targetAccountID) {
             const following = db.prepare('SELECT COUNT(*) AS count FROM follows WHERE person1 = ?').get(targetAccountID);
             if (following.count > 0) followingField = `:68:${following.count}`;
-            const friendRequestCount = db.prepare('SELECT COUNT(*) as count FROM friendreqs WHERE toAccountID = ?').get(targetAccountID);
+            const friendRequestCount = db.prepare('SELECT COUNT(*) as count FROM friendreqs WHERE toAccountID = ? AND ignored = 0').get(targetAccountID);
             const newMessageCount = db.prepare('SELECT COUNT(*) as count FROM messages WHERE toAccountID = ? AND isNew = 1').get(targetAccountID);
             const newFriendshipCount = db.prepare('SELECT COUNT(*) as count FROM friendships WHERE (person1 = ? AND isNew2 = 1) OR (person2 = ? AND isNew1 = 1)').get(targetAccountID, targetAccountID);
 
             appendix = `:38:${newMessageCount.count}:39:${friendRequestCount.count}:40:${newFriendshipCount.count}`;
         } else if (accountID) {
-            const incomingRequest = db.prepare('SELECT ID, comment, uploadDate FROM friendreqs WHERE accountID = ? AND toAccountID = ?').get(targetAccountID, accountID);
+            const incomingRequest = db.prepare('SELECT ID, comment, uploadDate FROM friendreqs WHERE accountID = ? AND toAccountID = ? AND ignored = 0').get(targetAccountID, accountID);
             if (incomingRequest) {
                 friendstate = 3;
                 appendix = `:32:${incomingRequest.ID}:35:${incomingRequest.comment}:37:${utils.getRelative(incomingRequest.uploadDate)}`;

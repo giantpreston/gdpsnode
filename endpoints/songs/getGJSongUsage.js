@@ -14,7 +14,7 @@ module.exports = {
 
         // db stuff!
         const song = db.prepare('SELECT * FROM songs WHERE ID = ?').get(songID);
-        if (!song || !song.isAllowedForUse) return res.send('-1');
+        if (!song || !song.allowedForUse) return res.send('-1');
 
         const usage = db.prepare(`
             SELECT COUNT(*) AS total,

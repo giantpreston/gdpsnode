@@ -16,7 +16,7 @@ module.exports = {
         // sanity checks
         if (!accountID || !gjp2 || isNaN(page)) return res.send('-1');
         if (gjp2.length !== 40) return res.send('-1');
-        if (getSent !== 0 && getSent !== 1) return res.send('-1');
+        if (getSent !== 0 && getSent !== 1 && getSent !== 2) return res.send('-1');
 
         // db checks
         const account = db.prepare('SELECT * FROM accounts WHERE accountID = ?').get(accountID);
@@ -34,14 +34,14 @@ module.exports = {
                     SELECT r.accountID, r.toAccountID, r.uploadDate, r.ID, r.comment, r.isNew
                     FROM friendreqs r
                     JOIN accounts a ON a.accountID = r.accountID
-                    WHERE r.toAccountID = ? AND a.isDisabled = 0
+                    WHERE r.toAccountID = ? AND r.ignored = 0 AND a.isDisabled = 0
                     LIMIT 10 OFFSET ?
                 `).all(accountID, offset);
                 countResult = db.prepare(`
                     SELECT COUNT(*) as count
                     FROM friendreqs r
                     JOIN accounts a ON a.accountID = r.accountID
-                    WHERE r.toAccountID = ? AND a.isDisabled = 0
+                    WHERE r.toAccountID = ? AND r.ignored = 0 AND a.isDisabled = 0
                 `).get(accountID);
             } else if (getSent === 1) {
                 requests = db.prepare(`
@@ -57,13 +57,27 @@ module.exports = {
                     JOIN accounts a ON a.accountID = r.toAccountID
                     WHERE r.accountID = ? AND a.isDisabled = 0
                 `).get(accountID);
+            } else if (getSent === 2) {
+                requests = db.prepare(`
+                    SELECT r.accountID, r.toAccountID, r.uploadDate, r.ID, r.comment, r.isNew
+                    FROM friendreqs r
+                    JOIN accounts a ON a.accountID = r.accountID
+                    WHERE r.toAccountID = ? AND r.ignored = 1 AND a.isDisabled = 0
+                    LIMIT 10 OFFSET ?
+                `).all(accountID, offset);
+                countResult = db.prepare(`
+                    SELECT COUNT(*) as count
+                    FROM friendreqs r
+                    JOIN accounts a ON a.accountID = r.accountID
+                    WHERE r.toAccountID = ? AND r.ignored = 1 AND a.isDisabled = 0
+                `).get(accountID);
             }
 
             if (countResult.count === 0) return res.send('-2');
 
             let reqstring = '';
             for (const request of requests) {
-                const requesterID = getSent === 0 ? request.accountID : request.toAccountID;
+                const requesterID = getSent === 1 ? request.toAccountID : request.accountID;
                 const profile = db.prepare('SELECT userName, accountID, icon, color1, color2, iconType, special FROM profiles WHERE accountID = ?').get(requesterID);
 
                 if (profile) {
