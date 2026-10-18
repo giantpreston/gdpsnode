@@ -359,8 +359,6 @@ db.exec(`
         invitedAt INTEGER NOT NULL DEFAULT 0,
         joinedAt INTEGER NOT NULL DEFAULT 0,
         lastReadMessageID INTEGER NOT NULL DEFAULT 0,
-        clearedBeforeID INTEGER NOT NULL DEFAULT 0,
-        removedAtMessageID INTEGER NOT NULL DEFAULT 0,
         ignoredInvite INTEGER NOT NULL DEFAULT 0,
         muted INTEGER NOT NULL DEFAULT 0,
         pinned INTEGER NOT NULL DEFAULT 0,
@@ -374,7 +372,6 @@ db.exec(`
         accountID INTEGER NOT NULL DEFAULT 0,
         content TEXT NOT NULL,
         timestamp INTEGER NOT NULL,
-        isDeleted INTEGER NOT NULL DEFAULT 0,
         isSystem INTEGER NOT NULL DEFAULT 0
     );
 
@@ -517,7 +514,10 @@ const removedColumns = [
     { table: 'songs', column: 'isNew' },
     { table: 'songs', column: 'newType' },
     { table: 'songs', column: 'extraArtistNames' },
-    { table: 'levels', column: 'extraString' }
+    { table: 'levels', column: 'extraString' },
+    { table: 'thread_members', column: 'clearedBeforeID' },
+    { table: 'thread_members', column: 'removedAtMessageID' },
+    { table: 'thread_messages', column: 'isDeleted' }
 ];
 const addedColumns = [
     { table: 'songs', column: 'platform', definition: 'INTEGER DEFAULT 0' },
@@ -548,6 +548,12 @@ db.transaction(() => {
 
     for (const { table, column } of removedColumns) {
         if (columnsByTable.get(table).has(column)) {
+            if (table === 'thread_messages' && column === 'isDeleted') {
+                db.prepare('DELETE FROM thread_messages WHERE isDeleted = 1').run();
+            }
+            if (table === 'thread_members' && column === 'removedAtMessageID') {
+                db.prepare('DELETE FROM thread_members WHERE status = 2').run();
+            }
             db.exec(`ALTER TABLE ${table} DROP COLUMN ${column}`);
         }
     }
@@ -557,6 +563,23 @@ db.transaction(() => {
             db.exec(`ALTER TABLE ${table} ADD COLUMN ${column} ${definition}`);
         }
     }
+})();
+
+db.transaction(() => {
+    const emptyThreads = db.prepare(`
+        SELECT t.threadID
+        FROM threads t
+        WHERE NOT EXISTS (
+            SELECT 1 FROM thread_members m
+            WHERE m.threadID = t.threadID AND m.status = 1
+        )
+    `).all();
+    for (const thread of emptyThreads) {
+        db.prepare('DELETE FROM thread_messages WHERE threadID = ?').run(thread.threadID);
+        db.prepare('DELETE FROM thread_members WHERE threadID = ?').run(thread.threadID);
+        db.prepare('DELETE FROM threads WHERE threadID = ?').run(thread.threadID);
+    }
+    db.prepare('DELETE FROM thread_members WHERE status = 2').run();
 })();
 
 db.exec('CREATE INDEX IF NOT EXISTS idx_accounts_leaderboardBan ON accounts(leaderboardBan)');

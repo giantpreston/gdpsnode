@@ -103,7 +103,7 @@ function canStartDM(accountID, targetAccountID) {
 function getThreadAccess(threadID, accountID) {
     return db.prepare(`
         SELECT t.*, m.status, m.invitedBy, m.invitedAt, m.joinedAt, m.lastReadMessageID,
-            m.clearedBeforeID, m.removedAtMessageID, m.ignoredInvite, m.muted, m.pinned, m.hidden
+            m.ignoredInvite, m.muted, m.pinned, m.hidden
         FROM threads t
         JOIN thread_members m ON m.threadID = t.threadID
         WHERE t.threadID = ? AND m.accountID = ?
@@ -138,27 +138,12 @@ function getLatestMessage(threadID) {
 }
 
 function serializeMessage(message) {
-    return `${message.messageID}:${message.accountID}:${message.content}:${message.timestamp}:${message.isDeleted}`;
+    return `${message.messageID}:${message.accountID}:${message.content}:${message.timestamp}:0`;
 }
 
 function serializeUser(profile, friendsSince = 0) {
     if (!profile) return '';
     return `1:${profile.userName}:2:${profile.accountID + 1}:3:${profile.stars}:4:${profile.demons}:8:${Math.round(profile.creatorPoints)}:9:${profile.icon}:10:${profile.color1}:11:${profile.color2}:13:${profile.coins}:14:${profile.iconType}:15:${profile.special}:16:${profile.accountID}:17:${profile.userCoins}:41:0:46:${profile.diamonds}:51:${profile.color3}:52:${profile.moons}:64:${friendsSince}`;
-}
-
-function serializeFormerUser(profile) {
-    if (!profile) return '';
-    return [
-        profile.accountID,
-        profile.accountID + 1,
-        encode(profile.userName),
-        profile.icon,
-        profile.color1,
-        profile.color2,
-        profile.color3,
-        profile.iconType,
-        profile.special
-    ].join(':');
 }
 
 function serializeInvite(member) {
@@ -206,8 +191,8 @@ function serializeThread(thread, accountID) {
     const unread = lastMessage
         ? db.prepare(`
             SELECT COUNT(*) AS count FROM thread_messages
-            WHERE threadID = ? AND messageID > ? AND accountID != ? AND isDeleted = 0
-        `).get(thread.threadID, Math.max(thread.lastReadMessageID, thread.clearedBeforeID || 0), accountID).count
+            WHERE threadID = ? AND messageID > ? AND accountID != ?
+        `).get(thread.threadID, thread.lastReadMessageID, accountID).count
         : 0;
     let status = 0;
     if (thread.isDM && (thread.status === 0 || counterpartMember?.status === 0)) status = 2;
@@ -269,7 +254,6 @@ module.exports = {
     getLatestMessage,
     serializeMessage,
     serializeUser,
-    serializeFormerUser,
     serializeInvite,
     serializeThread,
     serializeMetadata

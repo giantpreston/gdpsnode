@@ -91,7 +91,7 @@ module.exports = {
                     const access = threadUtils.getThreadAccess(currentThreadID, auth.accountID);
                     if (!access || access.hidden) return { removed: true };
                     if (access.status !== 1) {
-                        if (!access.isDM || access.status !== 0 || !body.trim()) return access.status === 2 ? { removed: true } : null;
+                        if (!access.isDM || access.status !== 0 || !body.trim()) return null;
                         db.prepare('UPDATE thread_members SET status = 1, joinedAt = ? WHERE threadID = ? AND accountID = ?')
                             .run(Math.floor(Date.now() / 1000), currentThreadID, auth.accountID);
                     }

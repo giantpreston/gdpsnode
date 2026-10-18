@@ -18,15 +18,13 @@ module.exports = {
         try {
             const access = threadUtils.getThreadAccess(threadID, auth.accountID);
             if (!access || access.hidden || (access.status === 0 && !access.isDM)) return res.send('-1');
-            const upperBound = access.status === 2 ? access.removedAtMessageID : Number.MAX_SAFE_INTEGER;
             const records = db.prepare(`
                 SELECT * FROM thread_messages
-                WHERE threadID = ? AND messageID > ? AND messageID <= ?
-                    AND (? = 0 OR messageID < ?)
+                WHERE threadID = ? AND (? = 0 OR messageID < ?)
                 ORDER BY messageID DESC
-            `).all(threadID, access.clearedBeforeID, upperBound, beforeID, beforeID);
+            `).all(threadID, beforeID, beforeID);
             const matching = records.filter(message => {
-                if (message.isDeleted || message.isSystem) return false;
+                if (message.isSystem) return false;
                 const content = Buffer.from(message.content, 'base64').toString('utf8');
                 return content.toLocaleLowerCase().includes(query.toLocaleLowerCase());
             });
