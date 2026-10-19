@@ -1,6 +1,7 @@
 const { accountSecret } = require('../../middleware/secrets');
 const db = require('../../database');
 const utils = require('../../utils');
+const threadUtils = require('../../threadUtils');
 
 module.exports = {
     method: 'post',
@@ -35,7 +36,19 @@ module.exports = {
                 const profile = create2.run(accountID, username);
 
                 if (accountID === 72) {
-                    db.prepare('INSERT INTO messages (subject, body, accID, userName, toAccountID, timestamp) VALUES (?, ?, ?, ?, ?, ?)').run('V2VsY29tZSB0byBHRFBTbm9kZSE=', 'ZVxTW1oRTV1AEVdbQBVSWVtdRlhfUxJydWFnXFpVVBUSbF5ERhJGVENCV0cRWEcSUl5eUBJBXhFTXRsRaFtHFVxYU1pBEUZVXEERRVsSVllUV1kVUl5aQVpdVBRUWkMRVVxMEUZVQFtYX1NBFV5DFFdHQ15GQRVQX1ASRUNeRFdHXUgUQVBFEUFCFUVZURJRUEJcUFpQQ1ASQlhFXBJMXkRGEhtUX0ISQ1BDXVNXXVRHHBViWFpRUBFIW0cSQ1QURl1UEVJbR0JFFFNWUl5BXEEdEU1dQBFZVURQEVNRV1sRVkZTW0VUUBJ4XlVRQFRFXkYSVFJSUUFGHxFzXRVFXhRgcGARW1wVRVlREn1UXUQSRlRSQFtaXxFbVBViVEBGXF9WRxJBXhFVUUFYR1VGUBFYQBIdWF9TU1hUGBoSfVBHURJTRF8UDgY=', 71, 'GDPSnode Notifications', accountID, Math.floor(Date.now() / 1000));
+                    const timestamp = Math.floor(Date.now() / 1000);
+                    const thread = db.prepare(`
+                        INSERT INTO threads (isDM, ownerID, createdAt, updatedAt)
+                        VALUES (1, ?, ?, ?)
+                    `).run(threadUtils.SYSTEM_ACCOUNT_ID, timestamp, timestamp);
+                    const threadID = Number(thread.lastInsertRowid);
+                    db.prepare(`
+                        INSERT INTO thread_members (threadID, accountID, status, joinedAt)
+                        VALUES (?, ?, 1, ?), (?, ?, 1, ?)
+                    `).run(threadID, accountID, timestamp, threadID, threadUtils.SYSTEM_ACCOUNT_ID, timestamp);
+                    threadUtils.addMessage(threadID, threadUtils.SYSTEM_ACCOUNT_ID, threadUtils.encode('All set up! Your server is now ready to go.'));
+                    threadUtils.addMessage(threadID, threadUtils.SYSTEM_ACCOUNT_ID, threadUtils.encode('Since you\'re the first account, you\'ve been granted Moderator permissions.'))
+                    threadUtils.addMessage(threadID, threadUtils.SYSTEM_ACCOUNT_ID, threadUtils.encode("Consider checking console for any warnings or errors and revise your environment variables to configure your server to your liking. Have fun with GDPSnode! <3"));
                     db.prepare('UPDATE profiles SET modLevel = ? WHERE accountID = ?').run(2, accountID);
                 }
 

@@ -17,8 +17,17 @@ module.exports = {
         if (!auth || !threadID) return res.send('-1');
 
         try {
-            const access = threadUtils.getThreadAccess(threadID, auth.accountID);
+            let access = threadUtils.getThreadAccess(threadID, auth.accountID);
             if (!access || access.hidden || (access.status === 0 && !access.isDM)) return res.send('-1');
+            if (access.isDM && access.status === 0 && access.ownerID !== auth.accountID) {
+                db.transaction(() => {
+                    db.prepare('UPDATE thread_members SET status = 1, joinedAt = ?, ignoredInvite = 0 WHERE threadID = ? AND accountID = ?')
+                        .run(Math.floor(Date.now() / 1000), threadID, auth.accountID);
+                    db.prepare('UPDATE thread_members SET status = 0, joinedAt = 0 WHERE threadID = ? AND accountID = ? AND status = 1')
+                        .run(threadID, access.ownerID);
+                })();
+                access.status = 1;
+            }
 
             const historyCursor = access.clearedBeforeID || 0;
             const lastVisibleMessageID = access.status === 2
@@ -51,12 +60,14 @@ module.exports = {
 
             const members = db.prepare('SELECT accountID, joinedAt FROM thread_members WHERE threadID = ? AND status = 1 ORDER BY joinedAt, accountID').all(threadID);
             const formerMembers = db.prepare('SELECT accountID FROM thread_members WHERE threadID = ? AND status = 2 ORDER BY joinedAt, accountID').all(threadID);
-            const invites = db.prepare('SELECT accountID, invitedBy, invitedAt FROM thread_members WHERE threadID = ? AND status = 0 ORDER BY invitedAt, accountID').all(threadID);
-            const memberString = members.map(member => threadUtils.serializeUser(threadUtils.getProfile(member.accountID), member.joinedAt)).filter(Boolean).join('|');
-            const formerString = formerMembers.map(member => threadUtils.serializeFormerUser(threadUtils.getProfile(member.accountID))).filter(Boolean).join('|');
+            const invites = access.isDM
+                ? []
+                : db.prepare('SELECT accountID, invitedBy, invitedAt FROM thread_members WHERE threadID = ? AND status = 0 ORDER BY invitedAt, accountID').all(threadID);
+            const memberString = members.map(member => threadUtils.serializeUser(threadUtils.getThreadProfile(member.accountID), member.joinedAt)).filter(Boolean).join('|');
+            const formerString = formerMembers.map(member => threadUtils.serializeFormerUser(threadUtils.getThreadProfile(member.accountID))).filter(Boolean).join('|');
             const inviteString = invites.map(threadUtils.serializeInvite).filter(Boolean).join('|');
             const memberCount = members.length;
-            const metadata = threadUtils.serializeMetadata(access, memberCount);
+            const metadata = threadUtils.serializeMetadata(access, memberCount, auth.accountID);
             const messageString = messages.length ? messages.map(threadUtils.serializeMessage).join('|') : 'none';
 
             if ((access.status === 1 || access.isDM) && messages.length) {

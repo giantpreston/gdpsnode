@@ -52,11 +52,23 @@ module.exports = {
             const following = db.prepare('SELECT COUNT(*) AS count FROM follows WHERE person1 = ?').get(targetAccountID);
             if (following.count > 0) followingField = `:68:${following.count}`;
             const friendRequestCount = db.prepare('SELECT COUNT(*) as count FROM friendreqs WHERE toAccountID = ? AND ignored = 0').get(targetAccountID);
-            const newMessageCount = db.prepare('SELECT COUNT(*) as count FROM messages WHERE toAccountID = ? AND isNew = 1').get(targetAccountID);
+            const unreadThreadMessageCount = db.prepare(`
+                SELECT COUNT(*) AS count
+                FROM thread_messages tm
+                JOIN thread_members m ON m.threadID = tm.threadID
+                JOIN threads t ON t.threadID = m.threadID
+                WHERE m.accountID = ?
+                    AND m.hidden = 0
+                    AND m.muted = 0
+                    AND (m.status = 1 OR (t.isDM = 1 AND m.status = 0) OR (t.isDM = 0 AND m.status = 2))
+                    AND tm.messageID > MAX(m.lastReadMessageID, m.clearedBeforeID)
+                    AND tm.accountID != m.accountID
+                    AND (m.status != 2 OR tm.messageID <= m.removedAtMessageID)
+            `).get(targetAccountID);
             const newFriendshipCount = db.prepare('SELECT COUNT(*) as count FROM friendships WHERE (person1 = ? AND isNew2 = 1) OR (person2 = ? AND isNew1 = 1)').get(targetAccountID, targetAccountID);
             const unreadNotificationCount = db.prepare('SELECT COUNT(*) as count FROM notifications WHERE toAccountID = ? AND isNew = 1').get(targetAccountID);
 
-            appendix = `:38:${newMessageCount.count}:39:${friendRequestCount.count}:40:${newFriendshipCount.count}:65:${unreadNotificationCount.count}`;
+            appendix = `:38:${unreadThreadMessageCount.count}:39:${friendRequestCount.count}:40:${newFriendshipCount.count}:65:${unreadNotificationCount.count}`;
         } else if (accountID) {
             const incomingRequest = db.prepare('SELECT ID, comment, uploadDate FROM friendreqs WHERE accountID = ? AND toAccountID = ? AND ignored = 0').get(targetAccountID, accountID);
             if (incomingRequest) {

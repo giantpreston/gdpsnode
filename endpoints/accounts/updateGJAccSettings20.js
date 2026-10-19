@@ -18,6 +18,8 @@ module.exports = {
         if (!account) return res.send('-1');
         if (account.gjp2 !== gjp2) return res.send('-1');
         if (account.isDisabled === 1) return res.send('-1');
+        const profile = db.prepare('SELECT modLevel FROM profiles WHERE accountID = ?').get(accountID);
+        const canUseAllPrivacy = Number(profile?.modLevel || 0) > 0;
 
         const clamp = (value, min, max) => {
             const parsed = parseInt(utils.number(value), 10);
@@ -26,9 +28,15 @@ module.exports = {
         };
 
         const fieldMap = {
-            mS: value => clamp(value, 0, 2),
+            mS: value => {
+                const setting = clamp(value, 0, 2);
+                return setting === 0 && !canUseAllPrivacy ? 1 : setting;
+            },
             frS: value => clamp(value, 0, 2),
-            gF: value => clamp(value, 0, 2),
+            gF: value => {
+                const setting = clamp(value, 0, 2);
+                return setting === 0 && !canUseAllPrivacy ? 1 : setting;
+            },
             gO: value => utils.number(value), // unknown. won't clamp for now since can't know max or min.
             cS: value => clamp(value, 0, 2),
             youtubeurl: value => utils.remove(value),

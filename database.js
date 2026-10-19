@@ -1,5 +1,5 @@
 const Database = require('better-sqlite3');
-const db = new Database('gd_server.db')
+const db = new Database(process.env.GDPS_DATABASE_PATH || 'gd_server.db')
 
 // i hate hate hate hate hate, hate hate hate hate hate hate hate HATE sqlite.
 // we get it bro ^^^

@@ -21,8 +21,8 @@ module.exports = {
             const formerMembers = db.prepare('SELECT accountID FROM thread_members WHERE threadID = ? AND status = 2 ORDER BY joinedAt, accountID').all(threadID);
             const invites = db.prepare('SELECT accountID, invitedBy, invitedAt FROM thread_members WHERE threadID = ? AND status = 0 ORDER BY invitedAt, accountID').all(threadID);
             const serialize = (items, formatter) => items.map(item => formatter(item)).filter(Boolean).join('|');
-            const memberString = serialize(members, member => threadUtils.serializeUser(threadUtils.getProfile(member.accountID), member.joinedAt));
-            const formerString = serialize(formerMembers, member => threadUtils.serializeFormerUser(threadUtils.getProfile(member.accountID)));
+            const memberString = serialize(members, member => threadUtils.serializeUser(threadUtils.getThreadProfile(member.accountID), member.joinedAt));
+            const formerString = serialize(formerMembers, member => threadUtils.serializeFormerUser(threadUtils.getThreadProfile(member.accountID)));
             const inviteString = serialize(invites, threadUtils.serializeInvite);
 
             return res.send(`${memberString || 'none'}#${formerString || 'none'}#${inviteString || 'none'}`);

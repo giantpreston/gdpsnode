@@ -2,6 +2,8 @@ const { commonSecret } = require('../../middleware/secrets');
 const utils = require('../../utils');
 const db = require('../../database');
 
+const FOLLOWER_MILESTONES = [1, 10, 100, 1000];
+
 module.exports = {
     method: 'post',
     path: '/followGJUser.php',
@@ -28,14 +30,16 @@ module.exports = {
         const inf = db.prepare('INSERT OR IGNORE INTO follows (person1, person2, timestamp) VALUES (?, ?, ?)').run(accountID, targetAccountID, Math.floor(Date.now() / 1000));
         if (inf.changes > 0) {
             const followerCount = db.prepare('SELECT COUNT(*) AS count FROM follows WHERE person2 = ?').get(targetAccountID).count;
-            if (followerCount === 1) {
+            if (FOLLOWER_MILESTONES.includes(followerCount)) {
                 utils.notifAdd({
                     toAccountID: targetAccountID,
                     notificationMask: 16,
                     type: 13,
                     emoteIcon: 'party',
-                    title: 'First Follower!',
-                    description: 'Someone is now <cy>following</c> you!'
+                    title: followerCount === 1 ? 'First Follower!' : `${followerCount.toLocaleString()} Followers!`,
+                    description: followerCount === 1
+                        ? 'Someone is now <cy>following</c> you!'
+                        : `Your profile has reached <cy>${followerCount.toLocaleString()}</c> followers!`
                 });
             }
             return res.send('1');

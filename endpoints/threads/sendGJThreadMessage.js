@@ -4,13 +4,14 @@ const threadUtils = require('../../threadUtils');
 
 const MEMBER_ERROR = '##P##t=R3JvdXAgQ2hhdA==:b=WW91IGFyZSBubyBsb25nZXIgaW4gdGhpcyBncm91cCBjaGF0Lg==##P##-5';
 const EMPTY_GROUP_ERROR = '##P##t=RW1wdHkgR3JvdXAgQ2hhdA==:b=Tm9ib2R5IGVsc2UgaXMgaGVyZSB5ZXQuCllvdSBjYW4gY2hhdCBvbmNlIHNvbWVvbmUgPGNnPmpvaW5zPC9jPi4=##P##-1';
+const SYSTEM_THREAD_ERROR = '##P##t=U3lzdGVtIE1lc3NhZ2Uh:b=WW91IDxjeT5jYW4ndCBzZW5kIG1lc3NhZ2VzIGhlcmU8L2M-ISBXaGVuIHlvdSdyZSBkb25lIHJlYWRpbmcgdGhpcyB0aHJlYWQsIGZlZWwgZnJlZSB0byA8Y3I-ZGVsZXRlPC9jPiBpdC4=##P##-5';
 
 function getThreadIDForDM(accountID, targetAccountID) {
     const existing = db.prepare(`
         SELECT t.threadID
         FROM threads t
-        JOIN thread_members sender ON sender.threadID = t.threadID AND sender.accountID = ? AND sender.status = 1
-        JOIN thread_members recipient ON recipient.threadID = t.threadID AND recipient.accountID = ? AND recipient.status = 1
+        JOIN thread_members sender ON sender.threadID = t.threadID AND sender.accountID = ? AND sender.status IN (0, 1)
+        JOIN thread_members recipient ON recipient.threadID = t.threadID AND recipient.accountID = ? AND recipient.status IN (0, 1)
         WHERE t.isDM = 1
     `).get(accountID, targetAccountID);
     return existing?.threadID || 0;
@@ -35,6 +36,7 @@ module.exports = {
                 let invitedCount = 0;
                 let messageID = 0;
                 let newThread = false;
+                let messageRequest = false;
 
                 if (!currentThreadID) {
                     if (isDM) {
@@ -45,7 +47,7 @@ module.exports = {
                         if (!currentThreadID) {
                             const timestamp = Math.floor(Date.now() / 1000);
                             const recipientProfile = threadUtils.getProfile(targetAccountID);
-                            const messageRequest = recipientProfile.mS === 0 && !threadUtils.isFriend(auth.accountID, targetAccountID);
+                            messageRequest = recipientProfile.mS === 0 && Number(recipientProfile.modLevel || 0) > 0 && !threadUtils.isFriend(auth.accountID, targetAccountID);
                             const created = db.prepare(`
                                 INSERT INTO threads (isDM, ownerID, createdAt, updatedAt)
                                 VALUES (1, ?, ?, ?)
@@ -54,7 +56,12 @@ module.exports = {
                             db.prepare(`
                                 INSERT INTO thread_members (threadID, accountID, status, invitedBy, invitedAt, joinedAt)
                                 VALUES (?, ?, 1, 0, 0, ?), (?, ?, ?, ?, ?, ?)
-                            `).run(currentThreadID, auth.accountID, timestamp, currentThreadID, targetAccountID, messageRequest ? 0 : 1, messageRequest ? auth.accountID : 0, messageRequest ? timestamp : 0, messageRequest ? 0 : timestamp);
+                            `).run(
+                                currentThreadID, auth.accountID, timestamp,
+                                currentThreadID, targetAccountID, messageRequest ? 0 : 1,
+                                messageRequest ? auth.accountID : 0, messageRequest ? timestamp : 0,
+                                messageRequest ? 0 : timestamp
+                            );
                             newThread = true;
                         }
                     } else {
@@ -90,6 +97,15 @@ module.exports = {
                 } else {
                     const access = threadUtils.getThreadAccess(currentThreadID, auth.accountID);
                     if (!access || access.hidden) return { removed: true };
+                    if (access.isDM && access.ownerID === threadUtils.SYSTEM_ACCOUNT_ID) return { systemThread: true };
+                    if (access.isDM && access.ownerID === auth.accountID) {
+                        if (access.status === 0) return null;
+                        const pendingRecipient = db.prepare(`
+                            SELECT 1 FROM thread_members
+                            WHERE threadID = ? AND accountID != ? AND status = 0
+                        `).get(currentThreadID, auth.accountID);
+                        if (pendingRecipient) return null;
+                    }
                     if (access.status !== 1) {
                         if (!access.isDM || access.status !== 0 || !body.trim()) return null;
                         db.prepare('UPDATE thread_members SET status = 1, joinedAt = ? WHERE threadID = ? AND accountID = ?')
@@ -102,13 +118,11 @@ module.exports = {
                             WHERE threadID = ? AND status IN (0, 1) AND accountID != ?
                         `).get(currentThreadID, auth.accountID);
                         if (!recipient) return null;
-                        const recipientMember = db.prepare('SELECT status FROM thread_members WHERE threadID = ? AND accountID = ?').get(currentThreadID, recipient.accountID);
-                        if (recipientMember.status === 1 && !threadUtils.canStartDM(auth.accountID, recipient.accountID)) return null;
                     }
                 }
 
                 if (body.trim()) {
-                    const thread = db.prepare('SELECT isDM FROM threads WHERE threadID = ?').get(currentThreadID);
+                    const thread = db.prepare('SELECT isDM, ownerID FROM threads WHERE threadID = ?').get(currentThreadID);
                     if (thread && !thread.isDM) {
                         const memberCount = db.prepare('SELECT COUNT(*) AS count FROM thread_members WHERE threadID = ? AND status = 1').get(currentThreadID).count;
                         if (memberCount <= 1) return { emptyGroup: true };
@@ -120,15 +134,27 @@ module.exports = {
                     `).get(auth.accountID, Math.floor(Date.now() / 1000) - 60).count;
                     if (sentRecently >= 20) return null;
 
+                    const historyCursor = threadUtils.getLatestMessage(currentThreadID)?.messageID || 0;
                     messageID = threadUtils.addMessage(currentThreadID, auth.accountID, req.body.body).messageID;
+                    if (thread?.isDM) {
+                        threadUtils.revealHiddenDMRecipients(currentThreadID, auth.accountID, historyCursor);
+                        if (auth.accountID !== thread.ownerID) {
+                            db.prepare(`
+                                UPDATE thread_members
+                                SET status = 1, hidden = 0
+                                WHERE threadID = ? AND accountID = ? AND status = 0
+                            `).run(currentThreadID, thread.ownerID);
+                        }
+                    }
                 }
-                return { threadID: currentThreadID, messageID, invitedCount, isDM, newThread };
+                return { threadID: currentThreadID, messageID, invitedCount, isDM, newThread, messageRequest };
             })();
 
+            if (outcome?.systemThread) return res.send(SYSTEM_THREAD_ERROR);
             if (outcome?.removed) return res.send(MEMBER_ERROR);
             if (outcome?.emptyGroup) return res.send(EMPTY_GROUP_ERROR);
             if (!outcome) return res.send('-1');
-            if (outcome.newThread && outcome.isDM) return res.send(`${outcome.threadID}:${outcome.messageID}:0`);
+            if (outcome.newThread && outcome.isDM) return res.send(`${outcome.threadID}:${outcome.messageID}:${outcome.messageRequest ? 1 : 0}`);
             if (outcome.newThread) return res.send(`${outcome.threadID}:${outcome.messageID}:${outcome.invitedCount}:0`);
             return res.send(`${outcome.threadID}:${outcome.messageID}`);
         } catch (err) {

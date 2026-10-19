@@ -22,10 +22,10 @@ module.exports = {
                 FROM threads t
                 JOIN thread_members m ON m.threadID = t.threadID
                 WHERE m.accountID = ?
-                    AND (m.status = 1 OR (t.isDM = 1 AND m.status = 0) OR (t.isDM = 0 AND m.status = 2))
+                    AND (m.status = 1 OR (t.isDM = 1 AND m.status = 0 AND t.ownerID = m.accountID) OR (t.isDM = 0 AND m.status = 2))
                     AND m.hidden = 0
                     AND (? = 0 OR (? = 1 AND t.isDM = 1) OR (? = 2 AND t.isDM = 0))
-                ORDER BY t.updatedAt DESC, t.threadID DESC
+                ORDER BY m.pinned DESC, t.updatedAt DESC, t.threadID DESC
             `).all(auth.accountID, filter, filter, filter);
             const userIDs = typeof req.body?.user === 'string'
                 ? req.body.user.split(',').map(value => threadUtils.parseInteger(value)).filter(Boolean)
@@ -36,7 +36,13 @@ module.exports = {
                 return userIDs.every(accountID => activeMembers.includes(accountID));
             });
             const total = filtered.length;
-            const invites = db.prepare('SELECT COUNT(*) AS count FROM thread_members WHERE accountID = ? AND status = 0 AND ignoredInvite = 0').get(auth.accountID).count;
+            const invites = db.prepare(`
+                SELECT COUNT(*) AS count
+                FROM thread_members m
+                JOIN threads t ON t.threadID = m.threadID
+                WHERE m.accountID = ? AND m.status = 0 AND m.ignoredInvite = 0
+                    AND (t.isDM = 0 OR t.ownerID != m.accountID)
+            `).get(auth.accountID).count;
             const threads = filtered.slice(offset, offset + threadUtils.PAGE_SIZE)
                 .map(thread => threadUtils.serializeThread(thread, auth.accountID));
 

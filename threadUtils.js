@@ -4,6 +4,8 @@ const utils = require('./utils');
 const PAGE_SIZE = 10;
 const MESSAGE_PAGE_SIZE = 50;
 const REQUEST_TTL_SECONDS = 14 * 24 * 60 * 60;
+const SYSTEM_ACCOUNT_ID = 71;
+const SYSTEM_ACCOUNT_NAME = 'GDPSnode Notifications';
 const iconLoadoutFields = [
     [21, 'accIcon'],
     [22, 'accShip'],
@@ -87,6 +89,31 @@ function getProfile(accountID) {
     `).get(accountID);
 }
 
+function getThreadProfile(accountID) {
+    if (accountID === SYSTEM_ACCOUNT_ID) {
+        return {
+            accountID: SYSTEM_ACCOUNT_ID,
+            userName: SYSTEM_ACCOUNT_NAME,
+            stars: 0,
+            demons: 0,
+            creatorPoints: 0,
+            icon: 0,
+            color1: 0,
+            color2: 0,
+            color3: 0,
+            coins: 0,
+            userCoins: 0,
+            iconType: 0,
+            special: 0,
+            diamonds: 0,
+            moons: 0,
+            modLevel: 0,
+            mS: 0
+        };
+    }
+    return getProfile(accountID);
+}
+
 function isFriend(accountID, targetAccountID) {
     return Boolean(db.prepare(`
         SELECT 1 FROM friendships
@@ -107,7 +134,7 @@ function canInvite(accountID, targetAccountID) {
     const profile = getProfile(targetAccountID);
     if (!account || account.isDisabled === 1 || !profile) return false;
     if (profile.gF === 2) return false;
-    if (profile.gF === 1 && !isFriend(accountID, targetAccountID)) return false;
+    if ((profile.gF === 1 || (profile.gF === 0 && Number(profile.modLevel || 0) === 0)) && !isFriend(accountID, targetAccountID)) return false;
     return true;
 }
 
@@ -117,7 +144,7 @@ function canStartDM(accountID, targetAccountID) {
     const profile = getProfile(targetAccountID);
     if (!account || account.isDisabled === 1 || !profile) return false;
     if (profile.mS === 2) return false;
-    if (profile.mS === 1 && !isFriend(accountID, targetAccountID)) return false;
+    if ((profile.mS === 1 || (profile.mS === 0 && Number(profile.modLevel || 0) === 0)) && !isFriend(accountID, targetAccountID)) return false;
     return true;
 }
 
@@ -139,6 +166,16 @@ function addMessage(threadID, accountID, content, isSystem = false) {
     `).run(threadID, accountID, content, timestamp, isSystem ? 1 : 0);
     db.prepare('UPDATE threads SET updatedAt = ?, mv = mv + 1 WHERE threadID = ?').run(timestamp, threadID);
     return { messageID: Number(result.lastInsertRowid), timestamp };
+}
+
+function revealHiddenDMRecipients(threadID, senderAccountID, historyCursor) {
+    return db.prepare(`
+        UPDATE thread_members
+        SET hidden = 0,
+            clearedBeforeID = MAX(clearedBeforeID, ?),
+            lastReadMessageID = MAX(lastReadMessageID, ?)
+        WHERE threadID = ? AND accountID != ? AND status = 1 AND hidden = 1
+    `).run(historyCursor, historyCursor, threadID, senderAccountID).changes;
 }
 
 function addSystemMessage(threadID, type, user1ID, user2ID = 0) {
@@ -222,10 +259,12 @@ function serializeThread(thread, accountID) {
         `).get(thread.threadID, accountID)
         : null;
     const counterpartID = counterpartMember?.accountID || 0;
-    const counterpart = counterpartID ? getProfile(counterpartID) : null;
+    const counterpart = counterpartID ? getThreadProfile(counterpartID) : null;
     const lastSenderID = lastMessage?.accountID || 0;
-    const lastSender = lastSenderID ? db.prepare('SELECT userName FROM accounts WHERE accountID = ?').get(lastSenderID) : null;
-    const unread = lastMessage
+    const lastSender = lastSenderID === SYSTEM_ACCOUNT_ID
+        ? { userName: SYSTEM_ACCOUNT_NAME }
+        : lastSenderID ? db.prepare('SELECT userName FROM accounts WHERE accountID = ?').get(lastSenderID) : null;
+    const unread = thread.muted ? 0 : lastMessage
         ? db.prepare(`
             SELECT COUNT(*) AS count FROM thread_messages
             WHERE threadID = ? AND messageID > ? AND accountID != ?
@@ -240,10 +279,11 @@ function serializeThread(thread, accountID) {
         : 0;
     let status = 0;
     if (!thread.isDM && thread.status === 2) status = 8;
-    else if (thread.isDM && (thread.status === 0 || counterpartMember?.status === 0)) status = 2;
+    else if (thread.isDM && thread.ownerID === accountID && (thread.status === 0 || counterpartMember?.status === 0)) status = 2;
+    else if (thread.isDM && thread.status === 1 && thread.ownerID !== accountID && counterpartMember?.accountID === thread.ownerID && counterpartMember.status === 0) status = 0;
     else if (counterpart && isBlocked(accountID, counterpartID)) status = 7;
     else if (counterpart && counterpart.mS === 2) status = 5;
-    else if (counterpart && counterpart.mS === 1 && !isFriend(accountID, counterpartID)) status = 4;
+    else if (counterpart && (counterpart.mS === 1 || (counterpart.mS === 0 && Number(counterpart.modLevel || 0) === 0)) && !isFriend(accountID, counterpartID)) status = 4;
 
     return [
         thread.threadID,
@@ -275,14 +315,19 @@ function serializeThread(thread, accountID) {
     ].join(':');
 }
 
-function serializeMetadata(thread, memberCount) {
-    return [thread.threadID, thread.invitePermission, memberCount, encode(thread.description), thread.mv, 0, 0, 0, encode(thread.title), thread.locked, thread.status === 2 ? 8 : 0].join(':');
+function serializeMetadata(thread, memberCount, accountID) {
+    const pendingDMRequest = thread.isDM && thread.ownerID === accountID && (
+        thread.status === 0 || db.prepare('SELECT 1 FROM thread_members WHERE threadID = ? AND accountID != ? AND status = 0').get(thread.threadID, accountID)
+    );
+    const status = thread.status === 2 ? 8 : pendingDMRequest ? 2 : 0;
+    return [thread.threadID, thread.invitePermission, memberCount, encode(thread.description), thread.mv, 0, 0, 0, encode(thread.title), thread.locked, status].join(':');
 }
 
 module.exports = {
     PAGE_SIZE,
     MESSAGE_PAGE_SIZE,
     REQUEST_TTL_SECONDS,
+    SYSTEM_ACCOUNT_ID,
     expireThreadRequests,
     parseInteger,
     authenticate,
@@ -291,12 +336,14 @@ module.exports = {
     getIconLoadout,
     serializeIconLoadout,
     getProfile,
+    getThreadProfile,
     isFriend,
     isBlocked,
     canInvite,
     canStartDM,
     getThreadAccess,
     addMessage,
+    revealHiddenDMRecipients,
     addSystemMessage,
     getLatestMessage,
     serializeMessage,

@@ -8,9 +8,10 @@ module.exports = {
     middleware: [commonSecret],
     handler: (req, res) => {
         const auth = threadUtils.authenticate(req.body);
-        const threadID = threadUtils.parseInteger(req.body?.threadID);
         const mode = threadUtils.parseInteger(req.body?.mode, -1);
         const value = threadUtils.decode(req.body?.value || '', true);
+        const requestedThreadID = threadUtils.parseInteger(req.body?.threadID);
+        const threadID = requestedThreadID || (mode === 1 ? threadUtils.parseInteger(value) : 0);
 
         // sanity checks
         if (!auth || ![1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 18].includes(mode)) return res.send('-1');
@@ -39,7 +40,13 @@ module.exports = {
 
                 if (mode === 1) {
                     const historyCursor = latestMessage?.messageID || 0;
-                    db.prepare('UPDATE thread_members SET clearedBeforeID = ?, lastReadMessageID = ? WHERE threadID = ? AND accountID = ?')
+                    if (access.isDM && access.ownerID === threadUtils.SYSTEM_ACCOUNT_ID) {
+                        db.prepare('DELETE FROM thread_messages WHERE threadID = ?').run(threadID);
+                        db.prepare('DELETE FROM thread_members WHERE threadID = ?').run(threadID);
+                        db.prepare('DELETE FROM threads WHERE threadID = ?').run(threadID);
+                        return true;
+                    }
+                    db.prepare('UPDATE thread_members SET clearedBeforeID = ?, lastReadMessageID = ?, hidden = 1 WHERE threadID = ? AND accountID = ?')
                         .run(historyCursor, historyCursor, threadID, auth.accountID);
                     return true;
                 }
@@ -63,7 +70,7 @@ module.exports = {
                     const invitedAccountIDs = [];
                     for (const targetAccountID of targets) {
                         const existing = db.prepare('SELECT status FROM thread_members WHERE threadID = ? AND accountID = ?').get(threadID, targetAccountID);
-                        if (existing && existing.status !== 2) continue;
+                        if (existing && ![2, 3].includes(existing.status)) continue;
                         const historyCursor = threadUtils.getLatestMessage(threadID)?.messageID || 0;
                         if (existing) {
                             db.prepare(`
@@ -80,7 +87,7 @@ module.exports = {
                             `).run(threadID, targetAccountID, auth.accountID, timestamp, historyCursor, historyCursor);
                         }
                         const inviteMessage = threadUtils.addSystemMessage(threadID, 6, auth.accountID, targetAccountID);
-                        if (existing?.status === 2) {
+                        if (existing && [2, 3].includes(existing.status)) {
                             db.prepare('UPDATE thread_members SET lastReadMessageID = ?, clearedBeforeID = ? WHERE threadID = ? AND accountID = ?')
                                 .run(inviteMessage.messageID, inviteMessage.messageID, threadID, targetAccountID);
                         }
@@ -91,6 +98,12 @@ module.exports = {
 
                 if (mode === 5) {
                     if (access.status !== 1) return false;
+                    if (access.isDM && access.ownerID === threadUtils.SYSTEM_ACCOUNT_ID) {
+                        db.prepare('DELETE FROM thread_messages WHERE threadID = ?').run(threadID);
+                        db.prepare('DELETE FROM thread_members WHERE threadID = ?').run(threadID);
+                        db.prepare('DELETE FROM threads WHERE threadID = ?').run(threadID);
+                        return true;
+                    }
                     const timestamp = Math.floor(Date.now() / 1000);
                     const remainingMembers = db.prepare('SELECT COUNT(*) AS count FROM thread_members WHERE threadID = ? AND status = 1 AND accountID != ?').get(threadID, auth.accountID).count;
                     if (remainingMembers === 0) {
@@ -99,8 +112,13 @@ module.exports = {
                         db.prepare('DELETE FROM threads WHERE threadID = ?').run(threadID);
                         return true;
                     }
-                    db.prepare('UPDATE thread_members SET status = 2, removedAtMessageID = ? WHERE threadID = ? AND accountID = ?')
-                        .run(latestMessage?.messageID || 0, threadID, auth.accountID);
+                    const historyCursor = latestMessage?.messageID || 0;
+                    db.prepare(`
+                        UPDATE thread_members
+                        SET status = 3, removedAtMessageID = ?, clearedBeforeID = MAX(clearedBeforeID, ?),
+                            lastReadMessageID = MAX(lastReadMessageID, ?), hidden = 1
+                        WHERE threadID = ? AND accountID = ?
+                    `).run(historyCursor, historyCursor, historyCursor, threadID, auth.accountID);
                     if (!access.isDM) {
                         const leftMessage = threadUtils.addSystemMessage(threadID, 3, auth.accountID);
                         db.prepare('UPDATE thread_members SET removedAtMessageID = ? WHERE threadID = ? AND accountID = ?')
@@ -161,10 +179,16 @@ module.exports = {
                 if (mode === 8) {
                     if (access.status !== 0) return false;
                     const timestamp = Math.floor(Date.now() / 1000);
-                    const wasKicked = access.removedAtMessageID > 0;
+                    const wasKicked = access.status === 2;
                     db.prepare('UPDATE thread_members SET status = 1, joinedAt = ?, ignoredInvite = 0, hidden = 0 WHERE threadID = ? AND accountID = ?')
                         .run(timestamp, threadID, auth.accountID);
-                    if (access.isDM) return true;
+                    if (access.isDM) {
+                        if (moderator && access.ownerID !== auth.accountID) {
+                            db.prepare('UPDATE thread_members SET status = 0, joinedAt = 0 WHERE threadID = ? AND accountID = ? AND status = 1')
+                                .run(threadID, access.ownerID);
+                        }
+                        return true;
+                    }
                     const joinedMessage = threadUtils.addSystemMessage(threadID, 2, access.invitedBy, auth.accountID);
                     if (wasKicked) {
                         db.prepare('UPDATE thread_members SET lastReadMessageID = ?, clearedBeforeID = ?, removedAtMessageID = 0 WHERE threadID = ? AND accountID = ?')
@@ -189,7 +213,14 @@ module.exports = {
                 if (mode === 11) {
                     const targetAccountID = threadUtils.parseInteger(value);
                     const target = db.prepare('SELECT status, invitedBy FROM thread_members WHERE threadID = ? AND accountID = ?').get(threadID, targetAccountID);
-                    if (access.isDM || !target || target.status !== 0 || (!owner && target.invitedBy !== auth.accountID && !moderator)) return false;
+                    if (access.isDM) {
+                        if (![0, 1].includes(access.status) || access.ownerID !== auth.accountID || !target || ![0, 1].includes(target.status) || targetAccountID === auth.accountID || (access.status === 1 && target.status === 1)) return false;
+                        db.prepare('DELETE FROM thread_messages WHERE threadID = ?').run(threadID);
+                        db.prepare('DELETE FROM thread_members WHERE threadID = ?').run(threadID);
+                        db.prepare('DELETE FROM threads WHERE threadID = ?').run(threadID);
+                        return true;
+                    }
+                    if (!target || target.status !== 0 || (!owner && target.invitedBy !== auth.accountID && !moderator)) return false;
                     db.prepare('DELETE FROM thread_members WHERE threadID = ? AND accountID = ?').run(threadID, targetAccountID);
                     db.prepare('UPDATE threads SET updatedAt = ?, mv = mv + 1 WHERE threadID = ?').run(Math.floor(Date.now() / 1000), threadID);
                     return true;

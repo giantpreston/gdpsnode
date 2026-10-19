@@ -5,6 +5,8 @@ const crypto = require('crypto');
 const path = require('path');
 const fs = require('fs/promises');
 
+const DOWNLOAD_MILESTONES = [50000, 100000, 500000, 1000000];
+
 function xorAndEncode(value, key) {
     const xorResult = Buffer.alloc(value.length);
     for (let i = 0; i < value.length; i++) {
@@ -111,14 +113,15 @@ module.exports = {
             })();
         }
 
-        if (incremented && level.downloads < 50000 && level.downloads + 1 >= 50000) {
+        const downloadMilestone = DOWNLOAD_MILESTONES.find(count => level.downloads < count && level.downloads + 1 >= count);
+        if (incremented && downloadMilestone) {
             utils.notifAdd({
                 toAccountID: level.accountID,
                 notificationMask: 4,
                 type: 11,
                 emoteIcon: 'download',
-                title: '50,000 Downloads!',
-                description: `Your level <cg>${level.levelName}</c> reached <cy>50,000</c> downloads!`,
+            title: `${downloadMilestone.toLocaleString()} Downloads!`,
+            description: `Your level <cg>${level.levelName}</c> reached <cy>${downloadMilestone.toLocaleString()}</c> downloads!`,
                 hasLevel: true,
                 levelID: level.levelID,
                 accountID: level.accountID,
