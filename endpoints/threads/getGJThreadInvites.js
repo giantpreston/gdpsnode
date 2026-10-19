@@ -22,11 +22,13 @@ module.exports = {
                     AND (t.isDM = 0 OR (m.ignoredInvite = 0 AND t.ownerID != m.accountID))
                 ORDER BY m.invitedAt DESC, t.threadID DESC
             `).all(auth.accountID);
+            const getMemberCount = db.prepare('SELECT COUNT(*) AS count FROM thread_members WHERE threadID = ? AND status = 1');
             const inviteObjects = invites.map(invite => {
                 const inviter = db.prepare('SELECT userName FROM accounts WHERE accountID = ?').get(invite.invitedBy);
                 if (!inviter) return '';
                 const lastMessage = threadUtils.getLatestMessage(invite.threadID);
                 const inviterProfile = threadUtils.getProfile(invite.invitedBy);
+                const memberCount = invite.isDM ? 0 : getMemberCount.get(invite.threadID).count;
                 const requestMessage = invite.isDM
                     ? db.prepare(`
                         SELECT content FROM thread_messages
@@ -39,7 +41,7 @@ module.exports = {
                     invite.invitedBy,
                     threadUtils.encode(inviter.userName),
                     invite.isDM ? '' : threadUtils.encode(invite.title),
-                    invite.isDM ? 0 : 16,
+                    invite.isDM ? 0 : memberCount,
                     utils.getRelative(invite.invitedAt),
                     utils.getRelative(lastMessage?.timestamp || invite.createdAt),
                     requestMessage?.content || '',
