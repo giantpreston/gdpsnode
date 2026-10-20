@@ -244,6 +244,31 @@ function serializeInvite(member) {
     ].join(':');
 }
 
+function getCounterpart(thread, accountID) {
+    const member = thread.isDM
+        ? db.prepare(`
+            SELECT accountID, status FROM thread_members
+            WHERE threadID = ? AND accountID != ? AND status IN (0, 1)
+        `).get(thread.threadID, accountID)
+        : null;
+    const accountIDForCounterpart = member?.accountID || 0;
+    return {
+        member,
+        accountID: accountIDForCounterpart,
+        profile: accountIDForCounterpart ? getThreadProfile(accountIDForCounterpart) : null
+    };
+}
+
+function getClientThreadStatus(thread, accountID, counterpartMember, counterpartID, counterpart) {
+    if (!thread.isDM && thread.status === 2) return 8;
+    if (thread.isDM && thread.ownerID === accountID && (thread.status === 0 || counterpartMember?.status === 0)) return 2;
+    if (thread.isDM && thread.status === 1 && thread.ownerID !== accountID && counterpartMember?.accountID === thread.ownerID && counterpartMember.status === 0) return 0;
+    if (counterpart && isBlocked(accountID, counterpartID)) return 7;
+    if (counterpart && counterpart.mS === 2) return 5;
+    if (counterpart && (counterpart.mS === 1 || (counterpart.mS === 0 && Number(counterpart.modLevel || 0) === 0)) && !isFriend(accountID, counterpartID)) return 4;
+    return 0;
+}
+
 function serializeThread(thread, accountID) {
     const lastMessage = getLatestMessage(thread.threadID);
     const activeMembers = db.prepare(`
@@ -252,14 +277,7 @@ function serializeThread(thread, accountID) {
         ORDER BY joinedAt, accountID
     `).all(thread.threadID);
     const memberIDs = activeMembers.map(member => member.accountID);
-    const counterpartMember = thread.isDM
-        ? db.prepare(`
-            SELECT accountID, status FROM thread_members
-            WHERE threadID = ? AND accountID != ? AND status IN (0, 1)
-        `).get(thread.threadID, accountID)
-        : null;
-    const counterpartID = counterpartMember?.accountID || 0;
-    const counterpart = counterpartID ? getThreadProfile(counterpartID) : null;
+    const { member: counterpartMember, accountID: counterpartID, profile: counterpart } = getCounterpart(thread, accountID);
     const lastSenderID = lastMessage?.accountID || 0;
     const lastSender = lastSenderID === SYSTEM_ACCOUNT_ID
         ? { userName: SYSTEM_ACCOUNT_NAME }
@@ -277,13 +295,7 @@ function serializeThread(thread, accountID) {
             thread.removedAtMessageID || 0
         ).count
         : 0;
-    let status = 0;
-    if (!thread.isDM && thread.status === 2) status = 8;
-    else if (thread.isDM && thread.ownerID === accountID && (thread.status === 0 || counterpartMember?.status === 0)) status = 2;
-    else if (thread.isDM && thread.status === 1 && thread.ownerID !== accountID && counterpartMember?.accountID === thread.ownerID && counterpartMember.status === 0) status = 0;
-    else if (counterpart && isBlocked(accountID, counterpartID)) status = 7;
-    else if (counterpart && counterpart.mS === 2) status = 5;
-    else if (counterpart && (counterpart.mS === 1 || (counterpart.mS === 0 && Number(counterpart.modLevel || 0) === 0)) && !isFriend(accountID, counterpartID)) status = 4;
+    const status = getClientThreadStatus(thread, accountID, counterpartMember, counterpartID, counterpart);
 
     return [
         thread.threadID,
@@ -316,10 +328,8 @@ function serializeThread(thread, accountID) {
 }
 
 function serializeMetadata(thread, memberCount, accountID) {
-    const pendingDMRequest = thread.isDM && thread.ownerID === accountID && (
-        thread.status === 0 || db.prepare('SELECT 1 FROM thread_members WHERE threadID = ? AND accountID != ? AND status = 0').get(thread.threadID, accountID)
-    );
-    const status = thread.status === 2 ? 8 : pendingDMRequest ? 2 : 0;
+    const { member: counterpartMember, accountID: counterpartID, profile: counterpart } = getCounterpart(thread, accountID);
+    const status = getClientThreadStatus(thread, accountID, counterpartMember, counterpartID, counterpart);
     return [thread.threadID, thread.invitePermission, memberCount, encode(thread.description), thread.mv, 0, 0, 0, encode(thread.title), thread.locked, status].join(':');
 }
 
