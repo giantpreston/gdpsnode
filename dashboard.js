@@ -204,9 +204,9 @@ function requireCsrf(req, res, next) {
     next();
 }
 
-function applyRating(levelId, stars, feature, demonDiff) {
-    const values = [stars];
-    const updates = ['starStars = ?', 'starAuto = 0', 'starDemon = 0', 'starDemonDiff = 0'];
+function applyRating(levelId, stars, feature, demonDiff, starCoins) {
+    const values = [stars, starCoins];
+    const updates = ['starStars = ?', 'starCoins = ?', 'starAuto = 0', 'starDemon = 0', 'starDemonDiff = 0'];
     if (stars === 1) {
         updates.push('starAuto = 1', 'starDifficulty = 1');
     } else if (stars === 2) {
@@ -249,7 +249,7 @@ function applyRating(levelId, stars, feature, demonDiff) {
 }
 
 function clearRating(levelId) {
-    const clear = db.prepare(`UPDATE levels SET starStars = 0,
+    const clear = db.prepare(`UPDATE levels SET starStars = 0, starCoins = 0,
         starAuto = 0, starDemon = 0, featured = 0, starEpic = 0, starDemonDiff = 0,
         isSent = 0, lastSent = 0, starDifficulty = ? WHERE levelID = ?`);
     const getLevel = db.prepare('SELECT accountID, starStars, featured, starEpic, avgUserRate FROM levels WHERE levelID = ?');
@@ -515,7 +515,7 @@ router.get('/api/bootstrap', requireAuth, (req, res) => {
         (SELECT COUNT(*) FROM profiles WHERE modLevel > 0) AS moderators,
         (SELECT COUNT(*) FROM profiles WHERE modLevel = 2) AS elders,
         (SELECT COUNT(*) FROM modSuggest) AS pending`).get() : null;
-    const pending = features.has('levels') ? db.prepare(`SELECT m.levelID, m.stars, m.demonDiff, m.feature, l.levelName,
+    const pending = features.has('levels') ? db.prepare(`SELECT m.levelID, m.stars, m.demonDiff, m.feature, m.starCoins, l.levelName,
         l.levelLength, l.uploadDate, p.userName AS moderator
         FROM modSuggest m JOIN levels l ON l.levelID = m.levelID
         LEFT JOIN profiles p ON p.accountID = m.accountID
@@ -1065,12 +1065,17 @@ router.get('/api/levels/:levelId', requireAuth, (req, res) => {
     const level = db.prepare(`SELECT l.*, p.userName AS creator FROM levels l
         LEFT JOIN profiles p ON p.accountID = l.accountID WHERE l.levelID = ?`).get(levelId);
     if (!level) return res.status(404).json({ error: 'Level not found' });
-    const suggestions = db.prepare(`SELECT m.stars, m.demonDiff, m.feature, p.userName AS moderator
+    const suggestions = db.prepare(`SELECT m.stars, m.demonDiff, m.feature, m.starCoins, p.userName AS moderator
         FROM modSuggest m LEFT JOIN profiles p ON p.accountID = m.accountID
         WHERE m.levelID = ? ORDER BY p.userName`).all(levelId);
     const ratings = db.prepare(`SELECT r.accountID, r.stars, p.userName FROM level_ratings r
         LEFT JOIN profiles p ON p.accountID = r.accountID WHERE r.levelID = ? ORDER BY r.accountID`).all(levelId);
-    res.json({ level, suggestions, ratings });
+    const demonRatings = db.prepare(`SELECT r.accountID, r.demonDiff, r.starCoins, r.mode, p.userName,
+        COALESCE(p.modLevel, 0) AS modLevel
+        FROM level_demon_ratings r LEFT JOIN profiles p ON p.accountID = r.accountID
+        WHERE r.levelID = ?
+        ORDER BY CASE WHEN r.mode = 1 AND p.modLevel IN (1, 2) THEN 0 ELSE 1 END, r.accountID`).all(levelId);
+    res.json({ level, suggestions, ratings, demonRatings });
 });
 
 router.put('/api/levels/:levelId/details', requireAuth, requireCsrf, (req, res) => {
@@ -1135,15 +1140,17 @@ router.post('/api/rate', requireAuth, requireCsrf, (req, res) => {
     const stars = Number(req.body?.stars);
     const feature = Number(req.body?.feature || 0);
     const demonDiff = Number(req.body?.demonDiff || 0);
+    const starCoins = Number(req.body?.starCoins ?? 0);
     if (!Number.isInteger(levelId) || levelId < 1 || !Number.isInteger(stars) || stars < 1 || stars > 10 || !Number.isInteger(feature) || feature < 0 || feature > 4) {
         return res.status(400).json({ error: 'Invalid rating' });
     }
+    if (![0, 1].includes(starCoins)) return res.status(400).json({ error: 'Invalid verified coin value' });
     if (stars === 10 && ![0, 3, 4, 5, 6].includes(demonDiff)) return res.status(400).json({ error: 'Invalid demon difficulty' });
     if (stars !== 10 && demonDiff !== 0) return res.status(400).json({ error: 'Demon difficulty requires a 10-star rating' });
     try {
         const previousLevel = db.prepare('SELECT accountID, starStars, featured, starEpic FROM levels WHERE levelID = ?').get(levelId);
         if (!previousLevel) return res.status(404).json({ error: 'Level not found' });
-        if (!applyRating(levelId, stars, feature, demonDiff)) return res.status(404).json({ error: 'Level not found' });
+        if (!applyRating(levelId, stars, feature, demonDiff, starCoins)) return res.status(404).json({ error: 'Level not found' });
         const level = db.prepare(`SELECT l.levelID, l.accountID, l.levelName, l.levelLength, l.starStars, l.starDifficulty, l.starAuto,
             l.starDemon, l.starDemonDiff, l.featured, l.starEpic, l.coins, l.starCoins, p.userName AS creator
             FROM levels l LEFT JOIN profiles p ON p.accountID = l.accountID WHERE l.levelID = ?`).get(levelId);
@@ -1185,6 +1192,17 @@ router.delete('/api/levels/:levelId/user-ratings/:accountId', requireAuth, requi
     const result = db.prepare('DELETE FROM level_ratings WHERE levelID = ? AND accountID = ?').run(levelId, accountId);
     if (!result.changes) return res.status(404).json({ error: 'Rating not found' });
     refreshUserRatingStats(levelId);
+    res.status(204).end();
+});
+
+router.delete('/api/levels/:levelId/user-demon-ratings/:accountId', requireAuth, requireCsrf, (req, res) => {
+    const levelId = Number(req.params.levelId);
+    const accountId = Number(req.params.accountId);
+    if (!Number.isInteger(levelId) || levelId < 1 || !Number.isInteger(accountId) || accountId < 1) {
+        return res.status(400).json({ error: 'Invalid demon rating' });
+    }
+    const result = db.prepare('DELETE FROM level_demon_ratings WHERE levelID = ? AND accountID = ?').run(levelId, accountId);
+    if (!result.changes) return res.status(404).json({ error: 'Demon rating not found' });
     res.status(204).end();
 });
 

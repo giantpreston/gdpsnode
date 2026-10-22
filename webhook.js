@@ -54,7 +54,7 @@ function levelRatingWebhookEmbed(level, webhook = hook) {
     const coins = level.coins > 0 ? `${level.coins}${level.starCoins ? 'v' : 'u'}` : 'none';
     const rating = level.starStars > 0 ? `${level.starStars}${level.levelLength >= 5 ? 'm' : 's'}` : 'none';
     const faceUrl = `https://autonick.github.io/diff-faces/levels/${tier}/${difficulty}/${coins}/${rating}.png`;
-    const tierColors = { mythic: 0xe74c3c, legendary: 0xf1c40f, epic: 0x9b59b6, feature: 0x3498db, none: 0x2596be };
+    const tierColors = { mythic: 0x03f0fc, legendary: 0xc603fc, epic: 0xfaca52, feature: 0xffff00, none: 0x2596be };
     const fields = [
         { name: 'Level', value: `${level.levelName} (#${level.levelID})`, inline: true },
         { name: 'Rating', value: `${level.starStars} ${level.levelLength >= 5 ? level.starStars === 1 ? 'moon' : 'moons' : level.starStars === 1 ? 'star' : 'stars'}`, inline: true },

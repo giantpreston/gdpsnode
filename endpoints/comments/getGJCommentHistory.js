@@ -88,6 +88,8 @@ module.exports = {
                     userString += `${comment.accountID + 1}:${comment.userName}:${accountID}|`;
                 }
 
+                if (ownAcc) commentString += `~13~${areFriends ? 1 : 0}`;
+
                 commentString += '|';
             }
             commentString = commentString.slice(0, -1);

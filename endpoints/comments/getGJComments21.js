@@ -20,9 +20,15 @@ module.exports = {
         const rawPage = optionalInteger(req.body?.page, 0);
         const rawMode = optionalInteger(req.body?.mode, 0);
         const rawCount = optionalInteger(req.body?.count, 10);
+        const rawAccountID = req.body?.accountID;
+        const requestAccountID = rawAccountID == null || rawAccountID === ''
+            ? 0
+            : parseInt(utils.number(rawAccountID), 10);
+        const gjp2 = utils.remove(req.body?.gjp2 || '');
 
         const levelID = /^-?\d+$/.test(rawLevelID) ? parseInt(rawLevelID, 10) : NaN;
         if (![rawPage, rawMode, rawCount, cType].every(Number.isInteger)) return res.send('-1');
+        if (!Number.isInteger(requestAccountID) || requestAccountID < 0) return res.send('-1');
         const page = rawPage >= 0 ? rawPage : 0;
         const mode = rawMode >= 0 && rawMode <= 1 ? rawMode : 0;
         const count = rawCount > 0 ? rawCount : 10;
@@ -47,6 +53,11 @@ module.exports = {
 
         if (!target) return res.send('-1');
         if (!lvcm) return res.send('-2');
+        if (requestAccountID) {
+            const account = db.prepare('SELECT gjp2, isDisabled FROM accounts WHERE accountID = ?').get(requestAccountID);
+            if (!account || account.gjp2 !== gjp2) return res.send('-1');
+            if (account.isDisabled === 1) return res.send('-1');
+        }
 
         const offset = page * count;
         const orderBy = mode === 0 ? 'commentID' : 'likes';
@@ -86,6 +97,10 @@ module.exports = {
             let commentString = '';
             let userString = '';
             const users = [];
+            const friendshipQuery = requestAccountID
+                ? db.prepare('SELECT 1 FROM friendships WHERE (person1 = ? AND person2 = ?) OR (person2 = ? AND person1 = ?)')
+                : null;
+            const friendshipCache = new Map();
 
             for (const comment of comments) {
                 const uploadDate = utils.getRelative(comment.timestamp);
@@ -106,6 +121,17 @@ module.exports = {
                 } else if (!users.includes(accountID + 1)) {
                     users.push(accountID + 1);
                     userString += `${accountID + 1}:${comment.userName}:${accountID}|`;
+                }
+
+                if (friendshipQuery) {
+                    let areFriends = friendshipCache.get(accountID);
+                    if (areFriends === undefined) {
+                        areFriends = accountID !== requestAccountID && Boolean(friendshipQuery.get(
+                            requestAccountID, accountID, requestAccountID, accountID
+                        ));
+                        friendshipCache.set(accountID, areFriends);
+                    }
+                    commentString += `~13~${areFriends ? 1 : 0}`;
                 }
 
                 commentString += '|';

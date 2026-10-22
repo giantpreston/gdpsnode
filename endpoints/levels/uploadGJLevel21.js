@@ -123,6 +123,7 @@ module.exports = {
         if (unlisted < 0 || unlisted > 2) return res.send('-1');
         if (ldm > 1 || ldm < 0) return res.send('-1');
         if (notify < 0 || notify > 3) return res.send('-1');
+        if (notify && unlisted !== 0) return res.send('-1');
         if (!utils.isURLBase64(levelString)) return res.send('-1');
         if (wt < 0 || wt2 < 0) return res.send('-1');
 

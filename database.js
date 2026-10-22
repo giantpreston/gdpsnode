@@ -221,12 +221,22 @@ db.exec(`
         PRIMARY KEY (levelID, accountID)
     );
 
+    CREATE TABLE IF NOT EXISTS level_demon_ratings (
+        levelID INTEGER NOT NULL,
+        accountID INTEGER NOT NULL,
+        demonDiff INTEGER NOT NULL,
+        mode INTEGER NOT NULL DEFAULT 0,
+        starCoins INTEGER NOT NULL DEFAULT 0,
+        PRIMARY KEY (levelID, accountID)
+    );
+
     CREATE TABLE IF NOT EXISTS modSuggest (
         accountID INTEGER NOT NULL,
         levelID INTEGER NOT NULL,
         stars INTEGER NOT NULL,
         demonDiff INTEGER NOT NULL,
-        feature INTEGER NOT NULL
+        feature INTEGER NOT NULL,
+        starCoins INTEGER NOT NULL DEFAULT 0
     );
 
     CREATE TABLE IF NOT EXISTS gauntlets (
@@ -479,6 +489,7 @@ db.exec(`
     CREATE INDEX IF NOT EXISTS idx_acccomments_accountID ON acccomments(accountID, commentID DESC);
 
     CREATE INDEX IF NOT EXISTS idx_level_ratings_accountID ON level_ratings(accountID);
+    CREATE INDEX IF NOT EXISTS idx_level_demon_ratings_accountID ON level_demon_ratings(accountID);
     CREATE INDEX IF NOT EXISTS idx_modSuggest_levelID ON modSuggest(levelID);
 
     CREATE INDEX IF NOT EXISTS idx_lists_accountID ON lists(accountID);
@@ -535,7 +546,9 @@ const addedColumns = [
     { table: 'notifications', column: 'toAccountID', definition: 'INTEGER NOT NULL DEFAULT 0' },
     { table: 'notifications', column: 'notificationMask', definition: 'INTEGER NOT NULL DEFAULT 0' },
     { table: 'notifications', column: 'createdAt', definition: 'INTEGER NOT NULL DEFAULT 0' },
-    { table: 'friendreqs', column: 'ignored', definition: 'INTEGER NOT NULL DEFAULT 0' }
+    { table: 'friendreqs', column: 'ignored', definition: 'INTEGER NOT NULL DEFAULT 0' },
+    { table: 'modSuggest', column: 'starCoins', definition: 'INTEGER NOT NULL DEFAULT 0' },
+    { table: 'level_demon_ratings', column: 'mode', definition: 'INTEGER NOT NULL DEFAULT 0' }
 ];
 
 db.transaction(() => {

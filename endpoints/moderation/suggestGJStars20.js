@@ -13,12 +13,18 @@ module.exports = {
         const levelID = parseInt(utils.number(req.body?.levelID), 10);
         const stars = parseInt(utils.number(req.body?.stars), 10);
         const feature = parseInt(utils.number(req.body?.feature), 10);
+        const coin = req.body?.coin === undefined ? 1 : parseInt(utils.number(req.body.coin), 10);
+        const rawDemonDiff = req.body?.demonDiff === undefined ? 0 : parseInt(utils.number(req.body.demonDiff), 10);
+        const demonDiffMap = { 0: 3, 1: 3, 2: 4, 3: 0, 4: 5, 5: 6 };
+        const demonDiff = demonDiffMap[rawDemonDiff] ?? (rawDemonDiff === 0 ? 0 : -1);
 
         // sanity checks
-        if (!accountID || !gjp2 || !levelID || Number.isNaN(stars) || Number.isNaN(feature)) return res.send('-1');
+        if (!accountID || !gjp2 || !levelID || Number.isNaN(stars) || Number.isNaN(feature) ||
+            Number.isNaN(coin) || Number.isNaN(rawDemonDiff)) return res.send('-1');
         if (gjp2.length !== 40) return res.send('-1');
         if (stars < 0 || stars > 10) return res.send('-1');
         if (feature < 0 || feature > 4) return res.send('-1');
+        if (![0, 1].includes(coin) || demonDiff < 0 || (stars !== 10 && rawDemonDiff !== 0)) return res.send('-1');
 
         // db checks
         const check = db.prepare('SELECT * FROM accounts WHERE accountID = ?');
@@ -37,8 +43,8 @@ module.exports = {
             if (profile.modLevel === 1) {
                 if (stars === 0) return res.send('-1');
                 const submitted = db.transaction(() => {
-                    const suggestion = db.prepare('INSERT INTO modsuggest (accountID, levelID, stars, demonDiff, feature) VALUES (?, ?, ?, ?, ?)')
-                        .run(accountID, levelID, stars, 0, feature);
+                    const suggestion = db.prepare('INSERT INTO modsuggest (accountID, levelID, stars, demonDiff, feature, starCoins) VALUES (?, ?, ?, ?, ?, ?)')
+                        .run(accountID, levelID, stars, demonDiff, feature, coin);
                     const updatedLevel = db.prepare('UPDATE levels SET isSent = 1, lastSent = ? WHERE levelID = ?')
                         .run(Math.floor(Date.now() / 1000), levelID);
                     if (suggestion.changes === 0 || updatedLevel.changes === 0) throw new Error('Suggestion was not fully applied');
@@ -53,7 +59,7 @@ module.exports = {
                 updates.push('starStars = ?');
                 updates.push('starCoins = ?');
                 params.push(stars);
-                params.push(1);
+                params.push(coin);
 
                 if (stars === 0) {
                     updates.push('starAuto = 0');
@@ -86,8 +92,10 @@ module.exports = {
                     updates.push('starDifficulty = 5');
                 } else if (stars === 10) {
                     updates.push('starAuto = 0');
-                    updates.push('starDifficulty = 5');
+                    updates.push('starDifficulty = 0');
                     updates.push('starDemon = 1');
+                    updates.push('starDemonDiff = ?');
+                    params.push(demonDiff);
                 }
         
                 if (feature === 1) {

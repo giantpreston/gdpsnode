@@ -37,6 +37,7 @@ module.exports = {
             const type = integer(body.type);
             const rawPage = integer(body.page);
             const star = integer(body.star);
+            const noStar = integer(body.noStar);
             const featured = integer(body.featured);
             const demonFilter = integer(body.demonFilter);
             if (![accountID, type, rawPage, star, featured, demonFilter].every(Number.isInteger) || accountID < 0) return res.send('-1');
@@ -53,6 +54,7 @@ module.exports = {
             const params = [];
             let order = 'likes DESC';
 
+            if (noStar === 1) conditions.push('starStars = 0');
             if (star !== 0 || featured === 1) {
                 conditions.push('starStars != 0');
             }
