@@ -161,7 +161,7 @@ module.exports = {
                     conditions.push('(unlisted IN (0, 2) OR (unlisted = 1 AND accountID = ?))');
                     params.push(accountID);
                 } else {
-                    conditions.push('unlisted = 0');
+                    conditions.push('(unlisted = 0 OR featured = 1)');
                 }
             }
 
@@ -181,15 +181,28 @@ module.exports = {
                     }
                 }
                 lists = lists.filter(list => {
+                    if (list.featured) return true;
                     if (list.unlisted === 0 || list.unlisted === 2) return true;
                     if (list.unlisted === 1 && (list.accountID === accountID || friendIDs.has(list.accountID))) return true;
                     return false;
                 });
             } else {
-                lists = lists.filter(list => list.unlisted === 0 || list.unlisted === 2);
+                lists = lists.filter(list => list.featured || list.unlisted === 0 || list.unlisted === 2);
             }
 
             if (lists.length === 0) return res.send('-1');
+
+            lists = lists.map(list => {
+                if (typeof list.listLevels !== 'string' || !/^\d+(,\d+)*$/.test(list.listLevels)) {
+                    return { ...list, listLevels: '' };
+                }
+                const levelIDs = list.listLevels.split(',').map(Number);
+                const placeholders = levelIDs.map(() => '?').join(',');
+                const publicIDs = new Set(db.prepare(
+                    `SELECT levelID FROM levels WHERE unlisted = 0 AND levelID IN (${placeholders})`
+                ).all(...levelIDs).map(level => level.levelID));
+                return { ...list, listLevels: levelIDs.filter(levelID => publicIDs.has(levelID)).join(',') };
+            });
 
             const accountIDs = [...new Set(lists.map(list => list.accountID))];
             const placeholders = accountIDs.map(() => '?').join(',');

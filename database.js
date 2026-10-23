@@ -163,6 +163,15 @@ db.exec(`
         isSpam INTEGER NOT NULL DEFAULT 0
     );
 
+    CREATE TABLE IF NOT EXISTS moderation_notes (
+        accountID INTEGER NOT NULL,
+        userName TEXT NOT NULL,
+        comment TEXT NOT NULL,
+        targetAccountID INTEGER NOT NULL,
+        commentID INTEGER PRIMARY KEY AUTOINCREMENT,
+        timestamp INTEGER NOT NULL
+    );
+
     CREATE TABLE IF NOT EXISTS editor_sounds (
         soundID INTEGER PRIMARY KEY AUTOINCREMENT,
         accountID INTEGER NOT NULL,
@@ -480,6 +489,7 @@ db.exec(`
 
     CREATE INDEX IF NOT EXISTS idx_comments_levelID_commentID ON comments(levelID, commentID DESC);
     CREATE INDEX IF NOT EXISTS idx_editorpackcomments_pack_comment ON editorpackcomments(editorpackID, commentID DESC);
+    CREATE INDEX IF NOT EXISTS idx_moderation_notes_target_comment ON moderation_notes(targetAccountID, commentID DESC);
     CREATE INDEX IF NOT EXISTS idx_editor_sounds_publication ON editor_sounds(unlisted, uploadDate DESC);
     CREATE INDEX IF NOT EXISTS idx_editor_sounds_accountID ON editor_sounds(accountID, soundID DESC);
     CREATE INDEX IF NOT EXISTS idx_reports_type_targetID ON reports(type, targetID);

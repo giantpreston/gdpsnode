@@ -23,11 +23,15 @@ module.exports = {
 
         // db checks
         const isEditorPackComment = cType === 6;
+        const isModerationNote = cType === 8;
         let target;
         let comment;
         if (isEditorPackComment) {
             target = db.prepare('SELECT * FROM editor_sounds WHERE soundID = ?').get(levelID);
             comment = db.prepare('SELECT * FROM editorpackcomments WHERE commentID = ? AND editorpackID = ?').get(commentID, levelID);
+        } else if (isModerationNote) {
+            target = db.prepare('SELECT accountID FROM profiles WHERE accountID = ?').get(levelID);
+            comment = db.prepare('SELECT * FROM moderation_notes WHERE commentID = ? AND targetAccountID = ?').get(commentID, levelID);
         } else {
             const level = db.prepare('SELECT * FROM levels WHERE levelID = ?').get(levelID);
             const list = db.prepare('SELECT * FROM lists WHERE listID = ?').get(levelID * -1);
@@ -39,7 +43,11 @@ module.exports = {
 
         if (!target || !profile || !account || !comment) return res.send('-1');
         if (account.gjp2 !== gjp2) return res.send('-1');
-        if (profile.modLevel !== 2 && accountID !== target.accountID && comment.accountID !== accountID) return res.send('-1');
+        if (isModerationNote) {
+            if (profile.modLevel < 1 || (profile.modLevel < 2 && comment.accountID !== accountID)) return res.send('-1');
+        } else if (profile.modLevel !== 2 && accountID !== target.accountID && comment.accountID !== accountID) {
+            return res.send('-1');
+        }
         if (account.isDisabled === 1) return res.send('-1');
 
         try {
@@ -47,6 +55,8 @@ module.exports = {
                 let result;
                 if (isEditorPackComment) {
                     result = db.prepare('DELETE FROM editorpackcomments WHERE commentID = ? AND editorpackID = ?').run(commentID, levelID);
+                } else if (isModerationNote) {
+                    result = db.prepare('DELETE FROM moderation_notes WHERE commentID = ? AND targetAccountID = ?').run(commentID, levelID);
                 } else {
                     result = db.prepare('DELETE FROM comments WHERE commentID = ? AND levelID = ?').run(commentID, levelID);
                 }

@@ -9,12 +9,15 @@ module.exports = {
     handler: (req, res) => {
         let rawAccountID = req.body?.targetAccountID ?? req.body?.accountid ?? req.body?.accountID;
         const rawPage = req.body?.page ?? req.body?.p ?? req.body?.pageNumber;
-        const rawRequestAccountID = req.body?.accountID;
+        let rawRequestAccountID = req.body?.accountID;
         const gjp2 = utils.remove(req.body?.gjp2 || '');
         const hasSeparateTarget = req.body?.targetAccountID != null || req.body?.accountid != null;
         
         if (Array.isArray(rawAccountID)) {
             rawAccountID = rawAccountID[rawAccountID.length - 1];
+        }
+        if (Array.isArray(rawRequestAccountID)) {
+            rawRequestAccountID = rawRequestAccountID[rawRequestAccountID.length - 1];
         }
         
         const parsedAccountID = Number(String(rawAccountID ?? '').replace(/[^0-9-]/g, ''));

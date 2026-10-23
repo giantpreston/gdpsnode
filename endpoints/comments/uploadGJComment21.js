@@ -3,8 +3,8 @@ const utils = require('../../utils');
 const db = require('../../database');
 const crypto = require('crypto');
 
-function chkgen(username, comment, levelId, percent) {
-    const chkString = username + comment + levelId.toString() + percent.toString() + "0xPT6iUrtws0J";
+function chkgen(username, comment, levelId, percent, cType) {
+    const chkString = username + comment + levelId.toString() + percent.toString() + cType.toString() + "xPT6iUrtws0J";
     const sha1Hex = crypto.createHash('sha1').update(chkString).digest('hex');
     
     const key = '29481';
@@ -17,6 +17,19 @@ function chkgen(username, comment, levelId, percent) {
         .toString('base64')
         .replace(/\+/g, '-')
         .replace(/\//g, '_')
+}
+
+function legacyChkgen(username, comment, levelId, percent) {
+    const chkString = username + comment + levelId.toString() + percent.toString() + "0xPT6iUrtws0J";
+    const sha1Hex = crypto.createHash('sha1').update(chkString).digest('hex');
+
+    const xorBuffer = Buffer.from(
+        Array.from(sha1Hex, (ch, i) => ch.charCodeAt(0) ^ '29481'.charCodeAt(i % 5))
+    );
+
+    return xorBuffer.toString('base64')
+        .replace(/\+/g, '-')
+        .replace(/\//g, '_');
 }
 
 module.exports = {
@@ -42,23 +55,30 @@ module.exports = {
         
         // db checks
         const isEditorPackComment = cType === 6;
+        const isModerationNote = cType === 8;
         let editorPack = null;
         let level = null;
         let list = null;
+        let targetProfile = null;
         if (isEditorPackComment) {
             editorPack = db.prepare('SELECT * FROM editor_sounds WHERE soundID = ?').get(levelID);
+        } else if (isModerationNote) {
+            targetProfile = db.prepare('SELECT p.accountID FROM profiles p JOIN accounts a ON a.accountID = p.accountID WHERE p.accountID = ?').get(levelID);
         } else {
             level = db.prepare('SELECT * FROM levels WHERE levelID = ?').get(levelID);
-            list = db.prepare('SELECT * FROM lists WHERE listID = ?').get(levelID * -1); // oops
+            list = db.prepare('SELECT * FROM lists WHERE listID = ?').get(Math.abs(levelID));
         }
         const profile = db.prepare('SELECT * FROM profiles WHERE accountID = ?').get(accountID);
         const account = db.prepare('SELECT * FROM accounts WHERE accountID = ?').get(accountID);
         
         if (isEditorPackComment && !editorPack) return res.send('-1');
-        if (!isEditorPackComment && ((levelID < 0 && !list) || (levelID > 0 && !level))) return res.send('-1');
+        if (isModerationNote && (!targetProfile || profile?.modLevel < 1)) return res.send('-1');
+        if (!isEditorPackComment && !isModerationNote && ((levelID < 0 && !list) || (levelID > 0 && !level))) return res.send('-1');
         if (!profile || !account) return res.send('-1');
         if (userName !== account.userName) return res.send('-1');
-        if (chkgen(userName, comment, levelID, percent) !== chk) return res.send('-1');
+        const checksumMatches = chkgen(userName, comment, levelID, percent, cType) === chk;
+        const legacyChecksumMatches = cType === 0 && legacyChkgen(userName, comment, levelID, percent) === chk;
+        if (!checksumMatches && !legacyChecksumMatches) return res.send('-1');
         if (account.leaderboardBan === 1) percent = 0
         if (account.gjp2 !== gjp2) return res.send('-1');
         if (account.isDisabled === 1) return res.send('-1');
@@ -76,10 +96,12 @@ module.exports = {
                 let result;
                 if (isEditorPackComment) {
                     result = db.prepare('INSERT INTO editorpackcomments (accountID, userName, comment, editorpackID, timestamp) VALUES (?, ?, ?, ?, ?)').run(accountID, userName, comment, levelID, uploadDate);
+                } else if (isModerationNote) {
+                    result = db.prepare('INSERT INTO moderation_notes (accountID, userName, comment, targetAccountID, timestamp) VALUES (?, ?, ?, ?, ?)').run(accountID, userName, comment, levelID, uploadDate);
                 } else {
                     result = db.prepare('INSERT INTO comments (accountID, userName, comment, levelID, timestamp, percent) VALUES (?, ?, ?, ?, ?, ?)').run(accountID, userName, comment, levelID, uploadDate, percent);
                 }
-                if (!isEditorPackComment && levelID > 0 && percent !== 0) {
+                if (!isEditorPackComment && !isModerationNote && levelID > 0 && percent !== 0) {
                     const existingScore = db.prepare('SELECT percent FROM levelscores WHERE accountID = ? AND levelID = ?').get(accountID, levelID);
                     if (!existingScore) {
                         db.prepare('INSERT INTO levelscores (accountID, levelID, percent, uploadDate, progresses) VALUES (?, ?, ?, ?, ?)').run(accountID, levelID, percent, uploadDate, '');

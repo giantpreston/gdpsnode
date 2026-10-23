@@ -976,14 +976,22 @@ router.delete('/api/map-packs/:id', requireAuth, requireCsrf, (req, res) => {
 function levelListInput(body) {
     const listName = typeof body?.listName === 'string' ? body.listName.trim() : '';
     const listDesc = typeof body?.listDesc === 'string' ? body.listDesc : '';
-    const levels = collectionLevelIds(body?.listLevels);
+    const submittedLevels = collectionLevelIds(body?.listLevels);
+    let levels = null;
+    if (submittedLevels) {
+        const placeholders = submittedLevels.map(() => '?').join(',');
+        const publicIDs = new Set(db.prepare(
+            `SELECT levelID FROM levels WHERE unlisted = 0 AND levelID IN (${placeholders})`
+        ).all(...submittedLevels).map(level => level.levelID));
+        levels = submittedLevels.filter(levelID => publicIDs.has(levelID));
+    }
     const difficulty = Number(body?.starDifficulty);
     const stars = Number(body?.starStars);
     const featured = Number(body?.featured);
     const countForReward = Number(body?.countForReward);
     const original = Number(body?.original);
     const unlisted = Number(body?.unlisted);
-    if (!listName || listName.length > 20 || (listDesc && !/^(?:[A-Za-z0-9_-]{4})*(?:[A-Za-z0-9_-]{2}==|[A-Za-z0-9_-]{3}=)$/.test(listDesc)) || !levels ||
+    if (!listName || listName.length > 20 || (listDesc && !/^(?:[A-Za-z0-9_-]{4})*(?:[A-Za-z0-9_-]{2}==|[A-Za-z0-9_-]{3}=)$/.test(listDesc)) || !levels?.length ||
         !Number.isInteger(difficulty) || difficulty < -1 || difficulty > 10 ||
         !Number.isSafeInteger(stars) || stars < 0 ||
         !Number.isInteger(featured) || featured < 0 || featured > 1 ||
@@ -991,7 +999,10 @@ function levelListInput(body) {
         (stars > 0 && countForReward < 1) ||
         !Number.isInteger(original) || original < 0 || original > 1 ||
         !Number.isInteger(unlisted) || unlisted < 0 || unlisted > 2) return null;
-    return { listName, listDesc, listLevels: levels.join(','), difficulty, stars, featured, countForReward, original, unlisted };
+    return {
+        listName, listDesc, listLevels: levels.join(','), difficulty, stars, featured,
+        countForReward, original, unlisted: featured ? 0 : unlisted
+    };
 }
 
 router.post('/api/lists', requireAuth, requireCsrf, (req, res) => {
@@ -1070,7 +1081,7 @@ router.get('/api/levels/:levelId', requireAuth, (req, res) => {
         WHERE m.levelID = ? ORDER BY p.userName`).all(levelId);
     const ratings = db.prepare(`SELECT r.accountID, r.stars, p.userName FROM level_ratings r
         LEFT JOIN profiles p ON p.accountID = r.accountID WHERE r.levelID = ? ORDER BY r.accountID`).all(levelId);
-    const demonRatings = db.prepare(`SELECT r.accountID, r.demonDiff, r.starCoins, r.mode, p.userName,
+    const demonRatings = db.prepare(`SELECT r.accountID, r.demonDiff, r.mode, p.userName,
         COALESCE(p.modLevel, 0) AS modLevel
         FROM level_demon_ratings r LEFT JOIN profiles p ON p.accountID = r.accountID
         WHERE r.levelID = ?

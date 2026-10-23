@@ -35,13 +35,22 @@ module.exports = {
 
         // sanity checks
         const isEditorPackComment = cType === 6;
-        if (!Number.isInteger(levelID) || !Number.isFinite(levelID) || levelID === 0 || (isEditorPackComment && levelID < 0)) return res.send('-1');
+        const isModerationNote = cType === 8;
+        if (!Number.isInteger(levelID) || !Number.isFinite(levelID) || levelID === 0 ||
+            ((isEditorPackComment || isModerationNote) && levelID < 0)) return res.send('-1');
         if (count > 30) return res.send('-1');
 
         // db checks
         let target;
         let lvcm;
-        if (isEditorPackComment) {
+        if (isModerationNote) {
+            if (!requestAccountID) return res.send('-1');
+            const account = db.prepare('SELECT gjp2, isDisabled FROM accounts WHERE accountID = ?').get(requestAccountID);
+            const profile = db.prepare('SELECT modLevel FROM profiles WHERE accountID = ?').get(requestAccountID);
+            if (!account || account.gjp2 !== gjp2 || account.isDisabled === 1 || !profile || profile.modLevel < 1) return res.send('-1');
+            target = db.prepare('SELECT 1 FROM profiles WHERE accountID = ?').get(levelID);
+            lvcm = db.prepare('SELECT 1 FROM moderation_notes WHERE targetAccountID = ?').get(levelID);
+        } else if (isEditorPackComment) {
             target = db.prepare('SELECT 1 FROM editor_sounds WHERE soundID = ?').get(levelID);
             lvcm = db.prepare('SELECT 1 FROM editorpackcomments WHERE editorpackID = ?').get(levelID);
         } else {
@@ -63,17 +72,16 @@ module.exports = {
         const orderBy = mode === 0 ? 'commentID' : 'likes';
 
         try {
-            const commentTable = isEditorPackComment ? 'editorpackcomments' : 'comments';
-            const targetColumn = isEditorPackComment ? 'editorpackID' : 'levelID';
-            const percentColumn = isEditorPackComment ? '0 AS percent' : 'c.percent';
+            const commentTable = isModerationNote ? 'moderation_notes' : isEditorPackComment ? 'editorpackcomments' : 'comments';
+            const targetColumn = isModerationNote ? 'targetAccountID' : isEditorPackComment ? 'editorpackID' : 'levelID';
+            const percentColumn = isEditorPackComment || isModerationNote ? '0 AS percent' : 'c.percent';
             const query = `
                 SELECT 
                     c.commentID,
                     c.accountID AS commentAccountID,
                     c.timestamp,
                     c.comment,
-                    c.likes,
-                    c.isSpam,
+                    ${isModerationNote ? '0 AS likes, 0 AS isSpam' : 'c.likes, c.isSpam'},
                     ${percentColumn},
                     p.userName,
                     p.icon,

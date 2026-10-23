@@ -21,18 +21,18 @@ module.exports = {
         if (!Number.isInteger(mode) || mode < 0 || mode > 1) return res.send('-1');
 
         // db checks
-        const lvcm = db.prepare('SELECT 1 FROM comments WHERE accountID = ?').get(accountID);
         const check = db.prepare('SELECT gjp2 FROM accounts WHERE accountID = ?').get(ownAcc);
         const user = db.prepare('SELECT cS FROM profiles WHERE accountID = ?').get(accountID);
         const areFriends = ownAcc && db.prepare('SELECT ID FROM friendships WHERE (person1 = ? AND person2 = ?) OR (person2 = ? AND person1 = ?)').get(ownAcc, accountID, ownAcc, accountID);
 
+        if (!user) return res.send('-1');
         if (ownAcc && (!check || check.gjp2 !== gjp2)) return res.send('-1');
         if (user.cS !== 0 && (!ownAcc || user.cS === 2 && ownAcc !== accountID || user.cS === 1 && ownAcc !== accountID && !areFriends)) return res.send('-1');
 
-        if (!lvcm) return res.send('-1');
-
         const offset = page * 30;
-        const orderBy = mode === 0 ? 'commentID' : 'likes';
+        const orderBy = mode === 0
+            ? 'c.timestamp DESC, c.commentID DESC, c.commentType DESC'
+            : 'c.likes DESC, c.timestamp DESC, c.commentID DESC, c.commentType DESC';
 
         try {
             const query = `
@@ -44,24 +44,37 @@ module.exports = {
                     c.likes,
                     c.isSpam,
                     c.percent,
+                    c.commentType,
+                    c.accountID,
                     p.userName,
                     p.icon,
                     p.color1,
                     p.color2,
+                    p.color3,
                     p.iconType,
                     p.special,
-                    p.accountID,
                     p.modLevel
-                FROM comments c
+                FROM (
+                    SELECT commentID, levelID, timestamp, comment, likes, isSpam, percent, 0 AS commentType, accountID
+                    FROM comments
+                    WHERE accountID = ?
+                    UNION ALL
+                    SELECT commentID, editorpackID AS levelID, timestamp, comment, likes, isSpam, 0 AS percent, 6 AS commentType, accountID
+                    FROM editorpackcomments
+                    WHERE accountID = ?
+                ) c
                 LEFT JOIN profiles p ON p.accountID = c.accountID
-                WHERE c.accountID = ?
-                ORDER BY c.${orderBy} DESC
+                ORDER BY ${orderBy}
                 LIMIT ? OFFSET ?
             `;
 
-            const comments = db.prepare(query).all(accountID, 30, offset);
-            const countQuery = db.prepare('SELECT COUNT(*) as total FROM comments WHERE accountID = ?');
-            const totalCount = Number(countQuery.get(accountID).total || 0);
+            const comments = db.prepare(query).all(accountID, accountID, 30, offset);
+            const countQuery = db.prepare(`
+                SELECT
+                    (SELECT COUNT(*) FROM comments WHERE accountID = ?) +
+                    (SELECT COUNT(*) FROM editorpackcomments WHERE accountID = ?) AS total
+            `);
+            const totalCount = Number(countQuery.get(accountID, accountID).total || 0);
 
             let commentString = '';
             let userString = '';
@@ -71,6 +84,7 @@ module.exports = {
                 const uploadDate = utils.getRelative(comment.timestamp);
                 const accountID = comment.accountID || 0;
                 commentString += `1~${comment.levelID}~2~${comment.comment}~3~${accountID + 1}~4~${comment.likes}~5~0~7~${comment.isSpam}~9~${uploadDate}~6~${comment.commentID}~10~${comment.percent}~15~${comment.timestamp}`;
+                if (comment.commentType === 6) commentString += '~14~6';
 
                 if (comment.userName) {
                     const modLevel = comment.modLevel || 0;
@@ -82,7 +96,7 @@ module.exports = {
                         colorString = '~12~75,255,75';
                     }
 
-                    commentString += `~11~${modLevel}${colorString}:1~${comment.userName}~7~1~9~${comment.icon}~10~${comment.color1}~11~${comment.color2}~14~${comment.iconType}~15~${comment.special}~16~${accountID}`;
+                    commentString += `~11~${modLevel}${colorString}:1~${comment.userName}~7~1~9~${comment.icon}~10~${comment.color1}~11~${comment.color2}~51~${comment.color3}~14~${comment.iconType}~15~${comment.special}~16~${accountID}`;
                 } else if (!users.includes(comment.accountID + 1)) {
                     users.push(comment.accountID + 1);
                     userString += `${comment.accountID + 1}:${comment.userName}:${accountID}|`;

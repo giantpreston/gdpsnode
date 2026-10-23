@@ -81,6 +81,7 @@ module.exports = {
         let order;
         let conditions = [];
         let params = [];
+        let type25LevelOrder = [];
 
         const completedLevelIDs = completedLevels.split(',').filter(value => value !== '').map(Number);
         const completedLevelColumn = [32, 33, 34].includes(type) ? 'dailyNumber' : 'levelID';
@@ -223,12 +224,30 @@ module.exports = {
             order = 'uploadDate DESC';
         }
         if (type === 25) {
-            const levelIDs = String(str).split(',').map(Number).filter(n => !Number.isNaN(n));
-            if (levelIDs.length > 0) {
-                const placeholders = levelIDs.map(() => '?').join(',');
-                conditions.push(`levelID IN (${placeholders})`);
-                params.push(...levelIDs);
+            const listID = Number(str);
+            if (!/^\d+$/.test(String(str)) || !Number.isSafeInteger(listID) || listID < 1) return res.send('-1');
+            const list = db.prepare(`SELECT listID, accountID, listLevels, unlisted, featured FROM lists
+                WHERE listID = ? AND accountID IN (SELECT accountID FROM accounts WHERE isDisabled = 0)`).get(listID);
+            if (!list) return res.send('-1');
+
+            if (!list.featured && list.unlisted === 1 && accountID !== list.accountID) {
+                const friendship = accountID
+                    ? db.prepare('SELECT 1 FROM friendships WHERE (person1 = ? AND person2 = ?) OR (person1 = ? AND person2 = ?)').get(
+                        accountID, list.accountID, list.accountID, accountID
+                    )
+                    : null;
+                if (!friendship) return res.send('-1');
+            } else if (list.unlisted !== 0 && list.unlisted !== 1 && list.unlisted !== 2) {
+                return res.send('-1');
             }
+
+            if (typeof list.listLevels !== 'string' || !/^\d+(,\d+)*$/.test(list.listLevels)) return res.send('-1');
+            type25LevelOrder = list.listLevels.split(',').map(Number);
+            if (type25LevelOrder.some(levelID => !Number.isSafeInteger(levelID) || levelID < 1)) return res.send('-1');
+            conditions.push('unlisted = 0');
+            const placeholders = type25LevelOrder.map(() => '?').join(',');
+            conditions.push(`levelID IN (${placeholders})`);
+            params.push(...type25LevelOrder);
         }
         const hypeHour = Math.floor(Date.now() / 3600000);
         if (type === 31) {
@@ -287,7 +306,7 @@ module.exports = {
             starDemon, starStars, featured, starAuto, originalReup, twoPlayer, songID, songIDs,
             coins, starCoins, requestedStars, starEpic, starDemonDiff, objects,
             wt, wt2, ts, uploadDate, updateDate, unlisted, dailyNumber
-            FROM levels${whereClause}${type === 31 ? '' : ` ORDER BY ${order} LIMIT ? OFFSET ?`}`;
+            FROM levels${whereClause}${[25, 31].includes(type) ? '' : ` ORDER BY ${order} LIMIT ? OFFSET ?`}`;
         const stmt = db.prepare(mainSql);
         let levels;
         if (type === 31) {
@@ -299,6 +318,11 @@ module.exports = {
                 .sort((left, right) => left.order.localeCompare(right.order) || left.level.levelID - right.level.levelID)
                 .slice(offset, offset + limit)
                 .map(item => item.level);
+        } else if (type === 25) {
+            const listOrder = new Map(type25LevelOrder.map((levelID, index) => [levelID, index]));
+            levels = stmt.all(...params)
+                .sort((left, right) => listOrder.get(left.levelID) - listOrder.get(right.levelID))
+                .slice(offset, offset + limit);
         } else {
             levels = stmt.all(...params, limit, offset);
         }
@@ -318,7 +342,11 @@ module.exports = {
             levels = levels.filter(level => {
                 if (type === 5 && level.unlisted === 2) return local === 1 && level.accountID === accountID;
                 if (level.unlisted === 0 || level.unlisted === 2) return true;
-                if (level.unlisted === 1 && ((local === 1 && level.accountID === accountID) || friendIDs.has(level.accountID))) return true;
+                if (level.unlisted === 1 && (
+                    (local === 1 && level.accountID === accountID) ||
+                    (type === 25 && level.accountID === accountID) ||
+                    friendIDs.has(level.accountID)
+                )) return true;
                 return false;
             });
         }
