@@ -463,6 +463,38 @@ db.exec(`
         verified INTEGER NOT NULL DEFAULT 0
     );
 
+    CREATE TABLE IF NOT EXISTS level_schedule (
+        scheduleID INTEGER PRIMARY KEY AUTOINCREMENT,
+        type TEXT NOT NULL CHECK (type IN ('daily', 'weekly', 'event')),
+        slot INTEGER NOT NULL,
+        levelID INTEGER NOT NULL,
+        startsAt INTEGER NOT NULL,
+        expiresAt INTEGER NOT NULL,
+        createdAt INTEGER NOT NULL,
+        applied INTEGER NOT NULL DEFAULT 0
+    );
+
+    CREATE TABLE IF NOT EXISTS dashboard_news (
+        newsID INTEGER PRIMARY KEY,
+        publishDate TEXT NOT NULL,
+        title TEXT NOT NULL,
+        body TEXT NOT NULL DEFAULT '',
+        imageFile TEXT NOT NULL DEFAULT '',
+        imageWidth INTEGER NOT NULL DEFAULT 800,
+        imageHeight INTEGER NOT NULL DEFAULT 454,
+        imageClickable INTEGER NOT NULL DEFAULT 0,
+        imageUrl TEXT NOT NULL DEFAULT '',
+        buttonLabel TEXT NOT NULL DEFAULT '',
+        buttonUrl TEXT NOT NULL DEFAULT '',
+        buttonSecondaryUrl TEXT NOT NULL DEFAULT ''
+    );
+
+    CREATE TABLE IF NOT EXISTS dashboard_news_settings (
+        id INTEGER PRIMARY KEY CHECK (id = 1),
+        version INTEGER NOT NULL DEFAULT 1001,
+        payloadFormatVersion INTEGER NOT NULL DEFAULT 2
+    );
+
     CREATE INDEX IF NOT EXISTS idx_accounts_userName ON accounts(userName);
     CREATE INDEX IF NOT EXISTS idx_accounts_gjp2 ON accounts(gjp2);
     CREATE INDEX IF NOT EXISTS idx_dashboard_access_accountID ON dashboard_access(accountID);
@@ -484,6 +516,11 @@ db.exec(`
     CREATE INDEX IF NOT EXISTS idx_levels_unlisted_likes ON levels(unlisted, likes DESC, levelID DESC);
     CREATE INDEX IF NOT EXISTS idx_levels_unlisted_uploadDate ON levels(unlisted, uploadDate DESC, levelID DESC);
     CREATE INDEX IF NOT EXISTS idx_levels_dailyNumber ON levels(dailyNumber, uploadDate DESC);
+    CREATE INDEX IF NOT EXISTS idx_level_schedule_window ON level_schedule(startsAt, expiresAt, type, slot);
+    CREATE INDEX IF NOT EXISTS idx_level_schedule_levelID ON level_schedule(levelID);
+    CREATE INDEX IF NOT EXISTS idx_level_schedule_applied_start ON level_schedule(applied, startsAt, expiresAt);
+    CREATE INDEX IF NOT EXISTS idx_level_schedule_applied_expiry ON level_schedule(applied, expiresAt);
+    CREATE INDEX IF NOT EXISTS idx_dashboard_news_publishDate ON dashboard_news(publishDate);
     CREATE INDEX IF NOT EXISTS idx_levels_isSent_lastSent ON levels(isSent, lastSent DESC, levelID DESC);
     CREATE INDEX IF NOT EXISTS idx_levels_featured_likes ON levels(featured, likes DESC, levelID DESC);
 
@@ -558,7 +595,8 @@ const addedColumns = [
     { table: 'notifications', column: 'createdAt', definition: 'INTEGER NOT NULL DEFAULT 0' },
     { table: 'friendreqs', column: 'ignored', definition: 'INTEGER NOT NULL DEFAULT 0' },
     { table: 'modSuggest', column: 'starCoins', definition: 'INTEGER NOT NULL DEFAULT 0' },
-    { table: 'level_demon_ratings', column: 'mode', definition: 'INTEGER NOT NULL DEFAULT 0' }
+    { table: 'level_demon_ratings', column: 'mode', definition: 'INTEGER NOT NULL DEFAULT 0' },
+    { table: 'dashboard_news_settings', column: 'payloadFormatVersion', definition: 'INTEGER NOT NULL DEFAULT 0' }
 ];
 
 db.transaction(() => {
@@ -638,6 +676,18 @@ db.exec(`
     WHERE title LIKE '%+%' OR title LIKE '%/%'
         OR description LIKE '%+%' OR description LIKE '%/%'
 `);
+
+db.prepare('INSERT OR IGNORE INTO dashboard_news_settings (id, version, payloadFormatVersion) VALUES (1, 1001, 2)').run();
+db.prepare(`UPDATE dashboard_news_settings
+    SET version = version + 1, payloadFormatVersion = 2
+    WHERE id = 1 AND payloadFormatVersion < 2`).run();
+db.prepare(`INSERT OR IGNORE INTO dashboard_news
+    (newsID, publishDate, title, body)
+    VALUES (1, ?, ?, ?)`).run(
+    'October 10, 2026',
+    'Welcome to your new GDPSnode server!',
+    "Welcome to the best alternative to PHP in the GDPS World! GDPSnode is made so you can use it and have fun with your community without the hassle of Apache/Nginx and PHP. I hope you'll love it, check your dashboard for more important settings and have fun! <3"
+);
 
 db.pragma('optimize');
 

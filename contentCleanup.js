@@ -25,6 +25,7 @@ function cleanupLevelRelatedData(levelID, level) {
     db.prepare('DELETE FROM level_ratings WHERE levelID = ?').run(levelID);
     db.prepare('DELETE FROM level_demon_ratings WHERE levelID = ?').run(levelID);
     db.prepare('DELETE FROM modSuggest WHERE levelID = ?').run(levelID);
+    db.prepare('DELETE FROM level_schedule WHERE levelID = ?').run(levelID);
     db.prepare('DELETE FROM levelscores WHERE levelID = ?').run(levelID);
     db.prepare('DELETE FROM platscores WHERE levelID = ?').run(levelID);
     db.prepare(`DELETE FROM content_increments

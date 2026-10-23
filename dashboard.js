@@ -8,6 +8,7 @@ const config = require('./config');
 const utils = require('./utils');
 const { cleanupLevelRelatedData, cleanupListRelatedData, cleanupSongReferences } = require('./contentCleanup');
 const { levelRatingWebhookEmbed } = require('./webhook');
+const { getNewsItems, getNewsVersion, normalizeNewsItems, saveNewsItems } = require('./newsContent');
 
 const ACCOUNT_ACTION_FEATURES = ['accountRole', 'accountDisable', 'leaderboardBan', 'commentBan', 'creatorBan', 'accountAccess'];
 const DASHBOARD_FEATURES = ['overview', 'levels', 'collections', 'management', 'users', 'schedule', ...ACCOUNT_ACTION_FEATURES];
@@ -374,6 +375,7 @@ router.use('/api/server-schedule', requireAuth, requireDashboardFeature('schedul
 router.use('/api/secret-rewards', requireAuth, requireDashboardFeature('management'));
 router.use('/api/songs', requireAuth, requireDashboardFeature('management'));
 router.use('/api/quests', requireAuth, requireDashboardFeature('management'));
+router.use('/api/news', requireAuth, requireDashboardFeature('management'));
 
 const loginLimiter = rateLimit({ windowMs: 15 * 60 * 1000, max: config.security.dashboardAttemptsPerWindow, standardHeaders: true, legacyHeaders: false });
 router.post('/api/login', loginLimiter, (req, res) => {
@@ -666,17 +668,54 @@ router.put('/api/users/:accountId', requireCsrf, (req, res) => {
 });
 
 router.get('/api/server-schedule', requireAuth, (req, res) => {
+    const now = Math.floor(Date.now() / 1000);
     const daily = db.prepare(`SELECT l.levelID, l.levelName, l.dailyNumber, l.dailyTime,
         p.userName AS creator FROM levels l LEFT JOIN profiles p ON p.accountID = l.accountID
-        WHERE l.dailyNumber > 0 AND l.dailyNumber < 100001 ORDER BY l.dailyNumber ASC, l.dailyTime DESC`).all();
+        WHERE l.dailyNumber > 0 AND l.dailyNumber < 100001
+        AND (l.dailyTime = 0 OR l.dailyTime > ?)
+        AND NOT EXISTS (SELECT 1 FROM level_schedule s WHERE s.type = 'daily'
+            AND s.slot = l.dailyNumber AND s.levelID = l.levelID AND s.startsAt <= ? AND s.expiresAt > ?)
+        ORDER BY l.dailyNumber ASC, l.dailyTime DESC`).all(now, now, now);
     const weekly = db.prepare(`SELECT l.levelID, l.levelName, l.dailyNumber, l.dailyTime,
         p.userName AS creator FROM levels l LEFT JOIN profiles p ON p.accountID = l.accountID
-        WHERE l.dailyNumber >= 100001 AND l.dailyNumber <= 200000 ORDER BY l.dailyNumber ASC, l.dailyTime DESC`).all();
+        WHERE l.dailyNumber >= 100001 AND l.dailyNumber <= 200000
+        AND (l.dailyTime = 0 OR l.dailyTime > ?)
+        AND NOT EXISTS (SELECT 1 FROM level_schedule s WHERE s.type = 'weekly'
+            AND s.slot = l.dailyNumber - 100000 AND s.levelID = l.levelID AND s.startsAt <= ? AND s.expiresAt > ?)
+        ORDER BY l.dailyNumber ASC, l.dailyTime DESC`).all(now, now, now);
     const event = db.prepare(`SELECT l.levelID, l.levelName, l.dailyNumber, l.dailyTime,
         p.userName AS creator FROM levels l LEFT JOIN profiles p ON p.accountID = l.accountID
-        WHERE l.dailyNumber > 200000 ORDER BY l.dailyNumber ASC, l.dailyTime DESC`).all();
-    res.json({ daily, weekly, event });
+        WHERE l.dailyNumber > 200000
+        AND (l.dailyTime = 0 OR l.dailyTime > ?)
+        AND NOT EXISTS (SELECT 1 FROM level_schedule s WHERE s.type = 'event'
+            AND s.slot = l.dailyNumber - 200000 AND s.levelID = l.levelID AND s.startsAt <= ? AND s.expiresAt > ?)
+        ORDER BY l.dailyNumber ASC, l.dailyTime DESC`).all(now, now, now);
+    const plans = db.prepare(`SELECT s.scheduleID, s.type, s.slot, s.levelID, s.startsAt, s.expiresAt,
+        l.levelName, p.userName AS creator
+        FROM level_schedule s JOIN levels l ON l.levelID = s.levelID
+        LEFT JOIN profiles p ON p.accountID = l.accountID
+        ORDER BY s.startsAt ASC, s.type ASC, s.slot ASC`).all();
+    res.json({ daily, weekly, event, plans, nextSlots: getNextScheduleSlots() });
 });
+
+function getNextScheduleSlots() {
+    const assigned = db.prepare(`SELECT
+        COALESCE(MAX(CASE WHEN dailyNumber BETWEEN 1 AND 100000 THEN dailyNumber END), 0) AS daily,
+        COALESCE(MAX(CASE WHEN dailyNumber BETWEEN 100001 AND 200000 THEN dailyNumber - 100000 END), 0) AS weekly,
+        COALESCE(MAX(CASE WHEN dailyNumber > 200000 THEN dailyNumber - 200000 END), 0) AS event
+        FROM levels`).get();
+    const scheduled = db.prepare(`SELECT type, COALESCE(MAX(slot), 0) AS maxSlot
+        FROM level_schedule GROUP BY type`).all();
+    const slots = {
+        daily: Number(assigned.daily) || 0,
+        weekly: Number(assigned.weekly) || 0,
+        event: Number(assigned.event) || 0
+    };
+    for (const row of scheduled) {
+        if (Object.hasOwn(slots, row.type)) slots[row.type] = Math.max(slots[row.type], Number(row.maxSlot) || 0);
+    }
+    return Object.fromEntries(Object.entries(slots).map(([type, slot]) => [type, slot + 1]));
+}
 
 function scheduleTargetNumber(type, slot) {
     if (type === 'event') return slot + 200000;
@@ -694,24 +733,25 @@ function scheduleTypeFromNumber(number) {
 router.post('/api/server-schedule', requireAuth, requireCsrf, (req, res) => {
     const levelId = Number(req.body?.levelId);
     const slot = Number(req.body?.slot);
+    const startsAt = Number(req.body?.startsAt);
     const rawExpiresAt = req.body?.expiresAt;
     const expiresAt = Number(rawExpiresAt);
     const type = String(req.body?.type || 'daily');
-    const isWeekly = type === 'weekly';
-    const isEvent = type === 'event';
 
+    if (!['daily', 'weekly', 'event'].includes(type)) return res.status(400).json({ error: 'Invalid schedule type' });
     if (!Number.isInteger(levelId) || levelId < 1) return res.status(400).json({ error: 'Invalid level ID' });
-    if (!Number.isInteger(slot) || slot < 1) return res.status(400).json({ error: 'Invalid slot number' });
     const now = Math.floor(Date.now() / 1000);
-    if (!Number.isInteger(expiresAt) || expiresAt <= now) return res.status(400).json({ error: 'Schedule levels must have a future expiry' });
+    if (!Number.isInteger(slot) || slot < 1 || slot > 100000) return res.status(400).json({ error: 'Slot number must be between 1 and 100000' });
+    if (!Number.isInteger(startsAt) || startsAt < now) return res.status(400).json({ error: 'Schedule start must be now or later' });
+    if (!Number.isInteger(expiresAt) || expiresAt <= startsAt) return res.status(400).json({ error: 'Schedule expiry must be later than its start' });
 
-    const level = db.prepare('SELECT levelID, accountID, levelName, dailyNumber FROM levels WHERE levelID = ?').get(levelId);
+    const nextSlot = getNextScheduleSlots()[type];
+    if (slot < nextSlot) return res.status(409).json({ error: `The next ${type} number must be ${nextSlot} or higher` });
+
+    const level = db.prepare('SELECT levelID FROM levels WHERE levelID = ?').get(levelId);
     if (!level) return res.status(404).json({ error: 'Level not found' });
 
     const targetNumber = scheduleTargetNumber(type, slot);
-    const slotConflict = db.prepare('SELECT levelID FROM levels WHERE dailyNumber = ? AND levelID != ?').get(targetNumber, levelId);
-    if (slotConflict) return res.status(409).json({ error: `That ${type} slot is already assigned to level #${slotConflict.levelID}` });
-
     const otherAssignments = db.prepare('SELECT dailyNumber FROM levels WHERE levelID = ? AND dailyNumber != 0').all(levelId);
     const duplicateInType = otherAssignments.some(item => {
         const currentType = scheduleTypeFromNumber(item.dailyNumber);
@@ -719,49 +759,61 @@ router.post('/api/server-schedule', requireAuth, requireCsrf, (req, res) => {
     });
     if (duplicateInType) return res.status(409).json({ error: `This level is already assigned to another ${type} slot` });
 
-    db.transaction(() => {
-        db.prepare('UPDATE levels SET dailyNumber = ?, dailyTime = ? WHERE levelID = ?').run(targetNumber, expiresAt, levelId);
-    })();
+    const overlapping = db.prepare(`SELECT scheduleID FROM level_schedule
+        WHERE type = ? AND startsAt < ? AND expiresAt > ?`).get(type, expiresAt, startsAt);
+    if (overlapping) return res.status(409).json({ error: `A ${type} level is already scheduled during this time` });
+    const alreadyScheduled = db.prepare(`SELECT scheduleID FROM level_schedule
+        WHERE levelID = ? AND startsAt < ? AND expiresAt > ?`).get(levelId, expiresAt, startsAt);
+    if (alreadyScheduled) return res.status(409).json({ error: 'This level already has a schedule during this time' });
 
-    if (type === 'daily' && scheduleTypeFromNumber(level.dailyNumber) !== 'daily') {
-        const creator = db.prepare('SELECT userName FROM profiles WHERE accountID = ?').get(level.accountID);
-        const username = creator?.userName || '';
-        utils.notifAdd({
-            toAccountID: level.accountID,
-            type: 15,
-            emoteIcon: 'royal',
-            title: 'Daily!',
-            description: `<cg>${username}</c>'s level is now <cy>daily!</c>`,
-            age: '0 seconds',
-            hasLevel: true,
-            levelID,
-            accountID: level.accountID,
-            username
-        });
-    }
+    const result = db.prepare(`INSERT INTO level_schedule (type, slot, levelID, startsAt, expiresAt, createdAt)
+        VALUES (?, ?, ?, ?, ?, ?)`).run(type, slot, levelId, startsAt, expiresAt, now);
 
-    res.status(204).end();
+    res.status(201).json({ scheduleID: Number(result.lastInsertRowid) });
 });
 
 router.post('/api/server-schedule/clear', requireAuth, requireCsrf, (req, res) => {
     const type = String(req.body?.type || 'daily');
-    if (type === 'event') {
-        db.prepare('UPDATE levels SET dailyNumber = 0, dailyTime = 0 WHERE dailyNumber > 200000').run();
-    } else if (type === 'weekly') {
-        db.prepare('UPDATE levels SET dailyNumber = 0, dailyTime = 0 WHERE dailyNumber >= 100001 AND dailyNumber <= 200000').run();
-    } else {
-        db.prepare('UPDATE levels SET dailyNumber = 0, dailyTime = 0 WHERE dailyNumber > 0 AND dailyNumber < 100001').run();
-    }
+    if (!['daily', 'weekly', 'event'].includes(type)) return res.status(400).json({ error: 'Invalid schedule type' });
+    const ranges = { daily: 'dailyNumber > 0 AND dailyNumber <= 100000', weekly: 'dailyNumber > 100000 AND dailyNumber <= 200000', event: 'dailyNumber > 200000' };
+    const now = Math.floor(Date.now() / 1000);
+    db.transaction(() => {
+        db.prepare(`UPDATE levels SET dailyTime = ? WHERE ${ranges[type]} AND (dailyTime = 0 OR dailyTime > ?)`).run(now, now);
+        db.prepare('DELETE FROM level_schedule WHERE type = ?').run(type);
+    })();
+    res.status(204).end();
+});
+
+router.delete('/api/server-schedule/entry/:scheduleId', requireAuth, requireCsrf, (req, res) => {
+    const scheduleId = Number(req.params.scheduleId);
+    if (!Number.isInteger(scheduleId) || scheduleId < 1) return res.status(400).json({ error: 'Invalid schedule entry' });
+    const entry = db.prepare('SELECT * FROM level_schedule WHERE scheduleID = ?').get(scheduleId);
+    if (!entry) return res.status(404).json({ error: 'Schedule entry not found' });
+    const now = Math.floor(Date.now() / 1000);
+    const result = db.transaction(() => {
+        const targetNumber = scheduleTargetNumber(entry.type, entry.slot);
+        db.prepare(`UPDATE levels SET dailyTime = ?
+            WHERE levelID = ? AND dailyNumber = ? AND dailyTime = ? AND dailyTime > ?`).run(now, entry.levelID, targetNumber, entry.expiresAt, now);
+        return db.prepare('DELETE FROM level_schedule WHERE scheduleID = ?').run(scheduleId);
+    })();
+    if (!result.changes) return res.status(404).json({ error: 'Schedule entry not found' });
     res.status(204).end();
 });
 
 router.delete('/api/server-schedule/:type/:slot', requireAuth, requireCsrf, (req, res) => {
     const type = String(req.params.type || 'daily');
     const slot = Number(req.params.slot);
+    if (!['daily', 'weekly', 'event'].includes(type)) return res.status(400).json({ error: 'Invalid schedule type' });
     if (!Number.isInteger(slot) || slot < 1) return res.status(400).json({ error: 'Invalid slot number' });
     const targetNumber = scheduleTargetNumber(type, slot);
-    const result = db.prepare('UPDATE levels SET dailyNumber = 0, dailyTime = 0 WHERE dailyNumber = ?').run(targetNumber);
-    if (!result.changes) return res.status(404).json({ error: 'Schedule slot not found' });
+    const now = Math.floor(Date.now() / 1000);
+    const result = db.transaction(() => {
+        const cleared = db.prepare(`UPDATE levels SET dailyTime = ?
+            WHERE dailyNumber = ? AND (dailyTime = 0 OR dailyTime > ?)`).run(now, targetNumber, now);
+        const plans = db.prepare('DELETE FROM level_schedule WHERE type = ? AND slot = ?').run(type, slot);
+        return cleared.changes + plans.changes;
+    })();
+    if (!result) return res.status(404).json({ error: 'Schedule slot not found' });
     res.status(204).end();
 });
 
@@ -1247,6 +1299,26 @@ router.post('/api/quests', requireAuth, requireCsrf, (req, res) => {
 
     const result = db.prepare('INSERT INTO quests (type, amount, reward, name) VALUES (?, ?, ?, ?)').run(type, amount, reward, name);
     res.status(201).json({ quest: db.prepare('SELECT * FROM quests WHERE questID = ?').get(result.lastInsertRowid) });
+});
+
+router.get('/api/news', requireAuth, (req, res) => {
+    res.json({ items: getNewsItems(), version: getNewsVersion() });
+});
+
+router.put('/api/news', requireAuth, requireCsrf, (req, res) => {
+    let items;
+    try {
+        items = normalizeNewsItems(req.body?.items);
+    } catch (error) {
+        res.status(400).json({ error: error.message });
+        return;
+    }
+    try {
+        res.json(saveNewsItems(items));
+    } catch (error) {
+        console.error('\x1b[1;31m✗ Dashboard news update failed:\x1b[0m', error);
+        res.status(500).json({ error: 'Could not save news articles' });
+    }
 });
 
 router.delete('/api/quests/:id', requireAuth, requireCsrf, (req, res) => {

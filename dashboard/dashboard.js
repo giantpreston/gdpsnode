@@ -2,6 +2,7 @@ let csrf = '';
 let currentLevels = [];
 let dashboardRequestCount = 0;
 let currentModLevel = 0;
+let currentLevelDetail = null;
 let dashboardFeatures = new Set();
 let accountRolePermissions = {};
 let accountHasCustomRestrictions = false;
@@ -9,6 +10,12 @@ let accountPermissionsChanged = false;
 const ACCOUNT_ACTION_FEATURES = ['accountRole', 'accountDisable', 'leaderboardBan', 'commentBan', 'creatorBan', 'accountAccess'];
 const accountRecords = new Map();
 const picker = { kind: '', query: '', offset: 0, limit: 10, total: 0 };
+let scheduleEntries = [];
+let scheduleNextSlots = { daily: 1, weekly: 1, event: 1 };
+let scheduleSlotManuallyEdited = false;
+let calendarMonth = new Date(new Date().getFullYear(), new Date().getMonth(), 1);
+let newsItems = [];
+let newsVersion = 1001;
 const moderatorRanks = { 0: 0, 3: 1, 1: 2, 2: 3 };
 const moderatorRank = modLevel => moderatorRanks[Number(modLevel)] ?? -1;
 const $ = selector => document.querySelector(selector);
@@ -206,6 +213,51 @@ function renderListEditor(list) {
                 $('#level-detail').querySelector('.list-original-id').required = Number(list.original) !== 0;
 }
 
+function renderVoteChart(kind, data) {
+    const definitions = {
+        ratings: {
+            title: 'User star ratings',
+            items: data.ratings,
+            getValue: item => `${item.stars}★`,
+            values: Array.from({ length: 10 }, (_, index) => `${index + 1}★`)
+        },
+        demons: {
+            title: 'Community demon votes',
+            items: data.demonRatings,
+            getValue: item => demonNames[item.demonDiff] || 'Other',
+            values: ['Easy Demon', 'Medium Demon', 'Hard Demon', 'Insane Demon', 'Extreme Demon']
+        },
+        'advisor-stars': {
+            title: 'Advisor suggested stars',
+            items: data.suggestions,
+            getValue: item => `${item.stars}★`,
+            values: Array.from({ length: 10 }, (_, index) => `${index + 1}★`)
+        },
+        'advisor-demons': {
+            title: 'Advisor suggested demon difficulty',
+            items: data.suggestions.filter(item => Number(item.stars) === 10),
+            getValue: item => demonNames[item.demonDiff] || 'Other',
+            values: ['Easy Demon', 'Medium Demon', 'Hard Demon', 'Insane Demon', 'Extreme Demon']
+        }
+    };
+    const chart = definitions[kind] || definitions.ratings;
+    const counts = new Map(chart.values.map(value => [value, 0]));
+    for (const item of chart.items) {
+        const value = chart.getValue(item);
+        counts.set(value, (counts.get(value) || 0) + 1);
+    }
+    const max = Math.max(1, ...counts.values());
+    const rows = [...counts].map(([label, count]) => {
+        const width = count ? Math.max(5, Math.ceil(count / max * 20) * 5) : 0;
+        return `<div class="vote-chart-row"><span>${escapeHtml(label)}</span><span class="vote-chart-track"><span class="vote-chart-fill" data-width="${width}"></span></span><strong>${count}</strong></div>`;
+    }).join('');
+    $('#vote-chart').innerHTML = `<div class="vote-chart-heading"><strong>${chart.title}</strong><span>${chart.items.length} vote${chart.items.length === 1 ? '' : 's'}</span></div>${chart.items.length ? `<div class="vote-chart-rows">${rows}</div>` : '<p class="empty">No votes or suggestions to chart.</p>'}`;
+    $('#level-detail').querySelectorAll('[data-vote-chart]').forEach(button => {
+        button.classList.toggle('active', button.dataset.voteChart === kind);
+        button.setAttribute('aria-pressed', String(button.dataset.voteChart === kind));
+    });
+}
+
 function renderLevelDetail(data) {
     const level = data.level;
     const official = level.starStars ? `${level.starStars}★${level.starAuto ? ' · Auto' : ''}${level.starDemon ? ` · ${demonNames[level.starDemonDiff] || 'Demon'}` : ''}` : 'Unrated';
@@ -220,6 +272,9 @@ function renderLevelDetail(data) {
     $('#level-detail').hidden = false;
     $('#level-detail').innerHTML = `<div class="detail-heading"><div><p class="eyebrow">Level #${level.levelID}</p><h3>${escapeHtml(level.levelName)}</h3></div><button class="close-detail" type="button">Close</button></div><p class="detail-description">${escapeHtml(level.levelDesc || 'No description')}</p><div class="detail-facts"><span>Official <b>${official}</b></span><span>Difficulty <b>${difficulty}</b></span><span>Rarity <b>${rarity}</b></span><span>Users <b>${level.userRates || 0} ratings · ${level.avgUserRate || 0}★ avg</b></span><span>Stats <b>${level.downloads || 0} downloads · ${level.likes || 0} likes</b></span></div><div class="detail-columns"><div><h4>Moderator suggestions (${data.suggestions.length})</h4>${data.suggestions.length ? data.suggestions.map(suggestion => `<div class="suggestion">${suggestionText(suggestion)}</div>`).join('') : '<p class="empty">None</p>'}</div><div><h4>User ratings</h4>${data.ratings.length ? data.ratings.map(rating => `<div class="user-rating"><span>${escapeHtml(rating.userName || `Account #${rating.accountID}`)} · ${rating.stars}★</span><button class="remove-rating" data-account="${rating.accountID}" type="button">Remove</button></div>`).join('') : '<p class="empty">No user ratings</p>'}<h4>Demon votes (${data.demonRatings.length})</h4>${data.demonRatings.length ? data.demonRatings.map(rating => `<div class="user-rating"><span>${escapeHtml(rating.userName || `Account #${rating.accountID}`)} · ${escapeHtml(demonNames[rating.demonDiff] || 'Demon')}${rating.mode === 1 && [1, 2].includes(Number(rating.modLevel)) ? ' · Priority' : ''}</span><button class="remove-demon-rating" data-account="${rating.accountID}" type="button">Remove</button></div>`).join('') : '<p class="empty">No demon votes</p>'}</div></div><div class="detail-actions"><label>Difficulty<select class="detail-difficulty"${level.starStars ? ' disabled' : ''}><option value="0"${selected(level.starDifficulty, 0)}>Unset</option><option value="1"${selected(level.starDifficulty, 1)}>Easy</option><option value="2"${selected(level.starDifficulty, 2)}>Normal</option><option value="3"${selected(level.starDifficulty, 3)}>Hard</option><option value="4"${selected(level.starDifficulty, 4)}>Harder</option><option value="5"${selected(level.starDifficulty, 5)}>Insane</option></select></label><button class="detail-difficulty-save" type="button"${level.starStars ? ' disabled' : ''}>Save difficulty</button><label>Stars<select class="detail-stars"><option value="0"${selected(level.starStars, 0)}>Unrate</option><option value="1"${selected(level.starStars, 1)}>1</option><option value="2"${selected(level.starStars, 2)}>2</option><option value="3"${selected(level.starStars, 3)}>3</option><option value="4"${selected(level.starStars, 4)}>4</option><option value="5"${selected(level.starStars, 5)}>5</option><option value="6"${selected(level.starStars, 6)}>6</option><option value="7"${selected(level.starStars, 7)}>7</option><option value="8"${selected(level.starStars, 8)}>8</option><option value="9"${selected(level.starStars, 9)}>9</option><option value="10"${selected(level.starStars, 10)}>10</option></select></label><label>Feature<select class="detail-feature"><option value="0"${selected(feature, 0)}>None</option><option value="1"${selected(feature, 1)}>Featured</option><option value="2"${selected(feature, 2)}>Epic</option><option value="3"${selected(feature, 3)}>Legendary</option><option value="4"${selected(feature, 4)}>Mythic</option></select></label><label>Demon<select class="detail-demon"><option value="0"${selected(level.starDemon ? level.starDemonDiff : 0, 0)}>None / Hard</option><option value="3"${selected(level.starDemonDiff, 3)}>Easy</option><option value="4"${selected(level.starDemonDiff, 4)}>Medium</option><option value="5"${selected(level.starDemonDiff, 5)}>Insane</option><option value="6"${selected(level.starDemonDiff, 6)}>Extreme</option></select></label><label class="detail-star-coins-control"><input class="detail-star-coins" type="checkbox"${level.starCoins ? ' checked' : ''}> Verified Coins</label><button class="detail-rate" type="button">Save rating</button></div>`;
     $('#level-detail').querySelector('.detail-description').textContent = decodeBase64Url(level.levelDesc) || 'No description';
+    currentLevelDetail = data;
+    $('#level-detail').querySelector('.detail-actions').insertAdjacentHTML('beforebegin', `<section class="vote-analytics" aria-label="Rating and suggestion charts"><div class="vote-chart-toolbar" role="group" aria-label="Choose chart"><button type="button" class="ghost small active" data-vote-chart="ratings">User ratings</button><button type="button" class="ghost small" data-vote-chart="demons">Demon votes</button><button type="button" class="ghost small" data-vote-chart="advisor-stars">Advisor stars</button><button type="button" class="ghost small" data-vote-chart="advisor-demons">Advisor demons</button></div><div id="vote-chart" aria-live="polite"></div></section>`);
+    renderVoteChart('ratings', data);
     const dragHandle = $('#level-detail').querySelector('.detail-heading');
     dragHandle.classList.add('detail-drag-handle');
     dragHandle.title = 'Drag to move';
@@ -376,26 +431,85 @@ function localDateTimeValue(unixTimestamp) {
 }
 
 function renderSchedule(data) {
-    const daily = data.daily || [];
-    const weekly = data.weekly || [];
-    const event = data.event || [];
-    const formatType = (type, slot) => {
-        if (type === 'daily') return `Daily #${slot}`;
-        if (type === 'weekly') return `Weekly #${slot}`;
-        return `Event #${slot}`;
-    };
-    const formatExpiry = unixTime => {
-        if (!unixTime) return 'No expiry';
-        const date = new Date(Number(unixTime) * 1000);
-        if (Number.isNaN(date.getTime())) return 'No expiry';
-        return `Expires ${date.toLocaleString([], { dateStyle: 'short', timeStyle: 'short' })}`;
-    };
-    const display = [
-        daily.length ? `<div class="schedule-group"><div class="schedule-header"><strong>Daily</strong><span>${daily.length} active</span></div>${daily.map(item => `<div class="schedule-item"><div class="schedule-item-header"><strong>${formatType('daily', item.dailyNumber)}</strong><button type="button" class="ghost small delete-schedule-slot" data-type="daily" data-slot="${item.dailyNumber}">Remove</button></div><span>${escapeHtml(item.levelName)} · #${item.levelID} · ${escapeHtml(item.creator || 'unknown')}</span><small>${formatExpiry(item.dailyTime)}</small></div>`).join('')}</div>` : '<div class="schedule-group"><div class="schedule-header"><strong>Daily</strong><span>0 active</span></div><p class="empty">No daily level set.</p></div>',
-        weekly.length ? `<div class="schedule-group"><div class="schedule-header"><strong>Weekly</strong><span>${weekly.length} active</span></div>${weekly.map(item => `<div class="schedule-item"><div class="schedule-item-header"><strong>${formatType('weekly', item.dailyNumber - 100000)}</strong><button type="button" class="ghost small delete-schedule-slot" data-type="weekly" data-slot="${item.dailyNumber - 100000}">Remove</button></div><span>${escapeHtml(item.levelName)} · #${item.levelID} · ${escapeHtml(item.creator || 'unknown')}</span><small>${formatExpiry(item.dailyTime)}</small></div>`).join('')}</div>` : '<div class="schedule-group"><div class="schedule-header"><strong>Weekly</strong><span>0 active</span></div><p class="empty">No weekly level set.</p></div>',
-        event.length ? `<div class="schedule-group"><div class="schedule-header"><strong>Event</strong><span>${event.length} active</span></div>${event.map(item => `<div class="schedule-item"><div class="schedule-item-header"><strong>${formatType('event', item.dailyNumber - 200000)}</strong><button type="button" class="ghost small delete-schedule-slot" data-type="event" data-slot="${item.dailyNumber - 200000}">Remove</button></div><span>${escapeHtml(item.levelName)} · #${item.levelID} · ${escapeHtml(item.creator || 'unknown')}</span><small>${formatExpiry(item.dailyTime)}</small></div>`).join('')}</div>` : '<div class="schedule-group"><div class="schedule-header"><strong>Event</strong><span>0 active</span></div><p class="empty">No event level set.</p></div>'
+    const now = Math.floor(Date.now() / 1000);
+    scheduleNextSlots = data.nextSlots || scheduleNextSlots;
+    updateScheduleSlot(document.getElementById('server-schedule-form'));
+    const legacyEntries = [
+        ...(data.daily || []).map(item => ({ ...item, type: 'daily', slot: item.dailyNumber, startsAt: now, expiresAt: item.dailyTime || 0 })),
+        ...(data.weekly || []).map(item => ({ ...item, type: 'weekly', slot: item.dailyNumber - 100000, startsAt: now, expiresAt: item.dailyTime || 0 })),
+        ...(data.event || []).map(item => ({ ...item, type: 'event', slot: item.dailyNumber - 200000, startsAt: now, expiresAt: item.dailyTime || 0 }))
     ];
+    scheduleEntries = [...(data.plans || []), ...legacyEntries];
+    const formatType = entry => `${entry.type.charAt(0).toUpperCase()}${entry.type.slice(1)} #${entry.slot}`;
+    const dateFormat = timestamp => new Date(Number(timestamp) * 1000).toLocaleString([], { dateStyle: 'medium', timeStyle: 'short' });
+    const liveEntries = scheduleEntries.filter(entry => Number(entry.expiresAt) === 0 || Number(entry.expiresAt) > now);
+    const display = ['daily', 'weekly', 'event'].map(type => {
+        const entries = liveEntries.filter(entry => entry.type === type).sort((a, b) => a.startsAt - b.startsAt);
+        const rows = entries.map(entry => {
+            const active = entry.startsAt <= now && (!entry.expiresAt || entry.expiresAt > now);
+            const remove = entry.scheduleID
+                ? `<button type="button" class="ghost small delete-schedule-entry" data-schedule="${entry.scheduleID}">Remove</button>`
+                : `<button type="button" class="ghost small delete-schedule-slot" data-type="${entry.type}" data-slot="${entry.slot}">Remove</button>`;
+            const start = active ? 'Active now' : `Starts ${dateFormat(entry.startsAt)}`;
+            const end = entry.expiresAt ? `Ends ${dateFormat(entry.expiresAt)}` : 'No expiry';
+            return `<div class="schedule-item"><div class="schedule-item-header"><strong>${formatType(entry)}</strong>${remove}</div><span>${escapeHtml(entry.levelName)} · #${entry.levelID} · ${escapeHtml(entry.creator || 'unknown')}</span><small>${start} · ${end}</small></div>`;
+        }).join('');
+        return `<div class="schedule-group"><div class="schedule-header"><strong>${type}</strong><span>${entries.length} scheduled</span></div>${rows || `<p class="empty">No ${type} level scheduled.</p>`}</div>`;
+    });
     $('#schedule-display').innerHTML = display.join('');
+    renderScheduleCalendar();
+}
+
+function renderScheduleCalendar() {
+    const year = calendarMonth.getFullYear();
+    const month = calendarMonth.getMonth();
+    $('#calendar-month').textContent = calendarMonth.toLocaleDateString([], { month: 'long', year: 'numeric' });
+    const firstDay = new Date(year, month, 1);
+    const gridStart = new Date(year, month, 1 - firstDay.getDay());
+    const weekdays = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+    const now = Math.floor(Date.now() / 1000);
+    const headers = weekdays.map(day => `<div class="calendar-weekday" role="columnheader">${day}</div>`).join('');
+    const days = Array.from({ length: 42 }, (_, index) => {
+        const date = new Date(gridStart.getFullYear(), gridStart.getMonth(), gridStart.getDate() + index);
+        const dayStart = Math.floor(date.getTime() / 1000);
+        const dayEnd = Math.floor(new Date(date.getFullYear(), date.getMonth(), date.getDate() + 1).getTime() / 1000);
+        const entries = scheduleEntries.filter(entry => Number(entry.startsAt) < dayEnd &&
+            (!Number(entry.expiresAt) || Number(entry.expiresAt) > dayStart));
+        const today = date.toDateString() === new Date().toDateString();
+        const chips = entries.slice(0, 3).map(entry => {
+            const status = entry.startsAt > now ? 'upcoming' : entry.expiresAt && entry.expiresAt <= now ? 'past' : 'active';
+            return `<span class="calendar-event ${entry.type} ${status}" title="${escapeHtml(`${entry.type} #${entry.slot}: ${entry.levelName} · Level #${entry.levelID}`)}">${escapeHtml(entry.type)} #${entry.slot} · ${escapeHtml(entry.levelName)}</span>`;
+        }).join('');
+        const more = entries.length > 3 ? `<small class="calendar-more">+${entries.length - 3} more</small>` : '';
+        return `<div class="calendar-day${date.getMonth() !== month ? ' outside-month' : ''}${today ? ' today' : ''}" role="gridcell" aria-label="${date.toLocaleDateString()} · ${entries.length} scheduled"><strong>${date.getDate()}</strong>${chips}${more}</div>`;
+    }).join('');
+    $('#schedule-calendar').innerHTML = `${headers}${days}`;
+}
+
+function renderNews(data) {
+    newsItems = data.items || [];
+    newsVersion = Number(data.version) || 1001;
+    $('#news-version').textContent = `Version ${newsVersion}`;
+    $('#news-editor').innerHTML = newsItems.length ? newsItems.map(item => `
+        <article class="news-article" data-news-id="${item.id}">
+            <div class="news-article-heading"><strong>Article #${item.id}</strong><button type="button" class="ghost small remove-news-article">Remove article</button></div>
+            <div class="news-article-fields">
+                <label>Date<input name="publishDate" maxlength="64" value="${escapeHtml(item.publishDate)}" required></label>
+                <label>Title<input name="title" maxlength="120" value="${escapeHtml(item.title)}" required></label>
+                <label class="news-body-field">Article text<textarea name="body" maxlength="12000" rows="4" placeholder="Article body">${escapeHtml(item.body)}</textarea></label>
+                <details class="news-extra-fields"><summary>Optional image and button</summary>
+                    <div class="news-optional-grid">
+                        <label>Image filename<input name="imageFile" maxlength="128" value="${escapeHtml(item.imageFile || '')}" placeholder="news_image.jpg"></label>
+                        <label>Image link<input name="imageUrl" maxlength="2048" value="${escapeHtml(item.imageUrl || '')}" placeholder="Optional URL"></label>
+                        <label>Image width<input name="imageWidth" type="number" min="1" max="8192" value="${Number(item.imageWidth) || 800}"></label>
+                        <label>Image height<input name="imageHeight" type="number" min="1" max="8192" value="${Number(item.imageHeight) || 454}"></label>
+                        <label class="news-check"><input name="imageClickable" type="checkbox"${item.imageClickable ? ' checked' : ''}> Open image link when tapped</label>
+                        <label>Button label<input name="buttonLabel" maxlength="120" value="${escapeHtml(item.buttonLabel || '')}" placeholder="Optional button"></label>
+                        <label>Button URL<input name="buttonUrl" maxlength="2048" value="${escapeHtml(item.buttonUrl || '')}" placeholder="https://..."></label>
+                    </div>
+                </details>
+            </div>
+        </article>`).join('') : '<p class="empty">No news articles. Add one to publish your first post.</p>';
 }
 
 function renderSongs(songs) {
@@ -550,6 +664,7 @@ async function load() {
         if (dashboardFeatures.has('management')) {
             renderQuests((await request('api/quests')).quests || []);
             renderSecretRewards((await request('api/secret-rewards')).rewards || []);
+            renderNews(await request('api/news'));
         }
         if (dashboardFeatures.has('schedule')) renderSchedule(await request('api/server-schedule'));
         $('#login-view').hidden = true;
@@ -592,7 +707,7 @@ $('#toggle-password').addEventListener('click', () => {
     toggle.textContent = next === 'password' ? 'Show' : 'Hide';
 });
 
-function getDurationSecondsFromForm(form, selector = { preset: '[name="durationPreset"]', days: '[name="durationDays"]', hours: '[name="durationHours"]', minutes: '[name="durationMinutes"]', date: '[name="expiresAt"]', never: '[name="neverExpires"]' }) {
+function getDurationSecondsFromForm(form, selector = { preset: '[name="durationPreset"]', days: '[name="durationDays"]', hours: '[name="durationHours"]', minutes: '[name="durationMinutes"]', date: '[name="expiresAt"]', never: '[name="neverExpires"]' }, baseTime = Date.now()) {
     const neverInput = selector.never ? form.querySelector(selector.never) : null;
     const neverExpires = !!neverInput?.checked;
     if (neverExpires) return 0;
@@ -613,7 +728,7 @@ function getDurationSecondsFromForm(form, selector = { preset: '[name="durationP
     if (preset === 'date' && expiresAtValue) {
         const expiresAt = new Date(expiresAtValue);
         if (Number.isNaN(expiresAt.getTime())) throw new Error('Choose a valid expiry date and time');
-        const duration = Math.max(0, Math.round((expiresAt.getTime() - Date.now()) / 1000));
+        const duration = Math.max(0, Math.round((expiresAt.getTime() - baseTime) / 1000));
         if (!duration) throw new Error('Expiry date must be later than now');
         return duration;
     }
@@ -623,19 +738,19 @@ function getDurationSecondsFromForm(form, selector = { preset: '[name="durationP
     return totalSeconds;
 }
 
-function getScheduleExpiryFromForm(form) {
+function getScheduleExpiryFromForm(form, startsAt) {
     const expiresAt = getExpiryTimestampFromForm(form, {
         preset: '[name="scheduleExpiryPreset"]',
         days: '[name="scheduleDurationDays"]',
         hours: '[name="scheduleDurationHours"]',
         minutes: '[name="scheduleDurationMinutes"]',
         date: '[name="scheduleExpiresAt"]'
-    });
+    }, startsAt * 1000);
     if (expiresAt <= 0) throw new Error('Schedule levels must have an expiry');
     return expiresAt;
 }
 
-function getExpiryTimestampFromForm(form, selector) {
+function getExpiryTimestampFromForm(form, selector, baseTime = Date.now()) {
     const preset = form.querySelector(selector.preset)?.value || 'custom';
     if (preset === 'none') return 0;
     const dateValue = selector.date ? form.querySelector(selector.date)?.value : '';
@@ -644,11 +759,11 @@ function getExpiryTimestampFromForm(form, selector) {
         const expiresAt = new Date(dateValue);
         if (Number.isNaN(expiresAt.getTime())) throw new Error('Choose a valid expiry date and time');
         const timestamp = Math.floor(expiresAt.getTime() / 1000);
-        if (timestamp <= Math.floor(Date.now() / 1000)) throw new Error('Expiry date must be later than now');
+        if (timestamp * 1000 <= baseTime) throw new Error('Expiry date must be later than its start');
         return timestamp;
     }
-    const duration = getDurationSecondsFromForm(form, selector);
-    return duration > 0 ? Math.floor(Date.now() / 1000) + duration : 0;
+    const duration = getDurationSecondsFromForm(form, selector, baseTime);
+    return duration > 0 ? Math.floor(baseTime / 1000) + duration : 0;
 }
 
 function getSecretRewardDurationFromForm(form) {
@@ -841,6 +956,11 @@ $('#account-detail-content').addEventListener('click', async event => {
 $('#level-detail').addEventListener('click', async event => {
     const detail = event.currentTarget;
     if (event.target.classList.contains('close-detail')) { detail.hidden = true; return; }
+    const chartButton = event.target.closest('[data-vote-chart]');
+    if (chartButton && currentLevelDetail) {
+        renderVoteChart(chartButton.dataset.voteChart, currentLevelDetail);
+        return;
+    }
     const currentLevel = detail.querySelector('.eyebrow')?.textContent.match(/\d+/)?.[0];
     if (!currentLevel) return;
     try {
@@ -888,22 +1008,124 @@ document.addEventListener('input', event => {
 
 $('#logout').addEventListener('click', async () => { try { await request('api/logout', { method: 'POST', body: '{}' }); location.reload(); } catch (error) { $('#app-error').textContent = error.message; } });
 
+$('#add-news-article').addEventListener('click', () => {
+    const nextId = Math.max(0, ...newsItems.map(item => Number(item.id) || 0)) + 1;
+    newsItems.unshift({
+        id: nextId,
+        publishDate: new Date().toLocaleDateString([], { month: 'long', day: 'numeric', year: 'numeric' }),
+        title: '',
+        body: '',
+        imageFile: '',
+        imageWidth: 800,
+        imageHeight: 454,
+        imageClickable: 0,
+        imageUrl: '',
+        buttonLabel: '',
+        buttonUrl: '',
+    });
+    renderNews({ items: newsItems, version: newsVersion });
+    $('#news-editor .news-article input[name="title"]').focus();
+    touchLastSaved('Unsaved news changes');
+});
+
+$('#news-editor').addEventListener('click', event => {
+    if (!event.target.classList.contains('remove-news-article')) return;
+    const article = event.target.closest('.news-article');
+    newsItems = newsItems.filter(item => Number(item.id) !== Number(article.dataset.newsId));
+    renderNews({ items: newsItems, version: newsVersion });
+    touchLastSaved('Unsaved news changes');
+});
+
+$('#news-editor').addEventListener('input', () => touchLastSaved('Unsaved news changes'));
+$('#news-editor').addEventListener('change', () => touchLastSaved('Unsaved news changes'));
+
+$('#save-news-articles').addEventListener('click', async () => {
+    const items = [...$('#news-editor').querySelectorAll('.news-article')].map(article => {
+        const value = name => article.querySelector(`[name="${name}"]`);
+        return {
+            id: Number(article.dataset.newsId),
+            publishDate: value('publishDate').value,
+            title: value('title').value,
+            body: value('body').value,
+            imageFile: value('imageFile').value,
+            imageWidth: Number(value('imageWidth').value),
+            imageHeight: Number(value('imageHeight').value),
+            imageClickable: value('imageClickable').checked ? 1 : 0,
+            imageUrl: value('imageUrl').value,
+            buttonLabel: value('buttonLabel').value,
+            buttonUrl: value('buttonUrl').value,
+        };
+    });
+    const button = $('#save-news-articles');
+    setBusyState(button, 'Saving news…', true);
+    try {
+        const result = await request('api/news', { method: 'PUT', body: JSON.stringify({ items }) });
+        renderNews(result);
+        touchLastSaved('News saved');
+        showToast(result.changed ? `News saved · version ${result.version}` : 'News unchanged', 'success');
+    } catch (error) {
+        $('#app-error').textContent = error.message;
+        showToast(error.message, 'error');
+    } finally {
+        setBusyState(button, 'Saving news…', false);
+    }
+});
+
 $('#server-schedule-form').addEventListener('submit', async event => {
     event.preventDefault();
     const form = event.currentTarget;
     const formData = new FormData(form);
     try {
+        $('#app-error').textContent = '';
+        const startsAtDate = new Date(String(formData.get('scheduleStartsAt') || ''));
+        if (Number.isNaN(startsAtDate.getTime())) throw new Error('Choose a valid schedule start date and time');
+        const startsAt = Math.floor(startsAtDate.getTime() / 1000);
+        if (startsAt < Math.floor(Date.now() / 1000)) throw new Error('Schedule start must be now or later');
         const payload = {
             levelId: Number(formData.get('levelId')),
             slot: Number(formData.get('slot')),
             type: formData.get('type'),
-            expiresAt: getScheduleExpiryFromForm(form)
+            startsAt,
+            expiresAt: getScheduleExpiryFromForm(form, startsAt)
         };
         await request('api/server-schedule', { method: 'POST', body: JSON.stringify(payload) });
         form.reset();
+        scheduleSlotManuallyEdited = false;
+        setDefaultScheduleStart(form);
         updateScheduleExpiryControls(form);
         renderSchedule(await request('api/server-schedule'));
+        showToast('Level scheduled', 'success');
     } catch (error) { $('#app-error').textContent = error.message; }
+});
+
+function setDefaultScheduleStart(form) {
+    const start = form.querySelector('[name="scheduleStartsAt"]');
+    if (!start) return;
+    const defaultStart = new Date();
+    defaultStart.setMinutes(defaultStart.getMinutes() + 1, 0, 0);
+    start.value = localDateTimeValue(Math.floor(defaultStart.getTime() / 1000)).slice(0, 16);
+}
+
+function updateScheduleSlot(form, force = false) {
+    if (!form) return;
+    const type = form.querySelector('[name="type"]')?.value;
+    const slot = form.querySelector('[name="slot"]');
+    if (type && slot && (force || !scheduleSlotManuallyEdited)) slot.value = String(scheduleNextSlots[type] || 1);
+}
+
+$('#calendar-previous').addEventListener('click', () => {
+    calendarMonth = new Date(calendarMonth.getFullYear(), calendarMonth.getMonth() - 1, 1);
+    renderScheduleCalendar();
+});
+
+$('#calendar-next').addEventListener('click', () => {
+    calendarMonth = new Date(calendarMonth.getFullYear(), calendarMonth.getMonth() + 1, 1);
+    renderScheduleCalendar();
+});
+
+$('#calendar-today').addEventListener('click', () => {
+    calendarMonth = new Date(new Date().getFullYear(), new Date().getMonth(), 1);
+    renderScheduleCalendar();
 });
 
 $('#clear-daily').addEventListener('click', async () => {
@@ -1147,8 +1369,24 @@ const scheduleForm = document.getElementById('server-schedule-form');
 if (scheduleForm) {
     const preset = scheduleForm.querySelector('[name="scheduleExpiryPreset"]');
     preset?.addEventListener('change', () => updateScheduleExpiryControls(scheduleForm));
+    scheduleForm.querySelector('[name="slot"]')?.addEventListener('input', () => { scheduleSlotManuallyEdited = true; });
+    scheduleForm.querySelector('[name="type"]')?.addEventListener('change', () => {
+        scheduleSlotManuallyEdited = false;
+        updateScheduleSlot(scheduleForm, true);
+    });
+    setDefaultScheduleStart(scheduleForm);
+    updateScheduleSlot(scheduleForm);
     updateScheduleExpiryControls(scheduleForm);
 }
+
+setInterval(async () => {
+    if ($('#app-view').hidden || $('#management-tab').hidden || !dashboardFeatures.has('schedule')) return;
+    try {
+        renderSchedule(await request('api/server-schedule'));
+    } catch (error) {
+        $('#app-error').textContent = error.message;
+    }
+}, 60_000);
 
 document.addEventListener('click', event => {
     if (!event.target.matches('select')) {
@@ -1173,6 +1411,17 @@ document.addEventListener('click', async event => {
         } catch (error) {
             showToast('Copy failed', 'error');
         }
+        return;
+    }
+    if (event.target.classList.contains('delete-schedule-entry')) {
+        const scheduleId = Number(event.target.dataset.schedule);
+        if (!Number.isInteger(scheduleId) || scheduleId < 1) return;
+        if (!confirm('Remove this scheduled level?')) return;
+        try {
+            await request(`api/server-schedule/entry/${scheduleId}`, { method: 'DELETE' });
+            renderSchedule(await request('api/server-schedule'));
+            showToast('Schedule entry removed', 'success');
+        } catch (error) { $('#app-error').textContent = error.message; showToast(error.message, 'error'); }
         return;
     }
     if (event.target.classList.contains('delete-schedule-slot')) {

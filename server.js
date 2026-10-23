@@ -29,9 +29,20 @@ const fs = require('fs/promises');
 const path = require('path');
 const dashboard = require('./dashboard');
 const db = require('./database');
+const { reconcileLevelSchedule } = require('./levelSchedule');
 const { loadPlugins, hooks } = require('./hooks');
 const { closeDB } = require('./database');
 const soundlib = require("./soundlib")
+
+reconcileLevelSchedule();
+const scheduleReconciliationTimer = setInterval(() => {
+    try {
+        reconcileLevelSchedule();
+    } catch (error) {
+        console.error('\x1b[1;31m✗ Level schedule reconciliation failed:\x1b[0m', error);
+    }
+}, 1_000);
+scheduleReconciliationTimer.unref();
 
 const VERSION = '6.0R'; // geometry dash ▣ ▲▲▲
 const VERSION_URL = 'https://raw.githubusercontent.com/giantpreston/gdpsnode/refs/heads/main/version.txt';
@@ -125,6 +136,16 @@ app.get(dashboardPath, (req, res, next) => {
     if (req.path === dashboardPath) return res.redirect(308, `${dashboardPath}/`);
     next();
 });
+app.use((req, res, next) => {
+    try {
+        reconcileLevelSchedule();
+        next();
+    } catch (error) {
+        console.error('\x1b[1;31m✗ Level schedule reconciliation failed:\x1b[0m', error);
+        next(error);
+    }
+});
+
 app.use(dashboardPath, dashboard);
 
 app.use('/content', express.static(path.join(__dirname, 'endpoints', 'content'), {
@@ -222,6 +243,7 @@ pluginsReady.then(() => {
     const handleShutdown = (signal) => {
         if (isShuttingDown) return;
         isShuttingDown = true;
+        clearInterval(scheduleReconciliationTimer);
         infoWebhookEmbed("Server is shutting down..", hook);
 
         console.log(`\x1b[1;33m⚠ Received ${signal}. Cleaning up...\x1b[0m`);

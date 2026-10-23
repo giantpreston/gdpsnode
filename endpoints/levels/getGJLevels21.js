@@ -209,18 +209,27 @@ module.exports = {
         if (type === 32) {
             conditions.push('NOT dailyNumber = 0');
             conditions.push('dailyNumber < 100001'); // exclude weekly
-            conditions.push('levelID != (SELECT levelID FROM levels WHERE dailyNumber != 0 AND dailyNumber < 100001 ORDER BY uploadDate DESC LIMIT 1)');
+            conditions.push(`levelID != COALESCE((SELECT levelID FROM levels
+                WHERE dailyNumber != 0 AND dailyNumber < 100001
+                AND (dailyTime = 0 OR dailyTime > strftime('%s', 'now'))
+                ORDER BY dailyNumber DESC LIMIT 1), -1)`);
             order = 'uploadDate DESC';
         }
         if (type === 33) {
             conditions.push('dailyNumber > 100000'); // exclude daily
             conditions.push('dailyNumber < 200001')
-            conditions.push('levelID != (SELECT levelID FROM levels WHERE dailyNumber > 100000 AND dailyNumber < 200001 ORDER BY uploadDate DESC LIMIT 1)');
+            conditions.push(`levelID != COALESCE((SELECT levelID FROM levels
+                WHERE dailyNumber > 100000 AND dailyNumber < 200001
+                AND (dailyTime = 0 OR dailyTime > strftime('%s', 'now'))
+                ORDER BY dailyNumber DESC LIMIT 1), -1)`);
             order = 'uploadDate DESC';
         }
         if (type === 34) {
             conditions.push('dailyNumber > 200000');
-            conditions.push('levelID != (SELECT levelID FROM levels WHERE dailyNumber > 200000 ORDER BY uploadDate DESC LIMIT 1)');
+            conditions.push(`levelID != COALESCE((SELECT levelID FROM levels
+                WHERE dailyNumber > 200000
+                AND (dailyTime = 0 OR dailyTime > strftime('%s', 'now'))
+                ORDER BY dailyNumber DESC LIMIT 1), -1)`);
             order = 'uploadDate DESC';
         }
         if (type === 25) {
