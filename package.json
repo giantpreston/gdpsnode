@@ -5,7 +5,7 @@
   "main": "server.js",
   "scripts": {
     "start": "node server.js",
-    "test": "node --check server.js && node --check dashboard.js && node --check dashboard/dashboard.js && node --check levelSchedule.js && node --check newsContent.js && node --check endpoints/content/news.js && node --check endpoints/content/news_version.js && node scripts/test-news-format.js",
+    "test": "node --check server.js && node --check dashboard.js && node --check dashboard/dashboard.js && node --check levelSchedule.js && node --check newsContent.js && node --check endpoints/content/news.js && node --check endpoints/content/news_version.js && node --check endpoints/levels/getGJDailyLevel.js && node --check endpoints/levels/downloadGJLevel22.js && node scripts/test-news-format.js && node scripts/test-level-schedule.js",
     "benchmark:sqlite": "node scripts/benchmark-sqlite.js"
   },
   "keywords": [],

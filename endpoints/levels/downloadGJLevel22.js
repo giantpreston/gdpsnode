@@ -1,6 +1,7 @@
 const { commonSecret } = require('../../middleware/secrets');
 const db = require('../../database');
 const utils = require('../../utils');
+const { reconcileLevelSchedule } = require('../../levelSchedule');
 const crypto = require('crypto');
 const path = require('path');
 const fs = require('fs/promises');
@@ -56,14 +57,17 @@ module.exports = {
         const now = Math.floor(Date.now() / 1000);
 
         if (levelID === -1) {
+            reconcileLevelSchedule(now);
             level = db.prepare(`SELECT * FROM levels WHERE dailyNumber != 0 AND dailyNumber < 100001
                 AND (dailyTime = 0 OR dailyTime > ?) ORDER BY dailyNumber DESC LIMIT 1`).get(now);
             if (!level) return res.send('-1');
         } else if (levelID === -2) {
+            reconcileLevelSchedule(now);
             level = db.prepare(`SELECT * FROM levels WHERE dailyNumber > 100000 AND dailyNumber < 200001
                 AND (dailyTime = 0 OR dailyTime > ?) ORDER BY dailyNumber DESC LIMIT 1`).get(now);
             if (!level) return res.send('-1');
         } else if (levelID === -3) {
+            reconcileLevelSchedule(now);
             level = db.prepare(`SELECT * FROM levels WHERE dailyNumber > 200000
                 AND (dailyTime = 0 OR dailyTime > ?) ORDER BY dailyNumber DESC LIMIT 1`).get(now);
             if (!level) return res.send('-1');

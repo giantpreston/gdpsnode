@@ -9,6 +9,7 @@ const utils = require('./utils');
 const { cleanupLevelRelatedData, cleanupListRelatedData, cleanupSongReferences } = require('./contentCleanup');
 const { levelRatingWebhookEmbed } = require('./webhook');
 const { getNewsItems, getNewsVersion, normalizeNewsItems, saveNewsItems } = require('./newsContent');
+const { reconcileLevelSchedule } = require('./levelSchedule');
 
 const ACCOUNT_ACTION_FEATURES = ['accountRole', 'accountDisable', 'leaderboardBan', 'commentBan', 'creatorBan', 'accountAccess'];
 const DASHBOARD_FEATURES = ['overview', 'levels', 'collections', 'management', 'users', 'schedule', ...ACCOUNT_ACTION_FEATURES];
@@ -669,6 +670,7 @@ router.put('/api/users/:accountId', requireCsrf, (req, res) => {
 
 router.get('/api/server-schedule', requireAuth, (req, res) => {
     const now = Math.floor(Date.now() / 1000);
+    reconcileLevelSchedule(now);
     const daily = db.prepare(`SELECT l.levelID, l.levelName, l.dailyNumber, l.dailyTime,
         p.userName AS creator FROM levels l LEFT JOIN profiles p ON p.accountID = l.accountID
         WHERE l.dailyNumber > 0 AND l.dailyNumber < 100001

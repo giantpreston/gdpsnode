@@ -2,6 +2,7 @@ const { commonSecret } = require('../../middleware/secrets');
 const db = require('../../database');
 const utils = require('../../utils');
 const rewards = require('../rewards/getGJRewards.js')
+const { reconcileLevelSchedule } = require('../../levelSchedule');
 
 function getCurrentDailyLevel(isWeekly = false, isEvent = false) {
     let rangeClause = 'dailyNumber > 0 AND dailyNumber <= 100000';
@@ -36,6 +37,7 @@ module.exports = {
     middleware: [commonSecret],
     handler: (req, res) => {
         try {
+            reconcileLevelSchedule();
             const body = req.body || {};
             const type = resolveTargetType(body);
 
