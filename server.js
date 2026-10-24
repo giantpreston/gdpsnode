@@ -95,23 +95,71 @@ app.use((req, res, next) => {
     next();
 });
 
-const bodyLimit = '25mb'; // levels rarely if ever reach this
+const bodyLimitBytes = 32 * 1024 * 1024;
+const bodyLimit = '32mb';
+const levelTransferLimit = '50mb';
+const isLevelTransferRequest = req =>
+    req.path === '/uploadGJLevel21.php' || req.path === '/downloadGJLevel22.php';
 
 const limiter = rateLimit({
     windowMs: 60 * 1000,
     max: config.security.rateLimitPerMinute,
-    standardHeaders: true,
+    standardHeaders: false,
     legacyHeaders: false,
     message: '-1',
     statusCode: 429,
     validate: { xForwardedForHeader: false }
 });
 
-app.use(express.urlencoded({
+const highVolumeLimiter = rateLimit({
+    windowMs: 60 * 1000,
+    max: Math.max(1, Math.floor(config.security.rateLimitPerMinute / 5)),
+    standardHeaders: false,
+    legacyHeaders: false,
+    message: '-1',
+    statusCode: 429,
+    validate: { xForwardedForHeader: false }
+});
+const highVolumeEndpoint = /\/(?:getGJLevels21|getGJLevelLists|getGJMapPacks21|getGJGauntlets21|getGJComments21|getGJCommentHistory|getGJAccountComments20|getGJUsers20|getGJUserList20|getGJMessages20|downloadGJLevel22|downloadGJMessage20|downloadGJEditorSound|getGJThreads|getGJThreadMessages|searchGJThreadMessages|getGJFollowing|getGJFriendRequests20|getGJScores20|getGJLevelScores(?:211|Plat)|getGJEditorSounds)\.php$/i;
+
+app.use(limiter);
+app.use((req, res, next) => {
+    if (!highVolumeEndpoint.test(req.path)) return next();
+    return highVolumeLimiter(req, res, next);
+});
+
+const dashboardJsonRequest = req =>
+    (req.path === dashboardPath || req.path.startsWith(`${dashboardPath}/`)) &&
+    req.is('application/json');
+
+const defaultRawBodyParser = express.raw({
+    type: req => !req.is('application/x-www-form-urlencoded') && !dashboardJsonRequest(req),
+    limit: bodyLimit
+});
+const levelTransferRawBodyParser = express.raw({
+    type: req => !req.is('application/x-www-form-urlencoded') && !dashboardJsonRequest(req),
+    limit: levelTransferLimit
+});
+app.use((req, res, next) =>
+    (isLevelTransferRequest(req) ? levelTransferRawBodyParser : defaultRawBodyParser)(req, res, next)
+);
+app.use((req, res, next) => {
+    if (Buffer.isBuffer(req.body)) delete req.body;
+    next();
+});
+const defaultUrlencodedBodyParser = express.urlencoded({
     extended: true,
     limit: bodyLimit,
     parameterLimit: 100000
-}));
+});
+const levelTransferUrlencodedBodyParser = express.urlencoded({
+    extended: true,
+    limit: levelTransferLimit,
+    parameterLimit: 100000
+});
+app.use((req, res, next) =>
+    (isLevelTransferRequest(req) ? levelTransferUrlencodedBodyParser : defaultUrlencodedBodyParser)(req, res, next)
+);
 app.use((req, res, next) => {
     if (req.method.toLowerCase() !== 'post') return next();
     const body = req.body || {};
@@ -128,7 +176,6 @@ app.use((req, res, next) => {
 
     return next();
 });
-app.use(limiter);
 app.get(dashboardPath, (req, res, next) => {
     if (req.path === dashboardPath) return res.redirect(308, `${dashboardPath}/`);
     next();
@@ -197,6 +244,9 @@ pluginsReady.then(() => {
     app.use((err, req, res, next) => {
         console.error(`\x1b[1;31m✗ Unhandled API error on ${req.method} ${req.originalUrl}\x1b[0m`, err);
         if (!res.headersSent) {
+            if (err?.type === 'entity.too.large' && err.limit >= bodyLimitBytes) {
+                return res.status(200).type('text/plain').send('-4');
+            }
             res.status(200).type('text/plain').send('-1');
         }
     });

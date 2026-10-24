@@ -7,6 +7,7 @@ const path = require('path');
 const fs = require('fs/promises');
 
 const DOWNLOAD_MILESTONES = [50000, 100000, 500000, 1000000];
+const MAX_LEVEL_DOWNLOAD_BYTES = 50 * 1024 * 1024;
 
 function xorAndEncode(value, key) {
     const xorResult = Buffer.alloc(value.length);
@@ -192,11 +193,12 @@ module.exports = {
             `63:${level.updateDate}`
         ].join(':');
 
-        if (levelID === -1 || levelID === -2 || levelID === -3 || hasDailyID) {
-            res.send(`${response}#${hash}#${hash2}#${owner.accountID + 1}:${owner.userName}:${owner.accountID}`);
-        } else {
-            res.send(`${response}#${hash}#${hash2}`);
-        }
+        const downloadResponse = levelID === -1 || levelID === -2 || levelID === -3 || hasDailyID
+            ? `${response}#${hash}#${hash2}#${owner.accountID + 1}:${owner.userName}:${owner.accountID}`
+            : `${response}#${hash}#${hash2}`;
+        if (Buffer.byteLength(downloadResponse) > MAX_LEVEL_DOWNLOAD_BYTES) return res.send('-4');
+
+        res.send(downloadResponse);
     }
 };
 

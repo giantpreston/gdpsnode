@@ -378,7 +378,7 @@ router.use('/api/songs', requireAuth, requireDashboardFeature('management'));
 router.use('/api/quests', requireAuth, requireDashboardFeature('management'));
 router.use('/api/news', requireAuth, requireDashboardFeature('management'));
 
-const loginLimiter = rateLimit({ windowMs: 15 * 60 * 1000, max: config.security.dashboardAttemptsPerWindow, standardHeaders: true, legacyHeaders: false });
+const loginLimiter = rateLimit({ windowMs: 15 * 60 * 1000, max: config.security.dashboardAttemptsPerWindow, standardHeaders: false, legacyHeaders: false });
 router.post('/api/login', loginLimiter, (req, res) => {
     const username = utils.remove(String(req.body?.username || '')).trim();
     const password = String(req.body?.password || '');
