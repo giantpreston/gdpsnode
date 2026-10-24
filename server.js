@@ -87,6 +87,14 @@ app.use((req, res, next) => {
     next();
 });
 
+app.use((req, res, next) => {
+    const queryIndex = req.url.indexOf('?');
+    const pathname = queryIndex === -1 ? req.url : req.url.slice(0, queryIndex);
+    const query = queryIndex === -1 ? '' : req.url.slice(queryIndex);
+    req.url = `${pathname.replace(/\/{2,}/g, '/')}${query}`;
+    next();
+});
+
 const bodyLimit = '25mb'; // levels rarely if ever reach this
 
 const limiter = rateLimit({
