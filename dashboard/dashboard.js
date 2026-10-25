@@ -16,6 +16,7 @@ let scheduleSlotManuallyEdited = false;
 let calendarMonth = new Date(new Date().getFullYear(), new Date().getMonth(), 1);
 let newsItems = [];
 let newsVersion = 1001;
+let newsImages = [];
 const moderatorRanks = { 0: 0, 3: 1, 1: 2, 2: 3 };
 const moderatorRank = modLevel => moderatorRanks[Number(modLevel)] ?? -1;
 const $ = selector => document.querySelector(selector);
@@ -490,27 +491,80 @@ function renderNews(data) {
     newsItems = data.items || [];
     newsVersion = Number(data.version) || 1001;
     $('#news-version').textContent = `Version ${newsVersion}`;
-    $('#news-editor').innerHTML = newsItems.length ? newsItems.map(item => `
+    const imageOptions = current => {
+        const images = [...newsImages];
+        return `<option value="">Choose an uploaded image</option>${images.map(image => `<option value="${escapeHtml(image.filename)}"${image.filename === current ? ' selected' : ''}>${escapeHtml(image.filename)}</option>`).join('')}`;
+    };
+    const articles = newsItems.length ? newsItems.map(item => {
+        const currentImage = newsImages.some(image => image.filename === item.imageFile) ? item.imageFile : '';
+        const imageMode = !currentImage ? 'none' : 'existing';
+        return `
         <article class="news-article" data-news-id="${item.id}">
             <div class="news-article-heading"><strong>Article #${item.id}</strong><button type="button" class="ghost small remove-news-article">Remove article</button></div>
             <div class="news-article-fields">
                 <label>Date<input name="publishDate" maxlength="64" value="${escapeHtml(item.publishDate)}" required></label>
                 <label>Title<input name="title" maxlength="120" value="${escapeHtml(item.title)}" required></label>
                 <label class="news-body-field">Article text<textarea name="body" maxlength="12000" rows="4" placeholder="Article body">${escapeHtml(item.body)}</textarea></label>
-                <details class="news-extra-fields"><summary>Optional image and button</summary>
+                <section class="news-image-section">
+                    <label>Article image
+                        <select name="newsImageSource">
+                            <option value="none"${imageMode === 'none' ? ' selected' : ''}>No image</option>
+                            <option value="upload">Upload an image</option>
+                            <option value="existing"${imageMode === 'existing' ? ' selected' : ''}>Choose an uploaded image</option>
+                        </select>
+                    </label>
+                    <input name="imageFile" type="hidden" value="${escapeHtml(currentImage)}">
+                    <div class="news-image-source" data-image-source="upload"${imageMode === 'upload' ? '' : ' hidden'}>
+                        <label>Choose a JPG or PNG<input name="newsImageUpload" type="file" accept=".jpg,.png,image/jpeg,image/png"></label>
+                        <button type="button" class="ghost upload-news-image">Upload and use image</button>
+                    </div>
+                    <div class="news-image-source" data-image-source="existing"${imageMode === 'existing' ? '' : ' hidden'}>
+                        <label>Uploaded image<select name="existingImageFile">${imageOptions(currentImage)}</select></label>
+                    </div>
+                    <p class="muted">Upload a JPG or PNG to this server, or choose an image already uploaded.</p>
+                </section>
+                <details class="news-extra-fields"><summary>Image size and button (optional)</summary>
                     <div class="news-optional-grid">
-                        <label>Image filename<input name="imageFile" maxlength="128" value="${escapeHtml(item.imageFile || '')}" placeholder="news_image.jpg"></label>
-                        <label>Image link<input name="imageUrl" maxlength="2048" value="${escapeHtml(item.imageUrl || '')}" placeholder="Optional URL"></label>
                         <label>Image width<input name="imageWidth" type="number" min="1" max="8192" value="${Number(item.imageWidth) || 800}"></label>
                         <label>Image height<input name="imageHeight" type="number" min="1" max="8192" value="${Number(item.imageHeight) || 454}"></label>
-                        <label class="news-check"><input name="imageClickable" type="checkbox"${item.imageClickable ? ' checked' : ''}> Open image link when tapped</label>
                         <label>Button label<input name="buttonLabel" maxlength="120" value="${escapeHtml(item.buttonLabel || '')}" placeholder="Optional button"></label>
                         <label>Button URL<input name="buttonUrl" maxlength="2048" value="${escapeHtml(item.buttonUrl || '')}" placeholder="https://..."></label>
                     </div>
                 </details>
             </div>
-        </article>`).join('') : '<p class="empty">No news articles. Add one to publish your first post.</p>';
+        </article>`;
+    }).join('') : '<p class="empty">No news articles. Add one to publish your first post.</p>';
+    $('#news-editor').innerHTML = articles;
 }
+
+function refreshNewsImageOptions() {
+    $('#news-editor').querySelectorAll('select[name="existingImageFile"]').forEach(select => {
+        const current = select.closest('.news-article').querySelector('[name="imageFile"]').value;
+        const images = [...newsImages];
+        select.innerHTML = `<option value="">Choose an uploaded image</option>${images.map(image => `<option value="${escapeHtml(image.filename)}"${image.filename === current ? ' selected' : ''}>${escapeHtml(image.filename)}</option>`).join('')}`;
+        select.value = current;
+    });
+}
+
+function updateNewsImageSource(article) {
+    const source = article.querySelector('[name="newsImageSource"]').value;
+    article.querySelectorAll('[data-image-source]').forEach(panel => {
+        panel.hidden = panel.dataset.imageSource !== source;
+    });
+    const imageFile = article.querySelector('[name="imageFile"]');
+    imageFile.value = source === 'existing'
+        ? article.querySelector('[name="existingImageFile"]').value
+        : '';
+}
+
+$('#news-editor').addEventListener('change', event => {
+    const article = event.target.closest('.news-article');
+    if (!article) return;
+    if (event.target.name === 'newsImageSource') updateNewsImageSource(article);
+    if (event.target.name === 'existingImageFile') {
+        article.querySelector('[name="imageFile"]').value = event.target.value;
+    }
+});
 
 function renderSongs(songs) {
     $('#browse-results').innerHTML = songs.length ? songs.map(song => `<div class="song-row"><div><strong>${escapeHtml(song.name)}</strong><span>${escapeHtml(song.artistName)} · #${song.ID} · ${song.size} MB</span></div><a href="${escapeHtml(song.link)}" target="_blank" rel="noreferrer">Open file</a><button type="button" class="reject delete-song" data-song="${song.ID}">Delete</button></div>`).join('') : '<p class="empty">No songs uploaded.</p>';
@@ -664,7 +718,9 @@ async function load() {
         if (dashboardFeatures.has('management')) {
             renderQuests((await request('api/quests')).quests || []);
             renderSecretRewards((await request('api/secret-rewards')).rewards || []);
-            renderNews(await request('api/news'));
+            const [news, imageData] = await Promise.all([request('api/news'), request('api/news/images')]);
+            newsImages = imageData.images || [];
+            renderNews(news);
         }
         if (dashboardFeatures.has('schedule')) renderSchedule(await request('api/server-schedule'));
         $('#login-view').hidden = true;
@@ -1018,8 +1074,6 @@ $('#add-news-article').addEventListener('click', () => {
         imageFile: '',
         imageWidth: 800,
         imageHeight: 454,
-        imageClickable: 0,
-        imageUrl: '',
         buttonLabel: '',
         buttonUrl: '',
     });
@@ -1039,7 +1093,61 @@ $('#news-editor').addEventListener('click', event => {
 $('#news-editor').addEventListener('input', () => touchLastSaved('Unsaved news changes'));
 $('#news-editor').addEventListener('change', () => touchLastSaved('Unsaved news changes'));
 
+$('#news-editor').addEventListener('click', async event => {
+    const article = event.target.closest('.news-article');
+    if (!article) return;
+    if (event.target.classList.contains('upload-news-image')) {
+        const fileInput = article.querySelector('[name="newsImageUpload"]');
+        const file = fileInput.files[0];
+        if (!file) {
+            showToast('Choose a JPG or PNG image first', 'error');
+            return;
+        }
+        const button = event.target;
+        const formData = new FormData();
+        formData.append('file', file);
+        setBusyState(button, 'Uploading…', true);
+        try {
+            beginDashboardRequest();
+            const response = await fetch('api/news/images/upload', {
+                method: 'POST',
+                body: formData,
+                headers: csrf ? { 'X-CSRF-Token': csrf } : {}
+            });
+            const result = await response.json().catch(() => ({}));
+            if (!response.ok) throw new Error(result.error || `Request failed (${response.status})`);
+            newsImages.push(result.image);
+            article.querySelector('[name="imageFile"]').value = result.image.filename;
+            refreshNewsImageOptions();
+            article.querySelector('[name="existingImageFile"]').value = result.image.filename;
+            article.querySelector('[name="newsImageSource"]').value = 'existing';
+            updateNewsImageSource(article);
+            fileInput.value = '';
+            touchLastSaved('News image uploaded');
+            showToast('Image uploaded and selected for this article', 'success');
+        } catch (error) {
+            $('#app-error').textContent = error.message;
+            showToast(error.message, 'error');
+        } finally {
+            endDashboardRequest();
+            setBusyState(button, 'Uploading…', false);
+        }
+    }
+});
+
 $('#save-news-articles').addEventListener('click', async () => {
+    const unfinishedImage = [...$('#news-editor').querySelectorAll('.news-article')].find(article => {
+        const source = article.querySelector('[name="newsImageSource"]').value;
+        const filename = article.querySelector('[name="imageFile"]').value;
+        if (source === 'upload') return true;
+        if (source === 'existing') return !filename;
+        return false;
+    });
+    if (unfinishedImage) {
+        showToast('Finish choosing or uploading the image for each article first', 'error');
+        unfinishedImage.querySelector('[name="newsImageSource"]').focus();
+        return;
+    }
     const items = [...$('#news-editor').querySelectorAll('.news-article')].map(article => {
         const value = name => article.querySelector(`[name="${name}"]`);
         return {
@@ -1050,8 +1158,6 @@ $('#save-news-articles').addEventListener('click', async () => {
             imageFile: value('imageFile').value,
             imageWidth: Number(value('imageWidth').value),
             imageHeight: Number(value('imageHeight').value),
-            imageClickable: value('imageClickable').checked ? 1 : 0,
-            imageUrl: value('imageUrl').value,
             buttonLabel: value('buttonLabel').value,
             buttonUrl: value('buttonUrl').value,
         };

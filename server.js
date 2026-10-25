@@ -133,11 +133,13 @@ const dashboardJsonRequest = req =>
     req.is('application/json');
 
 const defaultRawBodyParser = express.raw({
-    type: req => !req.is('application/x-www-form-urlencoded') && !dashboardJsonRequest(req),
+    type: req => !req.is('application/x-www-form-urlencoded') &&
+        !req.is('multipart/form-data') && !dashboardJsonRequest(req),
     limit: bodyLimit
 });
 const levelTransferRawBodyParser = express.raw({
-    type: req => !req.is('application/x-www-form-urlencoded') && !dashboardJsonRequest(req),
+    type: req => !req.is('application/x-www-form-urlencoded') &&
+        !req.is('multipart/form-data') && !dashboardJsonRequest(req),
     limit: levelTransferLimit
 });
 app.use((req, res, next) =>

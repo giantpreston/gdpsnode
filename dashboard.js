@@ -9,6 +9,7 @@ const utils = require('./utils');
 const { cleanupLevelRelatedData, cleanupListRelatedData, cleanupSongReferences } = require('./contentCleanup');
 const { levelRatingWebhookEmbed } = require('./webhook');
 const { getNewsItems, getNewsVersion, normalizeNewsItems, saveNewsItems } = require('./newsContent');
+const newsImages = require('./newsImages');
 const { reconcileLevelSchedule } = require('./levelSchedule');
 
 const ACCOUNT_ACTION_FEATURES = ['accountRole', 'accountDisable', 'leaderboardBan', 'commentBan', 'creatorBan', 'accountAccess'];
@@ -1307,7 +1308,32 @@ router.get('/api/news', requireAuth, (req, res) => {
     res.json({ items: getNewsItems(), version: getNewsVersion() });
 });
 
-router.put('/api/news', requireAuth, requireCsrf, (req, res) => {
+router.get('/api/news/images', requireAuth, async (req, res) => {
+    try {
+        res.json({ images: await newsImages.listNewsImages() });
+    } catch (error) {
+        console.error('\x1b[1;31m✗ Dashboard news image listing failed:\x1b[0m', error);
+        res.status(500).json({ error: 'Could not list news images' });
+    }
+});
+
+router.post('/api/news/images/upload', requireAuth, requireCsrf, async (req, res) => {
+    let upload;
+    try {
+        upload = await newsImages.parseImageUpload(req);
+    } catch (error) {
+        return res.status(400).json({ error: error.message });
+    }
+    try {
+        const image = await newsImages.saveUploadedImage(upload);
+        return res.status(201).json({ image });
+    } catch (error) {
+        console.error('\x1b[1;31m✗ Dashboard news image upload failed:\x1b[0m', error);
+        return res.status(500).json({ error: 'Could not save news image' });
+    }
+});
+
+router.put('/api/news', requireAuth, requireCsrf, async (req, res) => {
     let items;
     try {
         items = normalizeNewsItems(req.body?.items);
@@ -1316,10 +1342,12 @@ router.put('/api/news', requireAuth, requireCsrf, (req, res) => {
         return;
     }
     try {
-        res.json(saveNewsItems(items));
+        const result = saveNewsItems(items);
+        await newsImages.removeUnusedNewsImages();
+        res.json(result);
     } catch (error) {
         console.error('\x1b[1;31m✗ Dashboard news update failed:\x1b[0m', error);
-        res.status(500).json({ error: 'Could not save news articles' });
+        res.status(500).json({ error: 'Could not save news articles and clean up unused images' });
     }
 });
 

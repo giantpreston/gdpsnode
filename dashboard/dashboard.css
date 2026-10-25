@@ -278,8 +278,12 @@ button:disabled { opacity: 0.7; cursor: not-allowed; transform: none; }
 .news-article-heading { display: flex; justify-content: space-between; align-items: center; gap: 12px; margin-bottom: 12px; color: var(--lime); font: 11px 'DejaVu Sans Mono', monospace; }
 .news-article-fields { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
 .news-article-fields label, .news-article-fields input, .news-article-fields textarea { min-width: 0; }
-.news-body-field, .news-extra-fields { grid-column: 1 / -1; }
+.news-body-field, .news-image-section, .news-extra-fields { grid-column: 1 / -1; }
 .news-body-field textarea { resize: vertical; font-size: 12px; line-height: 1.5; }
+.news-image-section { display: grid; grid-template-columns: minmax(0, 1fr); gap: 10px; padding: 12px; border: 1px solid var(--line); }
+.news-image-source { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: end; gap: 10px; }
+.news-image-source[hidden] { display: none; }
+.news-image-section > .muted { margin: 0; font-size: 11px; }
 .news-extra-fields { border-top: 1px dashed var(--line); padding-top: 10px; }
 .news-extra-fields summary { color: var(--muted); cursor: pointer; font-size: 11px; }
 .news-optional-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; margin-top: 12px; }
@@ -581,7 +585,7 @@ button:disabled { opacity: 0.7; cursor: not-allowed; transform: none; }
     .login-panel { margin-top: 8vh; padding: 28px; }
     .login-panel h1 { font-size: 29px; }
     .schedule-form, .collection-form, .map-pack-form, .map-pack-row, .level-list-form, .level-list-row, .list-editor, .song-form, .quest-form { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-    .news-article-fields, .news-optional-grid { grid-template-columns: 1fr; }
+    .news-article-fields, .news-optional-grid, .news-image-source { grid-template-columns: 1fr; }
     .news-body-field, .news-extra-fields { grid-column: auto; }
     .news-version { align-self: start; }
     .schedule-form > label:last-of-type { grid-column: auto; }

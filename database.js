@@ -689,6 +689,20 @@ db.prepare(`INSERT OR IGNORE INTO dashboard_news
     "Welcome to the best alternative to PHP in the GDPS World! GDPSnode is made so you can use it and have fun with your community without the hassle of Apache/Nginx and PHP. I hope you'll love it, check your dashboard for more important settings and have fun! <3"
 );
 
+const legacyNewsRedirects = db.prepare(`SELECT 1 FROM sqlite_master
+    WHERE type = 'table' AND name = 'dashboard_news_image_redirects'`).get();
+if (legacyNewsRedirects) {
+    db.transaction(() => {
+        const result = db.prepare(`UPDATE dashboard_news
+            SET imageFile = ''
+            WHERE imageFile IN (SELECT filename FROM dashboard_news_image_redirects)`).run();
+        if (result.changes) {
+            db.prepare('UPDATE dashboard_news_settings SET version = version + 1 WHERE id = 1').run();
+        }
+        db.exec('DROP TABLE dashboard_news_image_redirects');
+    })();
+}
+
 db.pragma('optimize');
 
 function setInitialSequence(table, firstID) {
