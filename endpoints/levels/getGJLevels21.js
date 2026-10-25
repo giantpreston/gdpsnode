@@ -2,6 +2,13 @@ const { commonSecret } = require('../../middleware/secrets');
 const db = require('../../database');
 const crypto = require('crypto');
 const utils = require('../../utils');
+const { reconcileLevelSchedule } = require('../../levelSchedule');
+
+const dailyNumberRanges = {
+    21: 'dailyNumber > 0 AND dailyNumber <= 100000',
+    22: 'dailyNumber > 100000 AND dailyNumber <= 200000',
+    23: 'dailyNumber > 200000'
+};
 
 module.exports = {
     method: 'post',
@@ -10,6 +17,7 @@ module.exports = {
     handler: (req, res) => {
         try {
             const body = req.body || {};
+            const now = Math.floor(Date.now() / 1000);
             const has = name => body[name] != null && body[name] !== '';
             const int = (name, fallback = 0) => {
                 if (!has(name)) return fallback;
@@ -77,6 +85,7 @@ module.exports = {
             if (account.gjp2 !== gjp2) return res.send('-1');
             if (account.isDisabled === 1) return res.send('-1');
         }
+        if ([21, 22, 23, 32, 33, 34].includes(type)) reconcileLevelSchedule(now);
         if (local === 1 && (type !== 5 || accountID <= 0 || Number(str) - 1 !== accountID)) return res.send('-1');
         let order;
         let conditions = [];
@@ -192,44 +201,15 @@ module.exports = {
             }
             order = 'uploadDate DESC';
         }
-        if (type === 21) {
-            conditions.push('NOT dailyNumber = 0');
-            conditions.push('dailyNumber < 100001'); // exclude weekly
-            order = 'uploadDate DESC';
-        }
-        if (type === 22) {
-            conditions.push('dailyNumber > 100000'); // exclude daily
-            conditions.push('dailyNumber < 200001')
-            order = 'uploadDate DESC';
-        }
-        if (type === 23) {
-            conditions.push('dailyNumber > 200000');
-            order = 'uploadDate DESC';
-        }
-        if (type === 32) {
-            conditions.push('NOT dailyNumber = 0');
-            conditions.push('dailyNumber < 100001'); // exclude weekly
-            conditions.push(`levelID != COALESCE((SELECT levelID FROM levels
-                WHERE dailyNumber != 0 AND dailyNumber < 100001
-                AND (dailyTime = 0 OR dailyTime > strftime('%s', 'now'))
-                ORDER BY dailyNumber DESC LIMIT 1), -1)`);
-            order = 'uploadDate DESC';
-        }
-        if (type === 33) {
-            conditions.push('dailyNumber > 100000'); // exclude daily
-            conditions.push('dailyNumber < 200001')
-            conditions.push(`levelID != COALESCE((SELECT levelID FROM levels
-                WHERE dailyNumber > 100000 AND dailyNumber < 200001
-                AND (dailyTime = 0 OR dailyTime > strftime('%s', 'now'))
-                ORDER BY dailyNumber DESC LIMIT 1), -1)`);
-            order = 'uploadDate DESC';
-        }
-        if (type === 34) {
-            conditions.push('dailyNumber > 200000');
-            conditions.push(`levelID != COALESCE((SELECT levelID FROM levels
-                WHERE dailyNumber > 200000
-                AND (dailyTime = 0 OR dailyTime > strftime('%s', 'now'))
-                ORDER BY dailyNumber DESC LIMIT 1), -1)`);
+        const dailyNumberRange = dailyNumberRanges[type >= 32 ? type - 11 : type];
+        if (dailyNumberRange) {
+            conditions.push(dailyNumberRange);
+            if (type >= 32) {
+                conditions.push(`dailyNumber != COALESCE((SELECT dailyNumber FROM levels
+                    WHERE ${dailyNumberRange} AND (dailyTime = 0 OR dailyTime > ?)
+                    ORDER BY dailyNumber DESC LIMIT 1), -1)`);
+                params.push(now);
+            }
             order = 'uploadDate DESC';
         }
         if (type === 25) {

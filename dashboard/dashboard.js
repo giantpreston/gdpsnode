@@ -13,6 +13,7 @@ const picker = { kind: '', query: '', offset: 0, limit: 10, total: 0 };
 let scheduleEntries = [];
 let scheduleNextSlots = { daily: 1, weekly: 1, event: 1 };
 let scheduleSlotManuallyEdited = false;
+let scheduleDefaultStartValue = '';
 let calendarMonth = new Date(new Date().getFullYear(), new Date().getMonth(), 1);
 let newsItems = [];
 let newsVersion = 1001;
@@ -1189,9 +1190,16 @@ $('#server-schedule-form').addEventListener('submit', async event => {
     const formData = new FormData(form);
     try {
         $('#app-error').textContent = '';
-        const startsAtDate = new Date(String(formData.get('scheduleStartsAt') || ''));
+        let startValue = String(formData.get('scheduleStartsAt') || '');
+        let startsAtDate = new Date(startValue);
         if (Number.isNaN(startsAtDate.getTime())) throw new Error('Choose a valid schedule start date and time');
-        const startsAt = Math.floor(startsAtDate.getTime() / 1000);
+        let startsAt = Math.floor(startsAtDate.getTime() / 1000);
+        if (startsAt < Math.floor(Date.now() / 1000) && startValue === scheduleDefaultStartValue) {
+            setDefaultScheduleStart(form);
+            startValue = form.querySelector('[name="scheduleStartsAt"]').value;
+            startsAtDate = new Date(startValue);
+            startsAt = Math.floor(startsAtDate.getTime() / 1000);
+        }
         if (startsAt < Math.floor(Date.now() / 1000)) throw new Error('Schedule start must be now or later');
         const payload = {
             levelId: Number(formData.get('levelId')),
@@ -1207,15 +1215,16 @@ $('#server-schedule-form').addEventListener('submit', async event => {
         updateScheduleExpiryControls(form);
         renderSchedule(await request('api/server-schedule'));
         showToast('Level scheduled', 'success');
-    } catch (error) { $('#app-error').textContent = error.message; }
+    } catch (error) { $('#app-error').textContent = error.message; showToast(error.message, 'error'); }
 });
 
 function setDefaultScheduleStart(form) {
     const start = form.querySelector('[name="scheduleStartsAt"]');
     if (!start) return;
     const defaultStart = new Date();
-    defaultStart.setMinutes(defaultStart.getMinutes() + 1, 0, 0);
-    start.value = localDateTimeValue(Math.floor(defaultStart.getTime() / 1000)).slice(0, 16);
+    defaultStart.setMinutes(defaultStart.getMinutes() + 2, 0, 0);
+    scheduleDefaultStartValue = localDateTimeValue(Math.floor(defaultStart.getTime() / 1000)).slice(0, 16);
+    start.value = scheduleDefaultStartValue;
 }
 
 function updateScheduleSlot(form, force = false) {

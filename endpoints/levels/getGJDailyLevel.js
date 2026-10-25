@@ -4,7 +4,7 @@ const utils = require('../../utils');
 const rewards = require('../rewards/getGJRewards.js')
 const { reconcileLevelSchedule } = require('../../levelSchedule');
 
-function getCurrentDailyLevel(isWeekly = false, isEvent = false) {
+function getCurrentDailyLevel(isWeekly = false, isEvent = false, now = Math.floor(Date.now() / 1000)) {
     let rangeClause = 'dailyNumber > 0 AND dailyNumber <= 100000';
     if (isWeekly) rangeClause = 'dailyNumber > 100000 AND dailyNumber <= 200000';
     if (isEvent) rangeClause = 'dailyNumber > 200000';
@@ -12,10 +12,10 @@ function getCurrentDailyLevel(isWeekly = false, isEvent = false) {
     return db.prepare(
         `SELECT levelID, levelName, dailyNumber, dailyTime, starStars, accountID
          FROM levels
-         WHERE ${rangeClause}
+         WHERE ${rangeClause} AND (dailyTime = 0 OR dailyTime > ?)
          ORDER BY dailyNumber DESC
          LIMIT 1`
-    ).get() || null;
+    ).get(now) || null;
 }
 
 function resolveTargetType(body = {}) {
@@ -40,18 +40,16 @@ module.exports = {
             reconcileLevelSchedule();
             const body = req.body || {};
             const type = resolveTargetType(body);
+            const now = Math.floor(Date.now() / 1000);
 
             // db checks
-            const level = getCurrentDailyLevel(type === 1, type === 2);
+            const level = getCurrentDailyLevel(type === 1, type === 2, now);
 
             if (!level) {
                 return res.send('-1');
             }
 
-            const now = Math.floor(Date.now() / 1000);
             const timeLeft = Math.max(0, Number(level.dailyTime || 0) - now);
-
-            if (level.dailyTime > 0 && level.dailyTime <= now) return res.send('-1');
 
             if (type === 2) {
                 // decode chk
@@ -73,3 +71,5 @@ module.exports = {
         }
     }
 };
+
+module.exports.getCurrentDailyLevel = getCurrentDailyLevel;

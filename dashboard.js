@@ -677,22 +677,22 @@ router.get('/api/server-schedule', requireAuth, (req, res) => {
         WHERE l.dailyNumber > 0 AND l.dailyNumber < 100001
         AND (l.dailyTime = 0 OR l.dailyTime > ?)
         AND NOT EXISTS (SELECT 1 FROM level_schedule s WHERE s.type = 'daily'
-            AND s.slot = l.dailyNumber AND s.levelID = l.levelID AND s.startsAt <= ? AND s.expiresAt > ?)
-        ORDER BY l.dailyNumber ASC, l.dailyTime DESC`).all(now, now, now);
+            AND s.slot = l.dailyNumber AND s.levelID = l.levelID)
+        ORDER BY l.dailyNumber ASC, l.dailyTime DESC`).all(now);
     const weekly = db.prepare(`SELECT l.levelID, l.levelName, l.dailyNumber, l.dailyTime,
         p.userName AS creator FROM levels l LEFT JOIN profiles p ON p.accountID = l.accountID
         WHERE l.dailyNumber >= 100001 AND l.dailyNumber <= 200000
         AND (l.dailyTime = 0 OR l.dailyTime > ?)
         AND NOT EXISTS (SELECT 1 FROM level_schedule s WHERE s.type = 'weekly'
-            AND s.slot = l.dailyNumber - 100000 AND s.levelID = l.levelID AND s.startsAt <= ? AND s.expiresAt > ?)
-        ORDER BY l.dailyNumber ASC, l.dailyTime DESC`).all(now, now, now);
+            AND s.slot = l.dailyNumber - 100000 AND s.levelID = l.levelID)
+        ORDER BY l.dailyNumber ASC, l.dailyTime DESC`).all(now);
     const event = db.prepare(`SELECT l.levelID, l.levelName, l.dailyNumber, l.dailyTime,
         p.userName AS creator FROM levels l LEFT JOIN profiles p ON p.accountID = l.accountID
         WHERE l.dailyNumber > 200000
         AND (l.dailyTime = 0 OR l.dailyTime > ?)
         AND NOT EXISTS (SELECT 1 FROM level_schedule s WHERE s.type = 'event'
-            AND s.slot = l.dailyNumber - 200000 AND s.levelID = l.levelID AND s.startsAt <= ? AND s.expiresAt > ?)
-        ORDER BY l.dailyNumber ASC, l.dailyTime DESC`).all(now, now, now);
+            AND s.slot = l.dailyNumber - 200000 AND s.levelID = l.levelID)
+        ORDER BY l.dailyNumber ASC, l.dailyTime DESC`).all(now);
     const plans = db.prepare(`SELECT s.scheduleID, s.type, s.slot, s.levelID, s.startsAt, s.expiresAt,
         l.levelName, p.userName AS creator
         FROM level_schedule s JOIN levels l ON l.levelID = s.levelID
@@ -726,11 +726,17 @@ function scheduleTargetNumber(type, slot) {
     return slot;
 }
 
-function scheduleTypeFromNumber(number) {
-    if (number > 200000) return 'event';
-    if (number >= 100001 && number <= 200000) return 'weekly';
-    if (number > 0 && number < 100001) return 'daily';
-    return null;
+function clearPendingScheduleNumbers(type, slot) {
+    const slotCondition = slot === undefined ? '' : 'AND s.slot = ?';
+    const params = slot === undefined ? [type] : [type, slot];
+    db.prepare(`UPDATE levels SET dailyNumber = 0, dailyTime = 0
+        WHERE EXISTS (SELECT 1 FROM level_schedule s WHERE s.levelID = levels.levelID
+            AND s.type = ? AND s.applied = 0 ${slotCondition}
+            AND levels.dailyNumber = CASE
+                WHEN s.type = 'weekly' THEN s.slot + 100000
+                WHEN s.type = 'event' THEN s.slot + 200000
+                ELSE s.slot
+            END AND levels.dailyTime = s.expiresAt)`).run(...params);
 }
 
 router.post('/api/server-schedule', requireAuth, requireCsrf, (req, res) => {
@@ -748,25 +754,19 @@ router.post('/api/server-schedule', requireAuth, requireCsrf, (req, res) => {
     if (!Number.isInteger(startsAt) || startsAt < now) return res.status(400).json({ error: 'Schedule start must be now or later' });
     if (!Number.isInteger(expiresAt) || expiresAt <= startsAt) return res.status(400).json({ error: 'Schedule expiry must be later than its start' });
 
+    reconcileLevelSchedule(now);
     const nextSlot = getNextScheduleSlots()[type];
     if (slot < nextSlot) return res.status(409).json({ error: `The next ${type} number must be ${nextSlot} or higher` });
 
-    const level = db.prepare('SELECT levelID FROM levels WHERE levelID = ?').get(levelId);
+    const level = db.prepare('SELECT levelID, dailyNumber FROM levels WHERE levelID = ?').get(levelId);
     if (!level) return res.status(404).json({ error: 'Level not found' });
-
-    const targetNumber = scheduleTargetNumber(type, slot);
-    const otherAssignments = db.prepare('SELECT dailyNumber FROM levels WHERE levelID = ? AND dailyNumber != 0').all(levelId);
-    const duplicateInType = otherAssignments.some(item => {
-        const currentType = scheduleTypeFromNumber(item.dailyNumber);
-        return currentType === type && item.dailyNumber !== targetNumber;
-    });
-    if (duplicateInType) return res.status(409).json({ error: `This level is already assigned to another ${type} slot` });
+    if (level.dailyNumber !== 0) return res.status(409).json({ error: 'This level already has a daily, weekly, or event number' });
 
     const overlapping = db.prepare(`SELECT scheduleID FROM level_schedule
         WHERE type = ? AND startsAt < ? AND expiresAt > ?`).get(type, expiresAt, startsAt);
     if (overlapping) return res.status(409).json({ error: `A ${type} level is already scheduled during this time` });
     const alreadyScheduled = db.prepare(`SELECT scheduleID FROM level_schedule
-        WHERE levelID = ? AND startsAt < ? AND expiresAt > ?`).get(levelId, expiresAt, startsAt);
+        WHERE levelID = ? AND applied = 0 AND expiresAt > ?`).get(levelId, now);
     if (alreadyScheduled) return res.status(409).json({ error: 'This level already has a schedule during this time' });
 
     const result = db.prepare(`INSERT INTO level_schedule (type, slot, levelID, startsAt, expiresAt, createdAt)
@@ -781,6 +781,7 @@ router.post('/api/server-schedule/clear', requireAuth, requireCsrf, (req, res) =
     const ranges = { daily: 'dailyNumber > 0 AND dailyNumber <= 100000', weekly: 'dailyNumber > 100000 AND dailyNumber <= 200000', event: 'dailyNumber > 200000' };
     const now = Math.floor(Date.now() / 1000);
     db.transaction(() => {
+        clearPendingScheduleNumbers(type);
         db.prepare(`UPDATE levels SET dailyTime = ? WHERE ${ranges[type]} AND (dailyTime = 0 OR dailyTime > ?)`).run(now, now);
         db.prepare('DELETE FROM level_schedule WHERE type = ?').run(type);
     })();
@@ -794,6 +795,7 @@ router.delete('/api/server-schedule/entry/:scheduleId', requireAuth, requireCsrf
     if (!entry) return res.status(404).json({ error: 'Schedule entry not found' });
     const now = Math.floor(Date.now() / 1000);
     const result = db.transaction(() => {
+        if (entry.applied === 0) clearPendingScheduleNumbers(entry.type, entry.slot);
         const targetNumber = scheduleTargetNumber(entry.type, entry.slot);
         db.prepare(`UPDATE levels SET dailyTime = ?
             WHERE levelID = ? AND dailyNumber = ? AND dailyTime = ? AND dailyTime > ?`).run(now, entry.levelID, targetNumber, entry.expiresAt, now);
@@ -811,6 +813,7 @@ router.delete('/api/server-schedule/:type/:slot', requireAuth, requireCsrf, (req
     const targetNumber = scheduleTargetNumber(type, slot);
     const now = Math.floor(Date.now() / 1000);
     const result = db.transaction(() => {
+        clearPendingScheduleNumbers(type, slot);
         const cleared = db.prepare(`UPDATE levels SET dailyTime = ?
             WHERE dailyNumber = ? AND (dailyTime = 0 OR dailyTime > ?)`).run(now, targetNumber, now);
         const plans = db.prepare('DELETE FROM level_schedule WHERE type = ? AND slot = ?').run(type, slot);

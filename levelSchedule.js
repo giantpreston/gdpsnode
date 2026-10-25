@@ -1,6 +1,5 @@
 const db = require('./database');
 const utils = require('./utils');
-let lastReconciledAt = -1;
 
 const scheduleTargetNumber = (type, slot) => {
     if (type === 'weekly') return slot + 100000;
@@ -9,17 +8,23 @@ const scheduleTargetNumber = (type, slot) => {
 };
 
 function reconcileLevelSchedule(now = Math.floor(Date.now() / 1000)) {
-    if (now === lastReconciledAt) return;
-    lastReconciledAt = now;
     const expired = db.prepare('SELECT scheduleID FROM level_schedule WHERE applied = 1 AND expiresAt <= ?').all(now);
     const missed = db.prepare('SELECT scheduleID FROM level_schedule WHERE applied = 0 AND expiresAt <= ?').all(now);
+    const unstarted = db.prepare(`SELECT s.type, s.slot, s.levelID, s.expiresAt
+        FROM level_schedule s JOIN levels l ON l.levelID = s.levelID
+        WHERE s.applied = 0 AND (s.startsAt > ? OR s.expiresAt <= ?)
+        AND l.dailyNumber = CASE
+            WHEN s.type = 'weekly' THEN s.slot + 100000
+            WHEN s.type = 'event' THEN s.slot + 200000
+            ELSE s.slot
+        END AND l.dailyTime = s.expiresAt`).all(now, now);
     const activeRows = db.prepare(`SELECT s.scheduleID, s.type, s.slot, s.levelID, s.startsAt, s.expiresAt,
         l.accountID, l.dailyNumber, p.userName
         FROM level_schedule s JOIN levels l ON l.levelID = s.levelID
         LEFT JOIN profiles p ON p.accountID = l.accountID
         WHERE s.applied = 0 AND s.startsAt <= ? AND s.expiresAt > ?
         ORDER BY s.startsAt DESC, s.scheduleID DESC`).all(now, now);
-    if (!expired.length && !missed.length && !activeRows.length) return;
+    if (!expired.length && !missed.length && !unstarted.length && !activeRows.length) return;
     const active = new Map();
     for (const row of activeRows) {
         const key = `${row.type}:${row.slot}`;
@@ -27,6 +32,11 @@ function reconcileLevelSchedule(now = Math.floor(Date.now() / 1000)) {
     }
 
     db.transaction(() => {
+        const clearUnstarted = db.prepare(`UPDATE levels SET dailyNumber = 0, dailyTime = 0
+            WHERE levelID = ? AND dailyNumber = ? AND dailyTime = ?`);
+        for (const row of unstarted) {
+            clearUnstarted.run(row.levelID, scheduleTargetNumber(row.type, row.slot), row.expiresAt);
+        }
         db.prepare('UPDATE level_schedule SET applied = 2 WHERE applied = 1 AND expiresAt <= ?').run(now);
         db.prepare('UPDATE level_schedule SET applied = 2 WHERE applied = 0 AND expiresAt <= ?').run(now);
 
