@@ -523,12 +523,14 @@ function renderNews(data) {
                     </div>
                     <p class="muted">Upload a JPG or PNG to this server, or choose an image already uploaded.</p>
                 </section>
-                <details class="news-extra-fields"><summary>Image size and button (optional)</summary>
+                <details class="news-extra-fields"><summary>Image tap behavior, size, and button (optional)</summary>
                     <div class="news-optional-grid">
+                        <label>Image destination URL<input name="imageUrl" type="url" maxlength="2048" value="${escapeHtml(item.imageUrl || '')}" placeholder="Optional URL opened when tapped"></label>
+                        <label class="news-check"><input name="imageClickable" type="checkbox"${item.imageClickable ? ' checked' : ''}> Is this image a YouTube video?</label>
                         <label>Image width<input name="imageWidth" type="number" min="1" max="8192" value="${Number(item.imageWidth) || 800}"></label>
                         <label>Image height<input name="imageHeight" type="number" min="1" max="8192" value="${Number(item.imageHeight) || 454}"></label>
-                        <label>Button label<input name="buttonLabel" maxlength="120" value="${escapeHtml(item.buttonLabel || '')}" placeholder="Optional button"></label>
-                        <label>Button URL<input name="buttonUrl" maxlength="2048" value="${escapeHtml(item.buttonUrl || '')}" placeholder="https://..."></label>
+                        <label>Hyperlink text<input name="buttonLabel" maxlength="120" value="${escapeHtml(item.buttonLabel || '')}" placeholder="Optional hyperlink"></label>
+                        <label>Hyperlink URL<input name="buttonUrl" maxlength="2048" value="${escapeHtml(item.buttonUrl || '')}" placeholder="https://..."></label>
                     </div>
                 </details>
             </div>
@@ -1074,6 +1076,8 @@ $('#add-news-article').addEventListener('click', () => {
         imageFile: '',
         imageWidth: 800,
         imageHeight: 454,
+        imageClickable: 0,
+        imageUrl: '',
         buttonLabel: '',
         buttonUrl: '',
     });
@@ -1158,6 +1162,8 @@ $('#save-news-articles').addEventListener('click', async () => {
             imageFile: value('imageFile').value,
             imageWidth: Number(value('imageWidth').value),
             imageHeight: Number(value('imageHeight').value),
+            imageClickable: value('imageClickable').checked ? 1 : 0,
+            imageUrl: value('imageUrl').value,
             buttonLabel: value('buttonLabel').value,
             buttonUrl: value('buttonUrl').value,
         };

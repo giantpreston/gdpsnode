@@ -61,6 +61,7 @@ DASHBOARD_PATH=/dashboard
 DASHBOARD_SECURE_COOKIES=0
 TRUST_PROXY_HOPS=0
 PORT=10000
+NEWS_VERSION=5
 ENABLE_PLUGINS=1
 PLUGINS_DIR=plugins
 ```
@@ -71,6 +72,7 @@ PLUGINS_DIR=plugins
 - `TRUST_PROXY_HOPS` is important if your server sits behind a reverse proxy like Nginx or Cloudflare.
 - `ENABLE_PLUGINS=0` disables automatic plugin loading. `PLUGINS_DIR` selects the directory when enabled.
 - `DASHBOARD_LOGIN_MODE` accepts `account`, `legacy`, or `both`; `account` is the default and uses in-game moderator credentials.
+- `NEWS_VERSION` sets the initial news version for a new database. Saving changed news articles in the dashboard automatically increments the version used by both `news_version.txt` and the `news.dat` header. The red exclamation point (!) only appears in-game when you create a new article, updating an existing article won't cause it to show up, but the changes will be present in-game.
 
 ## Working with the project layout
 

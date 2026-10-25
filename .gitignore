@@ -5,6 +5,7 @@ node_modules/
 levels/*.gdcs
 songs/*.mp3
 songs/*.ogg
-endpoints/content/news/
+endpoints/content/news/*.jpg
+endpoints/content/news/*.png
 plan.txt
 .env

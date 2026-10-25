@@ -1,0 +1,4 @@
+This is where all your assets for your news are stored!
+The news themselves are not stored here, though. Only the images used for them.
+
+Manage your news through the dashboard!

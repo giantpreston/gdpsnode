@@ -45,6 +45,12 @@ const normalizeDashboardLoginMode = value => {
     return ['account', 'legacy', 'both'].includes(mode) ? mode : 'account';
 };
 
+const normalizeNewsVersion = value => {
+    const version = String(value ?? '5').trim();
+    if (!/^\d+$/.test(version)) throw new Error('NEWS_VERSION must be a non-negative integer');
+    return version;
+};
+
 const env = process.env;
 
 module.exports = {
@@ -52,6 +58,7 @@ module.exports = {
     port: normalizeNumber(env.PORT || env.GDPS_PORT || 10000, 10000),
     publicUrl: normalizePublicUrl(env.PUBLIC_URL, 'PUBLIC_URL'),
     songBaseUrl: normalizePublicUrl(env.SONG_BASE_URL, 'SONG_BASE_URL'),
+    newsVersion: normalizeNewsVersion(env.NEWS_VERSION),
     motd: env.MOTD || 'A GDPSnode Private Server.',
     icon: env.ICON || 'https://raw.githubusercontent.com/Kingminer7/gdps-switcher/refs/heads/main/resources/gdlogo.png',
     lang: env.LANG || 'js',

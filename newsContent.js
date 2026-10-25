@@ -8,14 +8,22 @@ function encodeBase64Url(value) {
         .replace(/\//g, '_');
 }
 
+function getNewsVersion() {
+    return String(db.prepare('SELECT version FROM dashboard_news_settings WHERE id = 1').get().version);
+}
+
 function getNewsItems() {
     return db.prepare(`SELECT newsID AS id, publishDate, title, body, imageFile, imageWidth,
-        imageHeight, buttonLabel, buttonUrl
+        imageHeight, imageClickable, imageUrl, buttonLabel, buttonUrl
         FROM dashboard_news ORDER BY newsID DESC`).all();
 }
 
-function getNewsVersion() {
-    return Number(db.prepare('SELECT version FROM dashboard_news_settings WHERE id = 1').get()?.version || 1001);
+function ensureTrailingSlash(value) {
+    if (!value) return value;
+    const suffixIndex = value.search(/[?#]/);
+    const pathname = suffixIndex === -1 ? value : value.slice(0, suffixIndex);
+    const suffix = suffixIndex === -1 ? '' : value.slice(suffixIndex);
+    return `${pathname.endsWith('/') ? pathname : `${pathname}/`}${suffix}`;
 }
 
 function newsImageFilename(value) {
@@ -33,22 +41,21 @@ function serializeNews(items = getNewsItems()) {
         const hasBody = body.length > 0;
         const imageFile = newsImageFilename(item.imageFile);
         const primaryContent = !hasBody && imageFile
-            ? `1,${imageFile},${item.imageWidth},${item.imageHeight},0,`
+            ? `1,${imageFile},${item.imageWidth},${item.imageHeight},${item.imageClickable},${encodeBase64Url(item.imageUrl || '')}`
             : `0,${encodeBase64Url(body)}`;
         let record = `1:${item.id};2:${encodeBase64Url(item.publishDate)};3:${encodeBase64Url(item.title)};4:${primaryContent}`;
         if (item.buttonLabel) {
             record += `~2,${encodeBase64Url(item.buttonLabel)},${encodeBase64Url(item.buttonUrl)}`;
         }
         if (hasBody && imageFile) {
-            record += `~1,${imageFile},${item.imageWidth},${item.imageHeight},0,`;
+            record += `~1,${imageFile},${item.imageWidth},${item.imageHeight},${item.imageClickable},${encodeBase64Url(item.imageUrl || '')}`;
         }
         return record;
     });
     const payload = `${getNewsVersion()},${records.length}|${records.join('|')}`;
     return zlib.gzipSync(Buffer.from(payload, 'utf8')).toString('base64')
         .replace(/\+/g, '-')
-        .replace(/\//g, '_')
-        .replace(/=+$/, '');
+        .replace(/\//g, '_');
 }
 
 function normalizeNewsItems(input) {
@@ -63,8 +70,10 @@ function normalizeNewsItems(input) {
         const imageFile = typeof item?.imageFile === 'string' ? item.imageFile.trim() : '';
         const imageWidth = Number(item?.imageWidth ?? 800);
         const imageHeight = Number(item?.imageHeight ?? 454);
+        const imageClickable = Number(item?.imageClickable || 0);
+        const imageUrl = ensureTrailingSlash(typeof item?.imageUrl === 'string' ? item.imageUrl.trim() : '');
         const buttonLabel = typeof item?.buttonLabel === 'string' ? item.buttonLabel.trim() : '';
-        const buttonUrl = typeof item?.buttonUrl === 'string' ? item.buttonUrl.trim() : '';
+        const buttonUrl = ensureTrailingSlash(typeof item?.buttonUrl === 'string' ? item.buttonUrl.trim() : '');
         if (!Number.isSafeInteger(id) || id < 1 || ids.has(id)) throw new Error(`Article ${index + 1} has an invalid or duplicate ID`);
         if (!publishDate || publishDate.length > 64) throw new Error(`Article ${index + 1} needs a date of 64 characters or fewer`);
         if (!title || title.length > 120) throw new Error(`Article ${index + 1} needs a title of 120 characters or fewer`);
@@ -73,15 +82,20 @@ function normalizeNewsItems(input) {
             throw new Error(`Article ${index + 1} has an invalid image filename`);
         }
         if (!Number.isInteger(imageWidth) || imageWidth < 1 || imageWidth > 8192 ||
-            !Number.isInteger(imageHeight) || imageHeight < 1 || imageHeight > 8192) {
+            !Number.isInteger(imageHeight) || imageHeight < 1 || imageHeight > 8192 ||
+            ![0, 1].includes(imageClickable)) {
             throw new Error(`Article ${index + 1} has invalid image settings`);
         }
+        if (imageUrl.length > 2048) throw new Error(`Article ${index + 1} image URL must be 2048 characters or fewer`);
         if (buttonLabel.length > 120 || buttonUrl.length > 2048 || (!!buttonLabel !== !!buttonUrl)) {
             throw new Error(`Article ${index + 1} has invalid button or link details`);
         }
         if (!body && !imageFile && !buttonLabel) throw new Error(`Article ${index + 1} needs body text, an image, or a button`);
         ids.add(id);
-        return { id, publishDate, title, body, imageFile, imageWidth, imageHeight, buttonLabel, buttonUrl };
+        return {
+            id, publishDate, title, body, imageFile, imageWidth, imageHeight,
+            imageClickable, imageUrl, buttonLabel, buttonUrl
+        };
     }).sort((left, right) => right.id - left.id);
 }
 
@@ -94,11 +108,13 @@ function saveNewsItems(input) {
     const transaction = db.transaction(() => {
         db.prepare('DELETE FROM dashboard_news').run();
         const insert = db.prepare(`INSERT INTO dashboard_news
-            (newsID, publishDate, title, body, imageFile, imageWidth, imageHeight, buttonLabel, buttonUrl)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`);
+            (newsID, publishDate, title, body, imageFile, imageWidth, imageHeight, imageClickable,
+             imageUrl, buttonLabel, buttonUrl)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`);
         for (const item of items) {
             insert.run(item.id, item.publishDate, item.title, item.body, item.imageFile,
-                item.imageWidth, item.imageHeight, item.buttonLabel, item.buttonUrl);
+                item.imageWidth, item.imageHeight, item.imageClickable, item.imageUrl,
+                item.buttonLabel, item.buttonUrl);
         }
         db.prepare('UPDATE dashboard_news_settings SET version = version + 1 WHERE id = 1').run();
     });

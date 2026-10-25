@@ -1,4 +1,5 @@
 const Database = require('better-sqlite3');
+const config = require('./config');
 const db = new Database(process.env.GDPS_DATABASE_PATH || 'gd_server.db')
 
 // i hate hate hate hate hate, hate hate hate hate hate hate hate HATE sqlite.
@@ -677,7 +678,8 @@ db.exec(`
         OR description LIKE '%+%' OR description LIKE '%/%'
 `);
 
-db.prepare('INSERT OR IGNORE INTO dashboard_news_settings (id, version, payloadFormatVersion) VALUES (1, 1001, 2)').run();
+db.prepare('INSERT OR IGNORE INTO dashboard_news_settings (id, version, payloadFormatVersion) VALUES (1, ?, 2)')
+    .run(Number(config.newsVersion));
 db.prepare(`UPDATE dashboard_news_settings
     SET version = version + 1, payloadFormatVersion = 2
     WHERE id = 1 AND payloadFormatVersion < 2`).run();
