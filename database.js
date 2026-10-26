@@ -647,14 +647,24 @@ db.exec('CREATE INDEX IF NOT EXISTS idx_notifications_recipient ON notifications
 db.exec(`
     UPDATE notifications
     SET notificationMask = CASE
-        WHEN type = 10 THEN 3
-        WHEN type = 11 THEN 4
+        WHEN type = 10 AND (
+            accountID = toAccountID
+            OR EXISTS (
+                SELECT 1 FROM levels l
+                WHERE l.levelID = notifications.levelID AND l.accountID = notifications.toAccountID
+            )
+        ) THEN 0
+        WHEN type = 10 AND notificationMask = 0 THEN 3
+        WHEN type = 11 THEN 8
         WHEN type = 13 THEN 16
         WHEN type = 14 THEN 32
-        WHEN type = 15 AND title = 'UmF0ZWQh' THEN 64
+        WHEN type = 15 AND title IN ('UmF0ZWQh', 'SHlwZWQh') THEN 0
         ELSE notificationMask
     END
-    WHERE notificationMask = 0
+    WHERE type = 10
+        OR (type = 11 AND notificationMask IN (0, 4))
+        OR type IN (13, 14)
+        OR (type = 15 AND title IN ('UmF0ZWQh', 'SHlwZWQh') AND notificationMask IN (0, 64))
 `);
 
 db.prepare(`
@@ -677,6 +687,41 @@ db.exec(`
     WHERE title LIKE '%+%' OR title LIKE '%/%'
         OR description LIKE '%+%' OR description LIKE '%/%'
 `);
+
+const decodeNotificationText = value => {
+    const normalized = String(value || '').replace(/-/g, '+').replace(/_/g, '/');
+    const padded = normalized.padEnd(Math.ceil(normalized.length / 4) * 4, '=');
+    return Buffer.from(padded, 'base64').toString('utf8');
+};
+const encodeNotificationText = value => Buffer.from(value, 'utf8')
+    .toString('base64')
+    .replace(/\+/g, '-')
+    .replace(/\//g, '_');
+db.transaction(() => {
+    const legacyUploadNotifications = db.prepare(`
+        SELECT notificationID, title, description, username
+        FROM notifications
+        WHERE type = 10 AND title IN (?, ?)
+    `).all(encodeNotificationText('New Level!'), encodeNotificationText('New List!'));
+    const updateNotification = db.prepare('UPDATE notifications SET description = ? WHERE notificationID = ?');
+
+    for (const notification of legacyUploadNotifications) {
+        const title = decodeNotificationText(notification.title);
+        if (title !== 'New Level!' && title !== 'New List!') continue;
+
+        const description = decodeNotificationText(notification.description);
+        const prefix = `<cg>${notification.username}</c> uploaded <cy>`;
+        const suffix = '</c>!';
+        if (!description.startsWith(prefix) || !description.endsWith(suffix)) continue;
+
+        const itemName = description.slice(prefix.length, -suffix.length);
+        const itemType = title === 'New Level!' ? 'level' : 'list';
+        updateNotification.run(
+            encodeNotificationText(`<cg>${notification.username}</c>'s ${itemType} <cy>${itemName}</c> has been uploaded!`),
+            notification.notificationID
+        );
+    }
+})();
 
 db.prepare('INSERT OR IGNORE INTO dashboard_news_settings (id, version, payloadFormatVersion) VALUES (1, ?, 2)')
     .run(Number(config.newsVersion));

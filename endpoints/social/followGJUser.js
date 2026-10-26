@@ -39,7 +39,8 @@ module.exports = {
                     title: followerCount === 1 ? 'First Follower!' : `${followerCount.toLocaleString()} Followers!`,
                     description: followerCount === 1
                         ? 'Someone is now <cy>following</c> you!'
-                        : `Your profile has reached <cy>${followerCount.toLocaleString()}</c> followers!`
+                        : `Your profile has reached <cy>${followerCount.toLocaleString()}</c> followers!`,
+                    achievement: followerCount === 1 ? 'geometry.ach.follower01' : ''
                 });
             }
             return res.send('1');

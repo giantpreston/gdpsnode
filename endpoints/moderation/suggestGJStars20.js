@@ -51,7 +51,20 @@ module.exports = {
                     return true;
                 })();
 
-                if (submitted) return res.send('1');
+                if (submitted) {
+                    utils.notifAdd({
+                        toAccountID: level.accountID,
+                        notificationMask: 0,
+                        type: 15,
+                        emoteIcon: 'epic',
+                        title: 'Hyped!',
+                        description: `Your level <cg>${level.levelName}</c> is now <cy>Hyped</c>!`,
+                        hasLevel: true,
+                        levelID: level.levelID,
+                        achievement: 'geometry.ach.hyped01'
+                    });
+                    return res.send('1');
+                }
             } else {
                 let updates = [];
                 let params = [];

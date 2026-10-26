@@ -207,9 +207,10 @@ function notifLevelRating(level, previousLevel) {
             emoteIcon,
             title: 'Rated!',
             description: `Your level <cg>${level.levelName}</c> is now <cy>rated</c>!`,
-            notificationMask: 64,
+            notificationMask: 0,
             hasLevel: true,
             levelID: level.levelID,
+            achievement: 'geometry.ach.creator02', // Geometry Star
             accountID: recipientID,
             username
         });
@@ -218,8 +219,9 @@ function notifLevelRating(level, previousLevel) {
     if (feature > oldFeature) {
         const tiers = {
             1: { name: 'Featured', color: 'cy', icon: 'featured' },
-            2: { name: 'Legendary', color: 'cd', icon: 'legendary' },
-            3: { name: 'Mythic', color: 'cj', icon: 'mythic' }
+            2: { name: 'Epic', color: 'co', icon: 'epic' },
+            3: { name: 'Legendary', color: 'cd', icon: 'legendary' },
+            4: { name: 'Mythic', color: 'cj', icon: 'mythic' }
         };
         const tier = tiers[feature];
         notifAdd({
@@ -229,9 +231,7 @@ function notifLevelRating(level, previousLevel) {
             title: `${tier.name}!`,
             description: `Your level <cy>${level.levelName}</c> is now <${tier.color}>${tier.name}</c>!`,
             hasLevel: true,
-            levelID: level.levelID,
-            accountID: recipientID,
-            username
+            levelID: level.levelID
         });
     }
 }

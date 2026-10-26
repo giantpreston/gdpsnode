@@ -169,7 +169,7 @@ module.exports = {
                     type: 10,
                     emoteIcon: 'cube',
                     title: 'New List!',
-                    description: `<cg>${account.userName}</c> uploaded <cy>${listName}</c>!`,
+                    description: `<cg>${account.userName}</c> uploaded the list <cy>${listName}</c>!`,
                     accountID,
                     username: account.userName
                 });

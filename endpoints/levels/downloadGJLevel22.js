@@ -126,15 +126,13 @@ module.exports = {
         if (incremented && downloadMilestone) {
             utils.notifAdd({
                 toAccountID: level.accountID,
-                notificationMask: 4,
+                notificationMask: 8,
                 type: 11,
                 emoteIcon: 'download',
-            title: `${downloadMilestone.toLocaleString()} Downloads!`,
-            description: `Your level <cg>${level.levelName}</c> reached <cy>${downloadMilestone.toLocaleString()}</c> downloads!`,
+                title: `${downloadMilestone.toLocaleString()} Downloads!`,
+                description: `Your level <cg>${level.levelName}</c> reached <cy>${downloadMilestone.toLocaleString()}</c> downloads!`,
                 hasLevel: true,
-                levelID: level.levelID,
-                accountID: level.accountID,
-                username: ownerAccount.userName
+                levelID: level.levelID
             });
         }
 
