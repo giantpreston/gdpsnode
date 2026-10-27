@@ -5,7 +5,7 @@
   "main": "server.js",
   "scripts": {
     "start": "node server.js",
-    "test": "node --check server.js && node --check dashboard.js && node --check dashboard/dashboard.js && node --check levelSchedule.js && node --check newsContent.js && node --check newsImages.js && node --check endpoints/content/news.js && node --check endpoints/content/news_version.js && node --check endpoints/levels/getGJDailyLevel.js && node --check endpoints/levels/getGJLevels21.js && node --check endpoints/levels/downloadGJLevel22.js && node scripts/test-level-schedule.js",
+    "test": "node --check server.js && node --check dashboard.js && node --check dashboard/dashboard.js && node --check levelSchedule.js && node --check newsContent.js && node --check newsImages.js && node --check endpoints/content/news.js && node --check endpoints/content/news_version.js && node --check endpoints/levels/getGJDailyLevel.js && node --check endpoints/levels/getGJLevels21.js && node --check endpoints/levels/downloadGJLevel22.js && node scripts/test-level-schedule.js && node scripts/test-database-hooks.js && node scripts/test-database-adapter-lazy.js",
     "benchmark:sqlite": "node scripts/benchmark-sqlite.js"
   },
   "keywords": [],

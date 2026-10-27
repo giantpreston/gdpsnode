@@ -1,9 +1,151 @@
 const Database = require('better-sqlite3');
 const config = require('./config');
-const db = new Database(process.env.GDPS_DATABASE_PATH || 'gd_server.db')
+const { hooks } = require('./hooks');
+let nativeDB = null;
+let db;
+let activeAdapter = null;
+let adapterClosed = false;
 
-// i hate hate hate hate hate, hate hate hate hate hate hate hate HATE sqlite.
-// we get it bro ^^^
+function setAdapter(adapter) {
+    if (adapter === null) {
+        activeAdapter = null;
+        adapterClosed = false;
+        return db;
+    }
+
+    if (!adapter || typeof adapter !== 'object'
+        || typeof adapter.prepare !== 'function'
+        || typeof adapter.exec !== 'function'
+        || typeof adapter.transaction !== 'function'
+        || typeof adapter.close !== 'function') {
+        throw new TypeError('Database adapter must implement prepare(), exec(), transaction(), and close()');
+    }
+
+    activeAdapter = adapter;
+    adapterClosed = false;
+    return adapter;
+}
+
+function getBackend() {
+    if (activeAdapter) return activeAdapter;
+    if (!nativeDB) initializeSQLite();
+    return nativeDB;
+}
+
+function dispatchQuery(request, execute) {
+    request.execute = execute;
+    request.cancel = (...results) => {
+        request.cancelled = true;
+        if (results.length > 0) request.result = results[0];
+    };
+    const result = hooks.trigger('database:query', request, { database: db });
+    if (result && typeof result === 'object' && result !== request) {
+        Object.assign(request, result);
+    }
+    if (request.handled || request.cancelled) return request.result;
+    return typeof request.execute === 'function' ? request.execute() : execute();
+}
+
+function wrapStatement(statement, sql, prepareCancelled = false) {
+    const statementTarget = prepareCancelled
+        ? Object.fromEntries(['run', 'get', 'all', 'iterate'].map(method => [method, () => {}]))
+        : statement;
+    let proxy;
+    proxy = new Proxy(statementTarget, {
+        get(target, property) {
+            const value = Reflect.get(target, property, target);
+            if (typeof value !== 'function') return value;
+
+            if (['run', 'get', 'all', 'iterate'].includes(property)) {
+                return (...params) => {
+                    const request = { sql, method: property, params, handled: false, cancelled: false, prepareCancelled };
+                    return dispatchQuery(request, (...overrideParams) => {
+                        if (prepareCancelled) {
+                            throw new Error(`Database statement was cancelled before preparation and was not handled by a plugin: ${sql}`);
+                        }
+                        const executionParams = overrideParams.length ? overrideParams : request.params;
+                        return Reflect.apply(value, target, executionParams);
+                    });
+                };
+            }
+
+            return (...args) => {
+                const result = Reflect.apply(value, target, args);
+                return result === target ? proxy : result;
+            };
+        }
+    });
+    return proxy;
+}
+
+db = new Proxy({}, {
+    get(target, property) {
+        if (property === 'setAdapter') return setAdapter;
+        if (property === 'getAdapter') return () => activeAdapter;
+        if (property === 'closeDB') return closeDB;
+        if (property === 'prepare') {
+            return (sql, ...args) => {
+                const request = {
+                    sql,
+                    cancelled: false,
+                    cancel() {
+                        this.cancelled = true;
+                    }
+                };
+                const result = hooks.trigger('database:prepare', request, { database: db });
+                if (result && typeof result === 'object' && result !== request) {
+                    Object.assign(request, result);
+                }
+                if (request.cancelled) {
+                    return wrapStatement({}, request.sql, true);
+                }
+                return wrapStatement(getBackend().prepare(request.sql, ...args), request.sql);
+            };
+        }
+        if (property === 'exec') {
+            return sql => {
+                const request = { sql, method: 'exec', params: [], handled: false };
+                return dispatchQuery(request, () => getBackend().exec(request.sql));
+            };
+        }
+        if (property === 'pragma') {
+            return (...args) => {
+                const request = { sql: args[0], method: 'pragma', params: args.slice(1), handled: false };
+                return dispatchQuery(request, (...overrideParams) => {
+                    const pragmaParams = overrideParams.length ? overrideParams : request.params;
+                    const backend = getBackend();
+                    if (typeof backend.pragma !== 'function') {
+                        throw new Error('The active database adapter does not support pragma()');
+                    }
+                    return backend.pragma(request.sql, ...pragmaParams);
+                });
+            };
+        }
+        if (property === 'transaction') {
+            return (...args) => {
+                const backend = getBackend();
+                return backend.transaction(...args);
+            };
+        }
+        if (property === 'close') return closeDB;
+        if (property === 'open' && activeAdapter) {
+            return activeAdapter.open ?? !adapterClosed;
+        }
+        if (property === 'open') return nativeDB ? nativeDB.open : false;
+
+        const backend = getBackend();
+        const value = Reflect.get(backend, property, backend);
+        return typeof value === 'function' ? value.bind(backend) : value;
+    }
+});
+
+function initializeSQLite() {
+    if (nativeDB) return nativeDB;
+
+    try {
+        nativeDB = new Database(process.env.GDPS_DATABASE_PATH || 'gd_server.db');
+        // i hate hate hate hate hate hate hate HATE sqlite.
+        // we get it bro ^^^
 
 db.pragma('journal_mode = WAL');
 db.pragma('synchronous = NORMAL');
@@ -11,6 +153,7 @@ db.pragma('busy_timeout = 30000');
 db.pragma('wal_autocheckpoint = 1000');
 db.pragma('journal_size_limit = 67108864');
 db.pragma('cache_size = -64000');
+db.pragma('foreign_keys = ON');
 db.pragma('temp_store = MEMORY');
 db.pragma('mmap_size = 268435456');
 db.exec(`
@@ -497,6 +640,7 @@ db.exec(`
     );
 
     CREATE INDEX IF NOT EXISTS idx_accounts_userName ON accounts(userName);
+    CREATE INDEX IF NOT EXISTS idx_accounts_lower_userName ON accounts(LOWER(userName));
     CREATE INDEX IF NOT EXISTS idx_accounts_gjp2 ON accounts(gjp2);
     CREATE INDEX IF NOT EXISTS idx_dashboard_access_accountID ON dashboard_access(accountID);
 
@@ -504,6 +648,7 @@ db.exec(`
     CREATE INDEX IF NOT EXISTS idx_mutes_person2 ON mutes (person2);
 
     CREATE INDEX IF NOT EXISTS idx_profiles_userName ON profiles(userName);
+    CREATE INDEX IF NOT EXISTS idx_profiles_lower_userName ON profiles(LOWER(userName));
     CREATE INDEX IF NOT EXISTS idx_profiles_accountID ON profiles(accountID);
     CREATE INDEX IF NOT EXISTS idx_profiles_modLevel ON profiles(modLevel);
 
@@ -644,84 +789,6 @@ db.transaction(() => {
 
 db.exec('CREATE INDEX IF NOT EXISTS idx_accounts_leaderboardBan ON accounts(leaderboardBan)');
 db.exec('CREATE INDEX IF NOT EXISTS idx_notifications_recipient ON notifications(toAccountID, notificationID DESC)');
-db.exec(`
-    UPDATE notifications
-    SET notificationMask = CASE
-        WHEN type = 10 AND (
-            accountID = toAccountID
-            OR EXISTS (
-                SELECT 1 FROM levels l
-                WHERE l.levelID = notifications.levelID AND l.accountID = notifications.toAccountID
-            )
-        ) THEN 0
-        WHEN type = 10 AND notificationMask = 0 THEN 3
-        WHEN type = 11 THEN 8
-        WHEN type = 13 THEN 16
-        WHEN type = 14 THEN 32
-        WHEN type = 15 AND title IN ('UmF0ZWQh', 'SHlwZWQh') THEN 0
-        ELSE notificationMask
-    END
-    WHERE type = 10
-        OR (type = 11 AND notificationMask IN (0, 4))
-        OR type IN (13, 14)
-        OR (type = 15 AND title IN ('UmF0ZWQh', 'SHlwZWQh') AND notificationMask IN (0, 64))
-`);
-
-db.prepare(`
-    UPDATE notifications
-    SET hasLevel = 1, levelID = 0
-    WHERE type = 14 AND accountID > 0
-`).run();
-db.prepare(`
-    UPDATE notifications
-    SET accountID = 0, username = ?, description = ?
-    WHERE type = 13
-`).run(
-    '',
-    Buffer.from('Someone is now <cy>following</c> you!', 'utf8').toString('base64').replace(/\+/g, '-').replace(/\//g, '_')
-);
-db.exec(`
-    UPDATE notifications
-    SET title = REPLACE(REPLACE(title, '+', '-'), '/', '_'),
-        description = REPLACE(REPLACE(description, '+', '-'), '/', '_')
-    WHERE title LIKE '%+%' OR title LIKE '%/%'
-        OR description LIKE '%+%' OR description LIKE '%/%'
-`);
-
-const decodeNotificationText = value => {
-    const normalized = String(value || '').replace(/-/g, '+').replace(/_/g, '/');
-    const padded = normalized.padEnd(Math.ceil(normalized.length / 4) * 4, '=');
-    return Buffer.from(padded, 'base64').toString('utf8');
-};
-const encodeNotificationText = value => Buffer.from(value, 'utf8')
-    .toString('base64')
-    .replace(/\+/g, '-')
-    .replace(/\//g, '_');
-db.transaction(() => {
-    const legacyUploadNotifications = db.prepare(`
-        SELECT notificationID, title, description, username
-        FROM notifications
-        WHERE type = 10 AND title IN (?, ?)
-    `).all(encodeNotificationText('New Level!'), encodeNotificationText('New List!'));
-    const updateNotification = db.prepare('UPDATE notifications SET description = ? WHERE notificationID = ?');
-
-    for (const notification of legacyUploadNotifications) {
-        const title = decodeNotificationText(notification.title);
-        if (title !== 'New Level!' && title !== 'New List!') continue;
-
-        const description = decodeNotificationText(notification.description);
-        const prefix = `<cg>${notification.username}</c> uploaded <cy>`;
-        const suffix = '</c>!';
-        if (!description.startsWith(prefix) || !description.endsWith(suffix)) continue;
-
-        const itemName = description.slice(prefix.length, -suffix.length);
-        const itemType = title === 'New Level!' ? 'level' : 'list';
-        updateNotification.run(
-            encodeNotificationText(`<cg>${notification.username}</c>'s ${itemType} <cy>${itemName}</c> has been uploaded!`),
-            notification.notificationID
-        );
-    }
-})();
 
 db.prepare('INSERT OR IGNORE INTO dashboard_news_settings (id, version, payloadFormatVersion) VALUES (1, ?, 2)')
     .run(Number(config.newsVersion));
@@ -763,11 +830,32 @@ function setInitialSequence(table, firstID) {
 
 setInitialSequence('accounts', 72);
 setInitialSequence('levels', 128);
+    } catch (error) {
+        if (nativeDB && nativeDB.open) nativeDB.close();
+        nativeDB = null;
+        throw error;
+    }
+
+    return nativeDB;
+}
 
 function closeDB() {
     try {
-        db.pragma('wal_checkpoint(FULL)');
-        db.close();
+        if (activeAdapter) {
+            if (!adapterClosed) {
+                activeAdapter.close();
+                adapterClosed = true;
+            }
+            if (nativeDB && nativeDB.open) {
+                nativeDB.pragma('wal_checkpoint(FULL)');
+                nativeDB.close();
+            }
+            console.log('\x1b[1;32m✓ Database adapter closed.\x1b[0m');
+            return;
+        }
+        if (!nativeDB || !nativeDB.open) return;
+        nativeDB.pragma('wal_checkpoint(FULL)');
+        nativeDB.close();
         console.log('\x1b[1;32m✓ SQLite database closed.\x1b[0m');
     } catch (err) {
         console.error('\x1b[1;31m✗ Error closing SQLite database:\x1b[0m', err);

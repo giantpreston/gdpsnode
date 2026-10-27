@@ -68,11 +68,6 @@ function isElevated() {
   return false;
 }
 
-// update the songs before the server launches
-soundlib.ensureMusicLib(0);
-// soundlib.ensureSFXLib(0);
-
-
 const app = express();
 hooks.setApp(app);
 app.disable('x-powered-by');
@@ -235,6 +230,7 @@ const pluginsReady = config.plugins.enabled
     : Promise.resolve(hooks);
 
 pluginsReady.then(() => {
+    soundlib.ensureMusicLib(0);
     hooks.trigger('server:before_start', { app, config, path: __dirname });
     return registerEndpoints();
 }).then(() => {
