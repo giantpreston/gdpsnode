@@ -9,15 +9,18 @@ const scheduleTargetNumber = (type, slot) => {
 
 function reconcileLevelSchedule(now = Math.floor(Date.now() / 1000)) {
     const expired = db.prepare('SELECT scheduleID FROM level_schedule WHERE applied = 1 AND expiresAt <= ?').all(now);
-    const missed = db.prepare('SELECT scheduleID FROM level_schedule WHERE applied = 0 AND expiresAt <= ?').all(now);
+    const missed = db.prepare(`SELECT s.scheduleID, s.type, s.slot, s.levelID, s.expiresAt
+        FROM level_schedule s JOIN levels l ON l.levelID = s.levelID
+        WHERE s.applied IN (0, 1, 2) AND s.expiresAt <= ? AND l.dailyNumber = 0
+        ORDER BY s.startsAt, s.scheduleID`).all(now);
     const unstarted = db.prepare(`SELECT s.type, s.slot, s.levelID, s.expiresAt
         FROM level_schedule s JOIN levels l ON l.levelID = s.levelID
-        WHERE s.applied = 0 AND (s.startsAt > ? OR s.expiresAt <= ?)
+        WHERE s.applied = 0 AND s.startsAt > ?
         AND l.dailyNumber = CASE
             WHEN s.type = 'weekly' THEN s.slot + 100000
             WHEN s.type = 'event' THEN s.slot + 200000
             ELSE s.slot
-        END AND l.dailyTime = s.expiresAt`).all(now, now);
+        END AND l.dailyTime = s.expiresAt`).all(now);
     const activeRows = db.prepare(`SELECT s.scheduleID, s.type, s.slot, s.levelID, s.startsAt, s.expiresAt,
         l.accountID, l.dailyNumber, p.userName
         FROM level_schedule s JOIN levels l ON l.levelID = s.levelID
@@ -36,6 +39,10 @@ function reconcileLevelSchedule(now = Math.floor(Date.now() / 1000)) {
             WHERE levelID = ? AND dailyNumber = ? AND dailyTime = ?`);
         for (const row of unstarted) {
             clearUnstarted.run(row.levelID, scheduleTargetNumber(row.type, row.slot), row.expiresAt);
+        }
+        const applyMissed = db.prepare('UPDATE levels SET dailyNumber = ?, dailyTime = ? WHERE levelID = ? AND dailyNumber = 0');
+        for (const row of missed) {
+            applyMissed.run(scheduleTargetNumber(row.type, row.slot), row.expiresAt, row.levelID);
         }
         db.prepare('UPDATE level_schedule SET applied = 2 WHERE applied = 1 AND expiresAt <= ?').run(now);
         db.prepare('UPDATE level_schedule SET applied = 2 WHERE applied = 0 AND expiresAt <= ?').run(now);

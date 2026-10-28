@@ -1,17 +1,19 @@
 const { commonSecret } = require('../../middleware/secrets');
 const db = require('../../database');
+const { reconcileLevelSchedule } = require('../../levelSchedule');
 
-function getStuff() {
+function getStuff(now = Math.floor(Date.now() / 1000)) {
+    reconcileLevelSchedule(now);
     const stuff = db.prepare(`WITH ranked AS (
         SELECT *, ROW_NUMBER() OVER (
             PARTITION BY CASE WHEN dailyNumber <= 100000 THEN 0 WHEN dailyNumber <= 200000 THEN 1 ELSE 2 END
             ORDER BY dailyNumber DESC
         ) AS rn
         FROM levels
-        WHERE dailyNumber != 0 AND (dailyTime = 0 OR dailyTime > strftime('%s', 'now'))
+        WHERE dailyNumber != 0 AND (dailyTime = 0 OR dailyTime > ?)
     )
     SELECT * FROM ranked WHERE rn = 1
-    ORDER BY CASE WHEN dailyNumber <= 100000 THEN 0 WHEN dailyNumber <= 200000 THEN 1 ELSE 2 END`).all();
+    ORDER BY CASE WHEN dailyNumber <= 100000 THEN 0 WHEN dailyNumber <= 200000 THEN 1 ELSE 2 END`).all(now);
     return `${stuff[0]?.dailyNumber ?? 0},${stuff[1]?.dailyNumber ?? 0},${stuff[2]?.dailyNumber ?? 0}`;
     // i really wanted to add stuff2 but this was faster. RIP stuff2, died too young.
 }

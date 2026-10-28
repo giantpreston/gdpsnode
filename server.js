@@ -31,6 +31,7 @@ const dashboard = require('./dashboard');
 const db = require('./database');
 const { loadPlugins, hooks } = require('./hooks');
 const { closeDB } = require('./database');
+const { reconcileLevelSchedule } = require('./levelSchedule');
 const soundlib = require("./soundlib")
 
 const VERSION = '6.0R'; // geometry dash ▣ ▲▲▲
@@ -239,6 +240,7 @@ pluginsReady.then(() => {
     });
 
     hooks.trigger('server:ready', { app, config, port, dashboardPath });
+    reconcileLevelSchedule();
     app.use((err, req, res, next) => {
         console.error(`\x1b[1;31m✗ Unhandled API error on ${req.method} ${req.originalUrl}\x1b[0m`, err);
         if (!res.headersSent) {

@@ -134,6 +134,45 @@ try {
     database.prepare('UPDATE levels SET dailyNumber = 3 WHERE levelID = ?').run(followingDaily);
     assert.equal(getCurrentDailyLevel(false, false, now), null);
     assert.deepEqual(getLevelIDs(32).map(level => level.dailyNumber).sort((a, b) => a - b), [1, 2, 3]);
+
+    const missedDaily = insertLevel.run(5, 'Missed Daily', now - 30, now - 30, 0, 0).lastInsertRowid;
+    insertSchedule.run('daily', 4, missedDaily, now - 20, now - 10, now - 30);
+    reconcileLevelSchedule(now);
+    assert.deepEqual(
+        database.prepare('SELECT dailyNumber, dailyTime FROM levels WHERE levelID = ?').get(missedDaily),
+        { dailyNumber: 4, dailyTime: now - 10 }
+    );
+    assert.equal(database.prepare('SELECT applied FROM level_schedule WHERE levelID = ?').get(missedDaily).applied, 2);
+    assert.ok(getLevelIDs(32).some(level => level.levelID === missedDaily && level.dailyNumber === 4));
+
+    const activeStatusDaily = insertLevel.run(5, 'Status Daily', now, now, 0, 0).lastInsertRowid;
+    insertSchedule.run('daily', 5, activeStatusDaily, now - 30, now + 300, now - 30);
+    const contentStatusEndpoint = require('../endpoints/misc/getGJContentStatus');
+    let contentStatus = '';
+    contentStatusEndpoint.handler({}, { send: value => { contentStatus = value; } });
+    assert.equal(contentStatus.split(',')[0], '5');
+    assert.equal(database.prepare('SELECT dailyNumber FROM levels WHERE levelID = ?').get(activeStatusDaily).dailyNumber, 5);
+
+    const legacyMissedDaily = insertLevel.run(5, 'Legacy Missed Daily', now - 60, now - 60, 0, 0).lastInsertRowid;
+    insertSchedule.run('daily', 6, legacyMissedDaily, now - 50, now - 40, now - 60);
+    database.prepare('UPDATE level_schedule SET applied = 2 WHERE levelID = ?').run(legacyMissedDaily);
+    reconcileLevelSchedule(now);
+    assert.deepEqual(
+        database.prepare('SELECT dailyNumber, dailyTime FROM levels WHERE levelID = ?').get(legacyMissedDaily),
+        { dailyNumber: 6, dailyTime: now - 40 }
+    );
+    assert.ok(getLevelIDs(32).some(level => level.levelID === legacyMissedDaily && level.dailyNumber === 6));
+
+    const inconsistentAppliedDaily = insertLevel.run(5, 'Inconsistent Applied Daily', now - 80, now - 80, 0, 0).lastInsertRowid;
+    insertSchedule.run('daily', 7, inconsistentAppliedDaily, now - 70, now - 60, now - 80);
+    database.prepare('UPDATE level_schedule SET applied = 1 WHERE levelID = ?').run(inconsistentAppliedDaily);
+    reconcileLevelSchedule(now);
+    assert.deepEqual(
+        database.prepare('SELECT dailyNumber, dailyTime FROM levels WHERE levelID = ?').get(inconsistentAppliedDaily),
+        { dailyNumber: 7, dailyTime: now - 60 }
+    );
+    assert.equal(database.prepare('SELECT applied FROM level_schedule WHERE levelID = ?').get(inconsistentAppliedDaily).applied, 2);
+    assert.ok(getLevelIDs(32).some(level => level.levelID === inconsistentAppliedDaily && level.dailyNumber === 7));
 } finally {
     if (database?.open) database.close();
     for (const suffix of ['', '-shm', '-wal']) {
