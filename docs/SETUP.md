@@ -2,6 +2,8 @@
 
 This guide covers the basics of running GDPSnode locally and getting a clean development environment working.
 
+For the full environment-variable reference—including parsing rules, units, defaults, and protocol status conventions—see the [contributor reference](CONTRIBUTOR_REFERENCE.md).
+
 ## Requirements
 
 Before you begin, make sure you have:
@@ -65,6 +67,8 @@ NEWS_VERSION=5
 ENABLE_PLUGINS=1
 PLUGINS_DIR=plugins
 ```
+
+The examples above are only the most commonly changed settings. See the [complete configuration reference](CONTRIBUTOR_REFERENCE.md#configuration-and-environment-variables) for every supported setting and its units.
 
 ### Notes
 

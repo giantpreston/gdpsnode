@@ -5,6 +5,7 @@ Contributions are welcome. This project is built by people extending and improvi
 ## Before you start
 
 - Make sure you have the project set up locally using the instructions in [SETUP.md](SETUP.md).
+- Read the [contributor reference](CONTRIBUTOR_REFERENCE.md) before changing configuration, protocol fields, numeric flags, or status values.
 - Check the issue tracker or open a discussion before starting on a large feature.
 - Keep changes focused and avoid unrelated refactors in the same pull request.
 
@@ -32,6 +33,7 @@ This checks the core server script and dashboard files for JavaScript errors.
 If you add new endpoints, dashboard flows, config settings, or plugin APIs:
 
 - document the new behavior in the relevant docs
+- update the [contributor reference](CONTRIBUTOR_REFERENCE.md) when adding or changing shared configuration, protocol sentinels, or numeric state meanings
 - update the example `.env` file if needed
 - make sure the route is compatible with the existing Geometry Dash client protocol
 - avoid breaking older behavior unless the change is intentionally breaking

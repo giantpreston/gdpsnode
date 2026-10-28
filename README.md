@@ -14,6 +14,7 @@ GDPSnode is a Geometry Dash private server backend written in Node.js. It includ
 ## Documentation
 
 - [First steps and quick setup](docs/SETUP.md)
+- [Contributor reference: configuration, numbers, and statuses](docs/CONTRIBUTOR_REFERENCE.md)
 - [GDPS Switcher setup](docs/GDPS_SWITCHER.md)
 - [Hooks and plugin development](docs/PLUGIN_DEVELOPMENT.md)
 - [Contributing to the project](docs/CONTRIBUTING.md)
