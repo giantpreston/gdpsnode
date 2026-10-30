@@ -209,9 +209,9 @@ db.exec(`
         accSwing INTEGER NOT NULL DEFAULT 0,
         accJetpack INTEGER NOT NULL DEFAULT 0,
         dinfo TEXT DEFAULT '',
-        mS INTEGER NOT NULL DEFAULT 0,
+        mS INTEGER NOT NULL DEFAULT 1,
         frS INTEGER NOT NULL DEFAULT 0,
-        gF INTEGER NOT NULL DEFAULT 0,
+        gF INTEGER NOT NULL DEFAULT 1,
         gO INTEGER NOT NULL DEFAULT 2,
         cS INTEGER NOT NULL DEFAULT 0,
         youtubeurl TEXT NOT NULL DEFAULT '',
@@ -770,6 +770,13 @@ db.transaction(() => {
         }
     }
 })();
+
+db.transaction(() => db.prepare(`
+        UPDATE profiles
+        SET mS = CASE WHEN mS = 0 THEN 1 ELSE mS END,
+            gF = CASE WHEN gF = 0 THEN 1 ELSE gF END
+        WHERE modLevel < 1 AND (mS = 0 OR gF = 0)
+    `).run())(); // >.<
 
 db.transaction(() => {
     const emptyThreads = db.prepare(`

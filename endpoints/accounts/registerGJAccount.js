@@ -47,7 +47,8 @@ module.exports = {
                         VALUES (?, ?, 1, ?), (?, ?, 1, ?)
                     `).run(threadID, accountID, timestamp, threadID, threadUtils.SYSTEM_ACCOUNT_ID, timestamp);
                     threadUtils.addMessage(threadID, threadUtils.SYSTEM_ACCOUNT_ID, threadUtils.encode('All set up! Your server is now ready to go.'));
-                    threadUtils.addMessage(threadID, threadUtils.SYSTEM_ACCOUNT_ID, threadUtils.encode('Since you\'re the first account, you\'ve been granted Moderator permissions.'))
+                    threadUtils.addMessage(threadID, threadUtils.SYSTEM_ACCOUNT_ID, threadUtils.encode('Since you\'re the first account, you\'ve been granted Moderator permissions.'));
+                    threadUtils.addMessage(threadID, threadUtils.SYSTEM_ACCOUNT_ID, threadUtils.encode('To activate your Moderator abilities, open Settings in the Main Menu, go to the Help section, and click on the REQ button!'));
                     threadUtils.addMessage(threadID, threadUtils.SYSTEM_ACCOUNT_ID, threadUtils.encode("Consider checking console for any warnings or errors and revise your environment variables to configure your server to your liking. Have fun with GDPSnode! <3"));
                     db.prepare('UPDATE profiles SET modLevel = ? WHERE accountID = ?').run(2, accountID);
                 }
