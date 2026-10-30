@@ -57,19 +57,8 @@ module.exports = {
                     c.timestamp,
                     c.comment,
                     c.likes,
-                    c.isSpam,
-                    c.userName,
-                    c.accountID AS commentAccountID,
-                    p.icon,
-                    p.color1,
-                    p.color2,
-                    p.color3,
-                    p.iconType,
-                    p.special,
-                    p.accountID,
-                    p.modLevel
+                    c.accountID AS commentAccountID
                 FROM acccomments c
-                LEFT JOIN profiles p ON p.accountID = c.accountID
                 WHERE c.accountID = ?
                 ORDER BY c.timestamp DESC
                 LIMIT ? OFFSET ?
@@ -87,33 +76,9 @@ module.exports = {
 
             for (const comment of comments) {
                 const uploadDate = utils.getRelative(comment.timestamp);
-                const commentAccountID = comment.commentAccountID || 0;
-                commentString += `2~${comment.comment}~3~${commentAccountID + 1}~4~${comment.likes}~5~0~7~${comment.isSpam}~9~${uploadDate}~6~${comment.commentID}~15~${comment.timestamp}`;
+                commentString += `2~${comment.comment}~4~${comment.likes}~5~0~9~${uploadDate}~6~${comment.commentID}`;
 
-                if (friendshipQuery) {
-                    let areFriends = friendshipCache.get(commentAccountID);
-                    if (areFriends === undefined) {
-                        areFriends = commentAccountID !== parsedRequestAccountID && Boolean(friendshipQuery.get(
-                            parsedRequestAccountID, commentAccountID, parsedRequestAccountID, commentAccountID
-                        ));
-                        friendshipCache.set(commentAccountID, areFriends);
-                    }
-                    commentString += `~13~${areFriends ? 1 : 0}`;
-                }
-
-                if (comment.userName) {
-                    const modLevel = comment.modLevel || 0;
-                    let colorString = '';
-
-                    if (modLevel === 1) {
-                        colorString = '~12~200,255,200';
-                    } else if (modLevel === 2) {
-                        colorString = '~12~75,255,75';
-                    }
-
-                    commentString += `~11~${modLevel}${colorString}:1~${comment.userName}~7~1~9~${comment.icon}~10~${comment.color1}~11~${comment.color2}~51~${comment.color3}~14~${comment.iconType}~15~${comment.special}~16~${commentAccountID}`;
-                }
-
+                commentString += `~15~${comment.timestamp}`;
                 commentString += '|';
             }
 
