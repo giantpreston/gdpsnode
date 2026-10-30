@@ -76,7 +76,7 @@ module.exports = {
         directory: env.PLUGINS_DIR || 'plugins'
     },
     security: {
-        rateLimitPerMinute: normalizeNumber(env.RATE_LIMIT_PER_MINUTE, 100),
+        rateLimitPerMinute: normalizeNumber(env.RATE_LIMIT_PER_MINUTE, 350),
         dashboardAttemptsPerWindow: normalizeNumber(env.DASHBOARD_ATTEMPTS_PER_WINDOW, 10)
     },
     rewards: {

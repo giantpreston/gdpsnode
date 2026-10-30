@@ -107,22 +107,7 @@ const limiter = rateLimit({
     validate: { xForwardedForHeader: false }
 });
 
-const highVolumeLimiter = rateLimit({
-    windowMs: 60 * 1000,
-    max: Math.max(1, Math.floor(config.security.rateLimitPerMinute / 5)),
-    standardHeaders: false,
-    legacyHeaders: false,
-    message: '-1',
-    statusCode: 429,
-    validate: { xForwardedForHeader: false }
-});
-const highVolumeEndpoint = /\/(?:getGJLevels21|getGJLevelLists|getGJMapPacks21|getGJGauntlets21|getGJComments21|getGJCommentHistory|getGJAccountComments20|getGJUsers20|getGJUserList20|getGJMessages20|downloadGJLevel22|downloadGJMessage20|downloadGJEditorSound|getGJThreads|getGJThreadMessages|searchGJThreadMessages|getGJFollowing|getGJFriendRequests20|getGJScores20|getGJLevelScores(?:211|Plat)|getGJEditorSounds)\.php$/i;
-
 app.use(limiter);
-app.use((req, res, next) => {
-    if (!highVolumeEndpoint.test(req.path)) return next();
-    return highVolumeLimiter(req, res, next);
-});
 
 const dashboardJsonRequest = req =>
     (req.path === dashboardPath || req.path.startsWith(`${dashboardPath}/`)) &&

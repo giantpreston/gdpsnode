@@ -49,7 +49,7 @@ The dashboard's own JSON API uses HTTP authentication/authorization statuses suc
 
 | Variable | Default | Meaning |
 |---|---:|---|
-| `RATE_LIMIT_PER_MINUTE` | `100` | Per-client request limit in the server's 60-second limiter window. Selected high-volume game endpoints also receive a second limiter capped at `max(1, floor(value / 5))` requests per minute. |
+| `RATE_LIMIT_PER_MINUTE` | `350` | Per-client-IP request limit across game and dashboard routes in a 60-second window. Game browsing endpoints no longer have a separate stricter cap; dashboard login attempts retain their own stricter limit. |
 | `DASHBOARD_ATTEMPTS_PER_WINDOW` | `10` | Maximum dashboard login attempts per 15-minute window. |
 | `ENABLE_PLUGINS` | `1` | Boolean toggle for automatic plugin loading. |
 | `PLUGINS_DIR` | `plugins` | Plugin directory, relative to the project directory when using a relative path. |

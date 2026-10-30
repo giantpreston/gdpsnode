@@ -87,6 +87,7 @@ module.exports = {
                     p.icon,
                     p.color1,
                     p.color2,
+                    p.color3,
                     p.iconType,
                     p.special,
                     p.accountID AS profileAccountID,
@@ -115,6 +116,17 @@ module.exports = {
                 const accountID = comment.commentAccountID || 0;
                 commentString += `2~${comment.comment}~3~${accountID + 1}~4~${comment.likes}~5~0~7~${comment.isSpam}~9~${uploadDate}~6~${comment.commentID}~10~${comment.percent}~15~${comment.timestamp}`;
 
+                if (friendshipQuery) {
+                    let areFriends = friendshipCache.get(accountID);
+                    if (areFriends === undefined) {
+                        areFriends = accountID !== requestAccountID && Boolean(friendshipQuery.get(
+                            requestAccountID, accountID, requestAccountID, accountID
+                        ));
+                        friendshipCache.set(accountID, areFriends);
+                    }
+                    commentString += `~13~${areFriends ? 1 : 0}`;
+                }
+
                 if (comment.userName) {
                     const modLevel = comment.modLevel || 0;
                     let colorString = '';
@@ -125,21 +137,10 @@ module.exports = {
                         colorString = '~12~75,255,75';
                     }
 
-                    commentString += `~11~${modLevel}${colorString}:1~${comment.userName}~7~1~9~${comment.icon}~10~${comment.color1}~11~${comment.color2}~14~${comment.iconType}~15~${comment.special}~16~${accountID}`;
+                    commentString += `~11~${modLevel}${colorString}:1~${comment.userName}~7~1~9~${comment.icon}~10~${comment.color1}~11~${comment.color2}~51~${comment.color3}~14~${comment.iconType}~15~${comment.special}~16~${accountID}`;
                 } else if (!users.includes(accountID + 1)) {
                     users.push(accountID + 1);
                     userString += `${accountID + 1}:${comment.userName}:${accountID}|`;
-                }
-
-                if (friendshipQuery) {
-                    let areFriends = friendshipCache.get(accountID);
-                    if (areFriends === undefined) {
-                        areFriends = accountID !== requestAccountID && Boolean(friendshipQuery.get(
-                            requestAccountID, accountID, requestAccountID, accountID
-                        ));
-                        friendshipCache.set(accountID, areFriends);
-                    }
-                    commentString += `~13~${areFriends ? 1 : 0}`;
                 }
 
                 commentString += '|';

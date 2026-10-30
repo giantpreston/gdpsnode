@@ -7,9 +7,10 @@ module.exports = {
     path: '/getGJAccountComments20.php',
     middleware: [commonSecret],
     handler: (req, res) => {
-        let rawAccountID = req.body?.targetAccountID ?? req.body?.accountid ?? req.body?.accountID;
+        const rawAccountIDs = req.body?.accountID;
+        let rawAccountID = req.body?.targetAccountID ?? req.body?.accountid ?? rawAccountIDs;
         const rawPage = req.body?.page ?? req.body?.p ?? req.body?.pageNumber;
-        let rawRequestAccountID = req.body?.accountID;
+        let rawRequestAccountID = rawAccountIDs;
         const gjp2 = utils.remove(req.body?.gjp2 || '');
         const hasSeparateTarget = req.body?.targetAccountID != null || req.body?.accountid != null;
         
@@ -17,7 +18,7 @@ module.exports = {
             rawAccountID = rawAccountID[rawAccountID.length - 1];
         }
         if (Array.isArray(rawRequestAccountID)) {
-            rawRequestAccountID = rawRequestAccountID[rawRequestAccountID.length - 1];
+            rawRequestAccountID = rawRequestAccountID[0];
         }
         
         const parsedAccountID = Number(String(rawAccountID ?? '').replace(/[^0-9-]/g, ''));
@@ -62,9 +63,11 @@ module.exports = {
                     p.icon,
                     p.color1,
                     p.color2,
+                    p.color3,
                     p.iconType,
                     p.special,
-                    p.accountID
+                    p.accountID,
+                    p.modLevel
                 FROM acccomments c
                 LEFT JOIN profiles p ON p.accountID = c.accountID
                 WHERE c.accountID = ?
@@ -96,6 +99,19 @@ module.exports = {
                         friendshipCache.set(commentAccountID, areFriends);
                     }
                     commentString += `~13~${areFriends ? 1 : 0}`;
+                }
+
+                if (comment.userName) {
+                    const modLevel = comment.modLevel || 0;
+                    let colorString = '';
+
+                    if (modLevel === 1) {
+                        colorString = '~12~200,255,200';
+                    } else if (modLevel === 2) {
+                        colorString = '~12~75,255,75';
+                    }
+
+                    commentString += `~11~${modLevel}${colorString}:1~${comment.userName}~7~1~9~${comment.icon}~10~${comment.color1}~11~${comment.color2}~51~${comment.color3}~14~${comment.iconType}~15~${comment.special}~16~${commentAccountID}`;
                 }
 
                 commentString += '|';
