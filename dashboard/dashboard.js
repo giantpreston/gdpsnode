@@ -23,6 +23,167 @@ const moderatorRank = modLevel => moderatorRanks[Number(modLevel)] ?? -1;
 const $ = selector => document.querySelector(selector);
 const escapeHtml = value => String(value ?? '').replace(/[&<>"']/g, character => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[character]));
 const cocosColors = new Set('bcgljyopr adfs'.replace(/\s/g, '').split(''));
+const greetings = {
+    earlyMorning: [
+        'Good Morning!',
+        'Rise and Shine!',
+        'Morning, Sunshine!',
+        'Wakey Wakey!',
+        "Look Who's Awake!",
+        'The Sun Has Risen!',
+        'Good Morning, You Magnificent Human!',
+        'Another Day, Another Slay!',
+        'Caffeine Required?',
+        'Congratulations on Waking Up!',
+        'Morning, You Absolute Legend!',
+        "You're Awake! That's Progress!",
+        "Time to Pretend We're Productive!"
+    ],
+    morning: [
+        'Good Morning!',
+        'Top of the Morning!',
+        'Have a Beautiful Morning!',
+        'Make Today Count!',
+        "Let's Make Today Great!",
+        'A Bright New Day!',
+        'Morning, Sunshine!',
+        'Another Day, Another Slay!',
+        'The Birds Are Probably Singing!',
+        "You're Doing Great! Probably!",
+        'Hydration Check!',
+        'Rise and Shine, Superstar!'
+    ],
+    afternoon: [
+        'Good Afternoon!',
+        'Hope Your Day Is Going Well!',
+        'Still Going Strong?',
+        'Enjoy Your Afternoon!',
+        'Hello There, Daytime Dweller!',
+        'Lunch Break Over Yet?',
+        'Afternoon Already? Time Flies!',
+        "You're Doing Great! Probably!",
+        'Hydration Check!',
+        'Have You Eaten Today?',
+        'The Grind Never Ends!',
+        'Look at You, Being Productive!',
+        'Midday Madness!',
+        'Welcome to the Second Half!'
+    ],
+    evening: [
+        'Good Evening!',
+        'Evening, Sunshine!',
+        'Time to Unwind!',
+        "You've Survived Another Day!",
+        'Welcome to the Chill Zone!',
+        'The Sun Is Clocking Out!',
+        'Professional Relaxation Time!',
+        'The Evening Has Entered the Chat!',
+        "How's Life Treating You?",
+        'The Sky Is Doing Its Thing Again!',
+        'Another Day Conquered!',
+        'The Vibes Are Immaculate!'
+    ],
+    night: [
+        'Good Evening!',
+        'Night Owl Mode!',
+        'Burning the Midnight Oil?',
+        'The Night Is Young!',
+        'Still Awake?',
+        'Welcome to the Late Shift!',
+        'Sleep Is for the Weak! (Just Kidding.)',
+        'The Moon Says Hello!',
+        'What Are We Doing Up This Late?',
+        'Another Night of Questionable Decisions!',
+        "It's Past Your Bedtime!",
+        'The Sleep Schedule Has Left the Chat!',
+        'Welcome, Creature of the Night!',
+        'The Owls Are Watching.',
+        '3 AM Thoughts Loading...'
+    ],
+    lateNight: [
+        'Hello, Night Owl!',
+        'Midnight Greetings!',
+        'Up Late?',
+        'Welcome to the Shadow Realm!',
+        'The World Is Asleep. You Aren\'t.',
+        'Sleep Deprivation Gang!',
+        'What Is Bro Doing Awake?',
+        'Go to Bed. Seriously.',
+        'Time Is An Illusion!',
+        'The Midnight Council Welcomes You.',
+        'Insomnia Premium™',
+        'Greetings, Fellow Sleepless Being.',
+        'What are you DOING??!',
+        'The Sun Will Be Back Eventually.',
+        'You Should Probably Be Sleeping.',
+        'Someone is up when they shouldn\'t be.',
+        'Coffee and Prayers.',
+        'The Rotting Hours Have Begun.'
+    ],
+    universal: [
+        'Ahoy, Matey!',
+        'Well, Well, Well...',
+        'Look Who Decided to Show Up!',
+        'Greetings, Earthling.',
+        'Beep Boop!',
+        'Welcome Back, Gamer.',
+        "You've Been Spotted.",
+        'A Wild Visitor Appeared!',
+        'Hello There, General Kenobi!',
+        "What's Cooking, Good Looking?",
+        'GEEEET OUT!!',
+        'The Council Has Summoned You.',
+        'Welcome to the Internet!',
+        'Certified Human Detected.',
+        'Another Victim... I Mean Visitor!',
+        "Nice Weather We're Having.",
+        'Your Presence Has Been Acknowledged.',
+        'The Department of Greetings Welcomes You.',
+        'You Have Unlocked: Website.',
+        'Somebody Call the Welcome Committee!',
+        'No Thoughts, Just Vibes.',
+        'Paws on the keyboard!',
+        'The Website Missed You. Probably.',
+        'You Again? Excellent.',
+        'The Prophecy Has Been Fulfilled.',
+        'You Look... Rendered Today.',
+        'A Very Normal Greeting for a Very Normal Person.',
+        'The Vibes Are Immaculate!',
+        'Behold! A Visitor!',
+        'Whatcha doin\' in my swamp?',
+        'I\'m something of a programmer myself.',
+        'Greetings, Carbon-Based Lifeform.',
+        'The Algorithm Has Chosen You.'
+    ]
+};
+
+function renderGreeting(username) {
+    const hour = new Date().getHours();
+    const timeOfDay = hour < 4 ? 'lateNight'
+        : hour < 8 ? 'earlyMorning'
+            : hour < 12 ? 'morning'
+                : hour < 17 ? 'afternoon'
+                    : hour < 21 ? 'evening'
+                        : 'night';
+    const timeLabels = {
+        earlyMorning: 'EARLY MORNING',
+        morning: 'MORNING',
+        afternoon: 'AFTERNOON',
+        evening: 'EVENING',
+        night: 'NIGHT SHIFT',
+        lateNight: 'LATE NIGHT'
+    };
+    const options = Math.random() < 0.2 ? greetings.universal : greetings[timeOfDay];
+    $('#greeting-message').textContent = options[Math.floor(Math.random() * options.length)];
+    $('#greeting-period').textContent = timeLabels[timeOfDay];
+    $('#greeting-username').textContent = username;
+    const nameParts = String(username ?? '').trim().split(/\s+/).filter(Boolean);
+    const initials = nameParts.length > 1
+        ? nameParts.slice(0, 2).map(part => Array.from(part)[0]).join('')
+        : Array.from(nameParts[0] || '').slice(0, 2).join('');
+    $('#greeting-avatar').textContent = initials.toUpperCase();
+}
+
 function renderCocosText(value) {
     const source = String(value ?? '');
     const tagPattern = /<\/?c[a-z]?>/gi;
@@ -715,6 +876,7 @@ async function load() {
         csrf = access.csrf;
         currentModLevel = Number(access.modLevel || 0);
         dashboardFeatures = new Set(access.features || []);
+        renderGreeting(access.username);
         applyDashboardPermissions();
         await refreshOverview();
         if (dashboardFeatures.has('collections')) renderCollections(await request('api/collections'));

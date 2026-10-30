@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>GDPS Dashboard</title>
-<link rel="stylesheet" href="dashboard.css?v=12">
+<link rel="stylesheet" href="dashboard.css?v=14">
 </head>
 <body>
 <main class="shell">
@@ -26,6 +26,16 @@
     <div id="topbar-status" class="topbar-status" aria-hidden="true"></div>
     <div id="toast-stack" class="toast-stack" aria-live="polite" aria-atomic="true"></div>
     <header class="topbar"><div><div class="brand-mark">GDPSnode <span>DASH</span></div><p id="server-motd" class="muted"></p></div><div class="topbar-actions"><span id="last-saved" class="last-saved">Ready</span><button id="logout" class="ghost">Sign out</button></div></header>
+    <section class="dashboard-greeting" aria-live="polite">
+      <div class="greeting-copy">
+        <p class="greeting-kicker"><span class="greeting-kicker-dot" aria-hidden="true"></span><span id="greeting-period">YOUR MODERATOR DASHBOARD</span></p>
+        <h1 id="greeting-message"></h1>
+      </div>
+      <div class="greeting-account">
+        <span id="greeting-avatar" class="greeting-avatar" aria-hidden="true"></span>
+        <span class="greeting-account-copy"><span class="greeting-account-label">SIGNED IN AS</span><strong id="greeting-username"></strong></span>
+      </div>
+    </section>
     <nav class="tabbar" aria-label="Dashboard sections"><button class="tab active" data-tab="levels">Levels</button><button class="tab" data-tab="collections">Collections</button><button class="tab" data-tab="management">Management</button></nav>
     <div id="stats" class="stats-grid" data-feature="overview"></div>
     <div id="levels-tab" data-feature="levels">
@@ -68,6 +78,6 @@
     <footer class="window-actions"><button type="button" id="save-permission-schema">Save permission schema</button></footer>
   </div>
 </section>
-<script src="dashboard.js?v=13"></script>
+<script src="dashboard.js?v=14"></script>
 </body>
 </html>
