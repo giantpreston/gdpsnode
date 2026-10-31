@@ -13,6 +13,7 @@ GDPSnode is the most complete Geometry Dash private server backend written in No
 
 > [!WARNING]
 > The 2.209 implementation is still not fully done! As more discoveries are made, these endpoints will be added here. I added only the information that is 100% confirmed as of right now, so please be patient while we figure this out! This warning will be removed once it is fully complete and your servers won't show an update pop up until I entirely complete this version.
+![GDPSnode Dashboard](docs/demopic.png)
 
 ## Documentation
 
