@@ -3,10 +3,13 @@
 [![Watch the trailer](https://img.shields.io/badge/Watch_the_trailer-YouTube-red?logo=youtube&logoColor=white)](https://www.youtube.com/watch?v=2F5ZYpTTSGM)
 [![Node.js](https://img.shields.io/badge/Node.js-22%2B-339933?logo=node.js&logoColor=white)](https://nodejs.org/)
 
-GDPSnode is a Geometry Dash private server backend written in Node.js. It includes account handling, level and score APIs, social features, custom songs, rewards, dashboard moderation tools, and a plugin system so the server can be extended without editing the core codebase.
+GDPSnode is the most complete Geometry Dash private server backend written in Node.js. It includes account handling, level and score APIs, social features, custom songs, rewards, dashboard moderation tools, and a plugin system so the server can be extended without editing the core codebase.
 
 > [!NOTE]
 > GDPSnode only supports the latest Geometry Dash version (2.209 as of right now). Any older version will have support immediately dropped if a newer one comes out, so don't expect **ANY** backwards compatibility with older versions!
+
+> [!NOTE]
+> If you want your plugin featured in the README, please shoot me a message on Discord (@giantpreston)! Helpful add-ons will get the attention they deserve.
 
 > [!WARNING]
 > The 2.209 implementation is still not fully done! As more discoveries are made, these endpoints will be added here. I added only the information that is 100% confirmed as of right now, so please be patient while we figure this out! This warning will be removed once it is fully complete and your servers won't show an update pop up until I entirely complete this version.
