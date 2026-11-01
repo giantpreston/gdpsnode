@@ -534,13 +534,17 @@ router.get('/api/bootstrap', requireAuth, (req, res) => {
 
 router.get('/api/collections', requireAuth, (req, res) => {
     const gauntlets = db.prepare('SELECT * FROM gauntlets WHERE ID BETWEEN 1 AND 62 ORDER BY ID').all();
+    const gauntletStatus = db.prepare('SELECT version AS gauntletVersion, latestGauntletID FROM gauntlet_status WHERE id = 1').get() || {
+        gauntletVersion: 0,
+        latestGauntletID: 0
+    };
     const mapPacks = db.prepare('SELECT * FROM mapPacks ORDER BY packID').all();
     const lists = db.prepare(`SELECT l.*, p.userName AS creator FROM lists l
         LEFT JOIN profiles p ON p.accountID = l.accountID ORDER BY l.listID`).all().map(list => ({
             ...list,
             listDesc: decodeBase64Url(list.listDesc)
         }));
-    res.json({ gauntlets, mapPacks, lists });
+    res.json({ gauntlets, gauntletVersion: Number(gauntletStatus.gauntletVersion || 0), latestGauntletID: Number(gauntletStatus.latestGauntletID || 0), mapPacks, lists });
 });
 
 router.get('/api/lists', requireAuth, requireDashboardFeature('collections'), (req, res) => {
@@ -980,9 +984,20 @@ router.put('/api/gauntlets/:id', requireAuth, requireCsrf, (req, res) => {
     const id = Number(req.params.id);
     const levels = collectionLevelIds(req.body?.levels, 5);
     if (!Number.isInteger(id) || id < 1 || id > 62 || !levels) return res.status(400).json({ error: 'Gauntlets require five existing, unique level IDs' });
+
+    const gauntletExists = !!db.prepare('SELECT 1 FROM gauntlets WHERE ID = ?').get(id);
     db.prepare(`INSERT INTO gauntlets (ID, level1, level2, level3, level4, level5) VALUES (?, ?, ?, ?, ?, ?)
         ON CONFLICT(ID) DO UPDATE SET level1 = excluded.level1, level2 = excluded.level2,
         level3 = excluded.level3, level4 = excluded.level4, level5 = excluded.level5`).run(id, ...levels);
+
+    db.prepare(`INSERT INTO gauntlet_status (id, version, latestGauntletID)
+        VALUES (1, 0, 0)
+        ON CONFLICT(id) DO NOTHING`).run();
+    if (!gauntletExists) {
+        db.prepare('UPDATE gauntlet_status SET version = version + 1, latestGauntletID = ? WHERE id = 1').run(id);
+    } else {
+        db.prepare('UPDATE gauntlet_status SET latestGauntletID = ? WHERE id = 1').run(id);
+    }
     res.status(204).end();
 });
 

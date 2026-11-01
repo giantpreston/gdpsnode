@@ -401,6 +401,12 @@ db.exec(`
         level5 INTEGER NOT NULL
     );
 
+    CREATE TABLE IF NOT EXISTS gauntlet_status (
+        id INTEGER PRIMARY KEY CHECK (id = 1),
+        version INTEGER NOT NULL DEFAULT 0,
+        latestGauntletID INTEGER NOT NULL DEFAULT 0
+    );
+
     CREATE TABLE IF NOT EXISTS lists (
         listID INTEGER PRIMARY KEY AUTOINCREMENT,
         listName TEXT NOT NULL,
@@ -669,6 +675,9 @@ db.exec(`
     CREATE INDEX IF NOT EXISTS idx_dashboard_news_publishDate ON dashboard_news(publishDate);
     CREATE INDEX IF NOT EXISTS idx_levels_isSent_lastSent ON levels(isSent, lastSent DESC, levelID DESC);
     CREATE INDEX IF NOT EXISTS idx_levels_featured_likes ON levels(featured, likes DESC, levelID DESC);
+
+    INSERT OR IGNORE INTO gauntlet_status (id, version, latestGauntletID)
+    VALUES (1, (SELECT COALESCE(MAX(ID), 0) FROM gauntlets), (SELECT COALESCE(MAX(ID), 0) FROM gauntlets));
 
     CREATE INDEX IF NOT EXISTS idx_comments_levelID_commentID ON comments(levelID, commentID DESC);
     CREATE INDEX IF NOT EXISTS idx_editorpackcomments_pack_comment ON editorpackcomments(editorpackID, commentID DESC);

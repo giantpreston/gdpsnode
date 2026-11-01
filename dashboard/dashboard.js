@@ -447,6 +447,8 @@ function renderLevelDetail(data) {
 }
 
 function renderCollections(data) {
+    const gauntletStatus = $('#gauntlet-status');
+    if (gauntletStatus) gauntletStatus.textContent = `Version ${Number(data.gauntletVersion || 0)} · Latest gauntlet #${Number(data.latestGauntletID || 0)}`;
     $('#gauntlet-list').innerHTML = Array.from({ length: 62 }, (_, index) => {
         const id = index + 1;
         const gauntlet = data.gauntlets.find(item => item.ID === id);

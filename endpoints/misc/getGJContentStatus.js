@@ -2,6 +2,14 @@ const { commonSecret } = require('../../middleware/secrets');
 const db = require('../../database');
 const { reconcileLevelSchedule } = require('../../levelSchedule');
 
+function getGauntletStatus() {
+    const row = db.prepare('SELECT version, latestGauntletID FROM gauntlet_status WHERE id = 1').get() || { version: 0, latestGauntletID: 0 };
+    return {
+        version: Number(row.version || 0),
+        latestGauntletID: Number(row.latestGauntletID || 0)
+    };
+}
+
 function getStuff(now = Math.floor(Date.now() / 1000)) {
     reconcileLevelSchedule(now);
     const stuff = db.prepare(`WITH ranked AS (
@@ -24,6 +32,7 @@ module.exports = {
     middleware: [commonSecret],
     handler: (req, res) => {
         // errrrrr uhhh errrr
-        res.send(`${getStuff()},49,61`); // idfk what 49 and 61 are. thats what appeared in the real one so thats whats staying. sm1 will prolly figure it out xd
+        const gauntletStatus = getGauntletStatus();
+        res.send(`${getStuff()},${gauntletStatus.version},${gauntletStatus.latestGauntletID}`); // idfk what 49 and 61 are. thats what appeared in the real one so thats whats staying. sm1 will prolly figure it out xd and that someone was meeeeeeee baby
     }
 };
