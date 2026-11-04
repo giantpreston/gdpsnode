@@ -68,7 +68,7 @@ module.exports = {
         password: env.DASHBOARD_PASSWORD || '',
         accountId: normalizeNumber(env.DASHBOARD_ACCOUNT_ID, 0),
         secureCookies: normalizeBoolean(env.DASHBOARD_SECURE_COOKIES, false),
-        trustProxyHops: normalizeNumber(env.TRUST_PROXY_HOPS ?? env.TRUST_PROXY, 0),
+        trustProxyHops: Math.max(0, Math.floor(normalizeNumber(env.TRUST_PROXY_HOPS ?? env.TRUST_PROXY, 0))),
         mode: normalizeDashboardLoginMode(env.DASHBOARD_LOGIN_MODE)
     },
     plugins: {

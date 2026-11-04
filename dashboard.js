@@ -1,8 +1,8 @@
 const crypto = require('crypto');
-const express = require('express');
-const rateLimit = require('express-rate-limit');
+const httpFramework = require('./httpFramework');
 const path = require('path');
 const fs = require('fs/promises');
+const createRateLimiter = require('./rateLimit');
 const db = require('./database');
 const config = require('./config');
 const utils = require('./utils');
@@ -40,7 +40,7 @@ function getModeratorRank(modLevel) {
     return MODERATOR_RANK[Number(modLevel)] ?? -1;
 }
 
-const router = express.Router();
+const router = httpFramework.Router();
 const sessions = new Map();
 const sessionTtl = 8 * 60 * 60 * 1000;
 const dashboardUser = config.dashboard.user;
@@ -363,7 +363,7 @@ router.use((req, res, next) => {
 });
 
 router.get('/', (req, res) => res.sendFile(path.join(__dirname, 'dashboard', 'index.html')));
-router.use(express.json({ limit: '32kb' }));
+router.use(httpFramework.json({ limit: '32kb' }));
 
 router.use('/api/collections', requireAuth, requireDashboardFeature('collections'));
 router.use('/api/gauntlets', requireAuth, requireDashboardFeature('collections'));
@@ -379,7 +379,7 @@ router.use('/api/songs', requireAuth, requireDashboardFeature('management'));
 router.use('/api/quests', requireAuth, requireDashboardFeature('management'));
 router.use('/api/news', requireAuth, requireDashboardFeature('management'));
 
-const loginLimiter = rateLimit({ windowMs: 15 * 60 * 1000, max: config.security.dashboardAttemptsPerWindow, standardHeaders: false, legacyHeaders: false });
+const loginLimiter = createRateLimiter({ windowMs: 15 * 60 * 1000, max: config.security.dashboardAttemptsPerWindow });
 router.post('/api/login', loginLimiter, (req, res) => {
     const username = utils.remove(String(req.body?.username || '')).trim();
     const password = String(req.body?.password || '');
@@ -1377,6 +1377,6 @@ router.delete('/api/quests/:id', requireAuth, requireCsrf, (req, res) => {
     res.status(204).end();
 });
 
-router.use(express.static(path.join(__dirname, 'dashboard'), { index: false, dotfiles: 'deny' }));
+router.use(httpFramework.static(path.join(__dirname, 'dashboard'), { index: false, dotfiles: 'deny' }));
 
 module.exports = router;

@@ -40,7 +40,7 @@ At startup, `server.js` loads `.env` if present, then `config.js` normalizes con
 | `DASHBOARD_PASSWORD` | Empty | Password used only by legacy dashboard login. Avoid relying on legacy credentials when account login is feasible. |
 | `DASHBOARD_ACCOUNT_ID` | `0` | Account ID whose account is used with the legacy dashboard credentials. Configure a real moderator account when using legacy login. |
 | `DASHBOARD_SECURE_COOKIES` | `0` | Set to `1` when HTTPS is used so the dashboard session cookie gets the `Secure` attribute. |
-| `TRUST_PROXY_HOPS` | `0` | Number of trusted proxy hops, passed to Express's `trust proxy` setting. Set this to match the actual proxy chain; an incorrect value can make client IP/protocol information unreliable. |
+| `TRUST_PROXY_HOPS` | `0` | Number of trusted reverse-proxy hops used to resolve client IPs from `X-Forwarded-For`. Set it to the actual chain length; with a trusted proxy, restrict direct access to the origin so clients cannot spoof forwarded headers. |
 | `TRUST_PROXY` | — | Legacy fallback used only when `TRUST_PROXY_HOPS` is unset. Prefer `TRUST_PROXY_HOPS`. |
 
 The dashboard's own JSON API uses HTTP authentication/authorization statuses such as `401` and `403`. These are separate from the text responses used by the Geometry Dash-compatible endpoints below.

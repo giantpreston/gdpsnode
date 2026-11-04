@@ -55,6 +55,32 @@ When a plugin installs, it receives an `api` object with useful helpers:
 - `utils`
 - `hooks`
 
+## Express compatibility
+
+The core server no longer uses Express. `api.app` is the core server app, not an Express application, and plugins must not depend on Express being installed at the project root or use Express-specific methods on `api.app`.
+
+If a plugin needs Express internally, declare and install Express as that plugin's own dependency so it stays isolated from the core server:
+
+```text
+plugins/my-plugin/
+  index.js
+  package.json
+  node_modules/
+```
+
+For example, `plugins/my-plugin/package.json` can declare:
+
+```json
+{
+  "private": true,
+  "dependencies": {
+    "express": "^5.2.1"
+  }
+}
+```
+
+Install it with `npm install --prefix plugins/my-plugin`. The plugin can then `require('express')` from its own files. Its Express app or router is separate and cannot be mounted with `api.use()` on the core server; use `api.addEndpoint()`, `api.addDashboardRoute()`, or core-compatible middleware for routes served by GDPSnode. If the plugin needs an independent Express server, it must manage that server's lifecycle and port itself.
+
 ## Lifecycle hooks
 
 Hook names are just strings, and they are triggered through the central hook registry. Common ones include:
@@ -156,7 +182,7 @@ api.use((req, res, next) => {
 });
 ```
 
-Middleware is mounted through the main Express app, so it can inspect or modify requests before they reach the rest of the server.
+Middleware is mounted through the main server app, so it can inspect or modify requests before they reach the rest of the server.
 
 ## Adding custom endpoints
 

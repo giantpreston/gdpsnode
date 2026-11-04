@@ -46,7 +46,7 @@ The default port is 10000. You can override it in the environment via `.env` or 
 
 ## How GDPSnode is structured
 
-- `server.js` starts the Express app and boots the backend.
+- `server.js` starts the server and boots the backend.
 - `endpoints/` contains Geometry Dash-compatible request handlers.
 - `dashboard/` contains the admin dashboard front-end and logic.
 - `database.js` manages the SQLite schema and database operations.

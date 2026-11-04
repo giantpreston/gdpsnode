@@ -7,6 +7,7 @@ class HookRegistry extends EventEmitter {
         super();
         this.app = app;
         this.plugins = new Map();
+        this.loadedPluginCount = 0;
         this.middleware = [];
         this.routes = [];
         this.dashboardRoutes = [];
@@ -158,12 +159,19 @@ class HookRegistry extends EventEmitter {
             name: normalized.name || normalized.id || `plugin-${Date.now()}`,
             metadata: normalized.metadata || {},
             registeredAt: Date.now(),
-            plugin: normalized,
-            result
+            plugin: normalized
         };
 
-        this.plugins.set(pluginMeta.name, pluginMeta);
-        return result ?? normalized;
+        const completeRegistration = resolvedResult => {
+            pluginMeta.result = resolvedResult;
+            this.plugins.set(pluginMeta.name, pluginMeta);
+            return resolvedResult ?? normalized;
+        };
+
+        if (result && typeof result.then === 'function') {
+            return Promise.resolve(result).then(completeRegistration);
+        }
+        return completeRegistration(result);
     }
 }
 
@@ -173,6 +181,7 @@ async function loadPlugins(directory = path.join(__dirname, 'plugins'), app = nu
     if (app) hooks.setApp(app);
 
     const pluginDir = path.resolve(directory);
+    let loadedPluginCount = 0;
 
     try {
         const entries = await fs.promises.readdir(pluginDir, { withFileTypes: true });
@@ -193,17 +202,30 @@ async function loadPlugins(directory = path.join(__dirname, 'plugins'), app = nu
         for (const file of candidates) {
             try {
                 const plugin = require(file);
-                hooks.registerPlugin(plugin, { app, config: require('./config'), db: require('./database'), utils: require('./utils') });
+                const registration = hooks.registerPlugin(plugin, {
+                    app,
+                    config: require('./config'),
+                    db: require('./database'),
+                    utils: require('./utils')
+                });
+                if (registration === null) {
+                    throw new TypeError('Plugin must export a function or an object with an install, register, setup, or default function');
+                }
+                await registration;
+                loadedPluginCount++;
             } catch (error) {
-                console.warn(`\x1b[1;33m⚠ Failed to load plugin: ${file}\x1b[0m`, error.message);
+                const reason = error instanceof Error ? error.message : String(error);
+                console.warn(`\x1b[1;33m⚠ Failed to load plugin: ${file} (${reason})\x1b[0m`);
             }
         }
     } catch (error) {
-        if (error.code !== 'ENOENT') {
-            console.warn('\x1b[1;33m⚠ Failed to load plugin directory:\x1b[0m', error.message);
+        if (error?.code !== 'ENOENT') {
+            const reason = error instanceof Error ? error.message : String(error);
+            console.warn(`\x1b[1;33m⚠ Failed to load plugin directory: ${reason}\x1b[0m`);
         }
     }
 
+    hooks.loadedPluginCount = loadedPluginCount;
     return hooks;
 }
 

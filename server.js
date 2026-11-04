@@ -22,11 +22,11 @@ if (isDefaultPath || isDefaultPass) {
 }
 
 // actual server code
-const express = require('express'); // im so excited
-const rateLimit = require('express-rate-limit');
+const httpFramework = require('./httpFramework');
 const { execSync } = require('child_process');
 const fs = require('fs/promises');
 const path = require('path');
+const createRateLimiter = require('./rateLimit');
 const dashboard = require('./dashboard');
 const db = require('./database');
 const { loadPlugins, hooks } = require('./hooks');
@@ -69,7 +69,7 @@ function isElevated() {
   return false;
 }
 
-const app = express();
+const app = httpFramework();
 hooks.setApp(app);
 app.disable('x-powered-by');
 app.set('trust proxy', config.dashboard.trustProxyHops);
@@ -97,7 +97,7 @@ const levelTransferLimit = '50mb';
 const isLevelTransferRequest = req =>
     req.path === '/uploadGJLevel21.php' || req.path === '/downloadGJLevel22.php';
 
-const limiter = rateLimit({
+const limiter = createRateLimiter({
     windowMs: 60 * 1000,
     max: config.security.rateLimitPerMinute,
     standardHeaders: false,
@@ -113,12 +113,12 @@ const dashboardJsonRequest = req =>
     (req.path === dashboardPath || req.path.startsWith(`${dashboardPath}/`)) &&
     req.is('application/json');
 
-const defaultRawBodyParser = express.raw({
+const defaultRawBodyParser = httpFramework.raw({
     type: req => !req.is('application/x-www-form-urlencoded') &&
         !req.is('multipart/form-data') && !dashboardJsonRequest(req),
     limit: bodyLimit
 });
-const levelTransferRawBodyParser = express.raw({
+const levelTransferRawBodyParser = httpFramework.raw({
     type: req => !req.is('application/x-www-form-urlencoded') &&
         !req.is('multipart/form-data') && !dashboardJsonRequest(req),
     limit: levelTransferLimit
@@ -130,12 +130,12 @@ app.use((req, res, next) => {
     if (Buffer.isBuffer(req.body)) delete req.body;
     next();
 });
-const defaultUrlencodedBodyParser = express.urlencoded({
+const defaultUrlencodedBodyParser = httpFramework.urlencoded({
     extended: true,
     limit: bodyLimit,
     parameterLimit: 100000
 });
-const levelTransferUrlencodedBodyParser = express.urlencoded({
+const levelTransferUrlencodedBodyParser = httpFramework.urlencoded({
     extended: true,
     limit: levelTransferLimit,
     parameterLimit: 100000
@@ -165,13 +165,13 @@ app.get(dashboardPath, (req, res, next) => {
 });
 app.use(dashboardPath, dashboard);
 
-app.use('/content', express.static(path.join(__dirname, 'endpoints', 'content'), {
+app.use('/content', httpFramework.static(path.join(__dirname, 'endpoints', 'content'), {
     fallthrough: true,
     index: false,
     dotfiles: 'deny'
 }));
 
-app.use('/songs', express.static(path.join(__dirname, 'songs'), {
+app.use('/songs', httpFramework.static(path.join(__dirname, 'songs'), {
     fallthrough: false,
     index: false
 }));
@@ -216,6 +216,7 @@ const pluginsReady = config.plugins.enabled
     : Promise.resolve(hooks);
 
 pluginsReady.then(() => {
+    console.log(`Loaded \x1b[1;36m${hooks.loadedPluginCount}\x1b[0m plugins.`);
     soundlib.ensureMusicLib(0);
     hooks.trigger('server:before_start', { app, config, path: __dirname });
     return registerEndpoints();

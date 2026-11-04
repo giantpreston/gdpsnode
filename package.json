@@ -5,14 +5,12 @@
   "main": "server.js",
   "scripts": {
     "start": "node server.js",
-    "test": "node --check server.js && node --check dashboard.js && node --check dashboard/dashboard.js && node --check levelSchedule.js && node --check newsContent.js && node --check newsImages.js && node --check endpoints/content/news.js && node --check endpoints/content/news_version.js && node --check endpoints/levels/getGJDailyLevel.js && node --check endpoints/levels/getGJLevels21.js && node --check endpoints/levels/downloadGJLevel22.js && node scripts/test-level-schedule.js && node scripts/test-database-hooks.js && node scripts/test-database-adapter-lazy.js",
+    "test": "node --check server.js && node --check hooks.js && node --check dashboard.js && node --check dashboard/dashboard.js && node --check httpFramework.js && node --check levelSchedule.js && node --check newsContent.js && node --check newsImages.js && node --check endpoints/content/news.js && node --check endpoints/content/news_version.js && node --check endpoints/levels/getGJDailyLevel.js && node --check endpoints/levels/getGJLevels21.js && node --check endpoints/levels/downloadGJLevel22.js && node scripts/test-level-schedule.js && node scripts/test-database-hooks.js && node scripts/test-database-adapter-lazy.js && node scripts/test-rate-limit.js && node scripts/test-http-framework.js && node scripts/test-plugin-loading.js",
     "benchmark:sqlite": "node scripts/benchmark-sqlite.js"
   },
   "keywords": [],
   "type": "commonjs",
   "dependencies": {
-    "better-sqlite3": "^13.0.3",
-    "express": "^5.2.1",
-    "express-rate-limit": "^8.6.2"
+    "better-sqlite3": "^13.0.3"
   }
 }

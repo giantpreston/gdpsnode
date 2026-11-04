@@ -73,7 +73,7 @@ The examples above are only the most commonly changed settings. See the [complet
 ### Notes
 
 - `DASHBOARD_SECURE_COOKIES=1` should be used when you are running under HTTPS.
-- `TRUST_PROXY_HOPS` is important if your server sits behind a reverse proxy like Nginx or Cloudflare.
+- If the server sits behind a reverse proxy, set `TRUST_PROXY_HOPS` to the number of proxy hops and restrict direct access to the origin so clients cannot spoof `X-Forwarded-For`. Leave hops at `0` when directly exposed. With Cloudflare, configure the origin firewall to accept traffic only from Cloudflare.
 - `ENABLE_PLUGINS=0` disables automatic plugin loading. `PLUGINS_DIR` selects the directory when enabled.
 - `DASHBOARD_LOGIN_MODE` accepts `account`, `legacy`, or `both`; `account` is the default and uses in-game moderator credentials.
 - `NEWS_VERSION` sets the initial news version for a new database. Saving changed news articles in the dashboard automatically increments the version used by both `news_version.txt` and the `news.dat` header. The red exclamation point (!) only appears in-game when you create a new article, updating an existing article won't cause it to show up, but the changes will be present in-game.
