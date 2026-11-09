@@ -20,6 +20,9 @@ GDPSnode is the most complete Geometry Dash private server backend written in No
 
 - The GDPSnode Documentation is now also available at the [GitHub Wiki](https://github.com/giantpreston/gdpsnode/wiki) page!
 
+## Useful Plugins (add-ons)
+- [[ndrnmnk/gdpsnode-compat](https://github.com/ndrnmnk/gdpsnode-compat)]: A plugin for gdpsnode to let it work with old versions of Geometry Dash
+
 ## Quick start
 
 Requirements:
