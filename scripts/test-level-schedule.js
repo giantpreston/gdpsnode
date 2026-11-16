@@ -92,9 +92,9 @@ try {
     setLevelExpiry.run(now + 500, event);
     reconcileLevelSchedule(now);
 
-    const getLevelIDs = type => {
+    const getLevelIDs = (type, str, extra = {}) => {
         let response = '';
-        getLevelsEndpoint.handler({ body: { type } }, { send: value => { response = value; }, headersSent: false });
+        getLevelsEndpoint.handler({ body: { type, str, ...extra } }, { send: value => { response = value; }, headersSent: false });
         return response.split('#')[0].split('|').filter(Boolean).map(level => {
             const fields = level.split(':');
             const dailyNumberIndex = fields.indexOf('65');
@@ -104,6 +104,37 @@ try {
             };
         });
     };
+    const additionalOrderedLevelIDs = Array.from({ length: 7 }, (_, index) =>
+        insertLevel.run((index % 5) + 1, `Ordering ${index}`, now + index, now + index, 0, 0).lastInsertRowid
+    );
+    const requestedLevelIDs = [event, oldDaily, nextDaily, weekly, followingDaily, ...additionalOrderedLevelIDs];
+    database.prepare('UPDATE levels SET starStars = 5 WHERE levelID = ?').run(event);
+    assert.deepEqual(
+        getLevelIDs(10, requestedLevelIDs.join(',')).map(level => level.levelID),
+        requestedLevelIDs
+    );
+    assert.deepEqual(
+        getLevelIDs(10, requestedLevelIDs.join(','), { page: 1 }).map(level => level.levelID),
+        requestedLevelIDs
+    );
+    for (const [type, paginated] of [[19, true], [26, false]]) {
+        const firstPageIDs = paginated ? requestedLevelIDs.slice(0, 10) : requestedLevelIDs;
+        const secondPageIDs = paginated ? requestedLevelIDs.slice(10) : requestedLevelIDs;
+        assert.deepEqual(
+            getLevelIDs(type, requestedLevelIDs.join(',')).map(level => level.levelID),
+            firstPageIDs
+        );
+        assert.deepEqual(
+            getLevelIDs(type, requestedLevelIDs.join(','), { page: 1 }).map(level => level.levelID),
+            secondPageIDs
+        );
+        for (const filter of [{ star: 1 }, { noStar: 1 }]) {
+            assert.deepEqual(
+                getLevelIDs(type, requestedLevelIDs.join(','), filter).map(level => level.levelID),
+                firstPageIDs
+            );
+        }
+    }
     assert.equal(getCurrentDailyLevel(false, false, now).dailyNumber, 2);
     assert.equal(getCurrentDailyLevel(true, false, now).dailyNumber, 100001);
     assert.equal(getCurrentDailyLevel(false, true, now).dailyNumber, 200001);

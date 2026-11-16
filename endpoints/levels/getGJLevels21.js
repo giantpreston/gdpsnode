@@ -91,6 +91,7 @@ module.exports = {
         let conditions = [];
         let params = [];
         let type25LevelOrder = [];
+        let requestedLevelOrder = [];
 
         const completedLevelIDs = completedLevels.split(',').filter(value => value !== '').map(Number);
         const completedLevelColumn = [32, 33, 34].includes(type) ? 'dailyNumber' : 'levelID';
@@ -114,8 +115,10 @@ module.exports = {
             params.push(legacyAudioTrack, song, legacyAudioTrack, song);
         }
         if (twoPlayer === 1) conditions.push('twoPlayer = 1');
-        if (star === 1) conditions.push('NOT starStars = 0');
-        if (noStar === 1) conditions.push('starStars = 0');
+        if (![19, 26].includes(type)) {
+            if (star === 1) conditions.push('NOT starStars = 0');
+            if (noStar === 1) conditions.push('starStars = 0');
+        }
         if (original === 1) conditions.push('originalReup = 0');
         if (coins === 1) conditions.push('starCoins = 1 AND NOT coins = 0');
 
@@ -162,7 +165,8 @@ module.exports = {
         }
         if (type === 10) {
             const levelIDs = String(str).split(',').map(Number).filter(n => !Number.isNaN(n));
-            if (levelIDs.length > 0) {
+            if (levelIDs.length > 0 && levelIDs.length <= 50) {
+                requestedLevelOrder = levelIDs;
                 const placeholders = levelIDs.map(() => '?').join(',');
                 conditions.push(`levelID IN (${placeholders})`);
                 params.push(...levelIDs);
@@ -212,6 +216,15 @@ module.exports = {
             }
             order = 'uploadDate DESC';
         }
+        if (type === 19) {
+            const levelIDs = String(str).split(',').map(Number).filter(n => !Number.isNaN(n));
+            if (levelIDs.length > 0 && levelIDs.length <= 50) {
+                requestedLevelOrder = levelIDs;
+                const placeholders = levelIDs.map(() => '?').join(',');
+                conditions.push(`levelID IN (${placeholders})`);
+                params.push(...levelIDs);
+            }
+        }
         if (type === 25) {
             const listID = Number(str);
             if (!/^\d+$/.test(String(str)) || !Number.isSafeInteger(listID) || listID < 1) return res.send('-1');
@@ -237,6 +250,22 @@ module.exports = {
             const placeholders = type25LevelOrder.map(() => '?').join(',');
             conditions.push(`levelID IN (${placeholders})`);
             params.push(...type25LevelOrder);
+        }
+        if (type === 26) {
+            const levelIDs = String(str).split(',').map(Number).filter(n => !Number.isNaN(n));
+            if (levelIDs.length > 0 && levelIDs.length <= 100) {
+                requestedLevelOrder = levelIDs;
+                const placeholders = levelIDs.map(() => '?').join(',');
+                conditions.push(`levelID IN (${placeholders})`);
+                params.push(...levelIDs);
+            }
+        }
+        const requestedLevelOrderParams = [];
+        if (requestedLevelOrder.length > 0) {
+            order = `CASE levelID ${requestedLevelOrder.map((levelID, index) => {
+                requestedLevelOrderParams.push(levelID);
+                return `WHEN ? THEN ${index}`;
+            }).join(' ')} ELSE ${requestedLevelOrder.length} END`;
         }
         const hypeHour = Math.floor(Date.now() / 3600000);
         if (type === 31) {
@@ -295,7 +324,7 @@ module.exports = {
             starDemon, starStars, featured, starAuto, originalReup, twoPlayer, songID, songIDs,
             coins, starCoins, requestedStars, starEpic, starDemonDiff, objects,
             wt, wt2, ts, uploadDate, updateDate, unlisted, dailyNumber
-            FROM levels${whereClause}${[25, 31].includes(type) ? '' : ` ORDER BY ${order} LIMIT ? OFFSET ?`}`;
+            FROM levels${whereClause}${[25, 31].includes(type) ? '' : ` ORDER BY ${order}${[10, 26].includes(type) ? '' : ' LIMIT ? OFFSET ?'}`}`;
         const stmt = db.prepare(mainSql);
         let levels;
         if (type === 31) {
@@ -313,7 +342,7 @@ module.exports = {
                 .sort((left, right) => listOrder.get(left.levelID) - listOrder.get(right.levelID))
                 .slice(offset, offset + limit);
         } else {
-            levels = stmt.all(...params, limit, offset);
+            levels = stmt.all(...params, ...requestedLevelOrderParams, ...([10, 26].includes(type) ? [] : [limit, offset]));
         }
         
         if (searchedByID && levels.length > 0) {
