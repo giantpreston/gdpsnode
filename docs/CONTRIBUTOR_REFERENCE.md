@@ -25,6 +25,7 @@ At startup, `server.js` loads `.env` if present, then `config.js` normalizes con
 | `PUBLIC_URL` | Derived from the request | Public server origin/path used to build URLs when the request host is not suitable. Set it when a reverse proxy or external domain should be advertised. |
 | `SONG_BASE_URL` | Public server URL plus `/songs` | Base URL used for custom song links. Set it when songs are hosted separately, for example on a CDN. |
 | `NEWS_VERSION` | `5` | Starting news version for a newly initialized database. Existing databases retain their stored version; saving changed articles increments it. |
+| `MAX_AUDIO_FILESIZE` | `100` | Maximum combined size of songs and SFX used by a level, in MiB. Applies to level uploads and the `getGJAudioFilesize.php` query endpoint; set to `0` to disallow audio. |
 | `MOTD` | `A GDPSnode Private Server.` | Message returned by the server for the GDPS Switcher mod. |
 | `ICON` | [Default GDPS Switcher Icon] | Server icon URL for GDPS Switcher in the format of an image. |
 | `LANG` | `js` | Advertises the server uses GDPSnode through the GDPS Switcher endpoint. This isn't part of the GDPS Switcher protocol, but is sent anyway by the server. |

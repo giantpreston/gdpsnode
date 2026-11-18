@@ -52,12 +52,15 @@ const normalizeNewsVersion = value => {
 };
 
 const env = process.env;
+const maxAudioFilesize = normalizeNumber(env.MAX_AUDIO_FILESIZE, 100);
+if (maxAudioFilesize < 0) throw new Error('MAX_AUDIO_FILESIZE must be non-negative');
 
 module.exports = {
     webhook: env.webhook || 'https://discord.com/api/webhooks/tung/dihh',
     port: normalizeNumber(env.PORT || env.GDPS_PORT || 10000, 10000),
     publicUrl: normalizePublicUrl(env.PUBLIC_URL, 'PUBLIC_URL'),
     songBaseUrl: normalizePublicUrl(env.SONG_BASE_URL, 'SONG_BASE_URL'),
+    maxAudioFilesize,
     newsVersion: normalizeNewsVersion(env.NEWS_VERSION),
     motd: env.MOTD || 'A GDPSnode Private Server.',
     icon: env.ICON || 'https://raw.githubusercontent.com/Kingminer7/gdps-switcher/refs/heads/main/resources/gdlogo.png',

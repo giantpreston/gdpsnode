@@ -6,6 +6,14 @@ const fs = require('fs/promises');
 const zlib = require('zlib');
 const { infoWebhookEmbed, errorWebhookEmbed, warnWebhookEmbed, hook } = require('../../webhook.js');
 const utils = require('../../utils');
+const config = require('../../config');
+const {
+    BYTES_PER_MIB,
+    MAX_SONG_IDS,
+    MAX_SFX_IDS,
+    getTotalAudioFilesize,
+    parseAudioIDs
+} = require('../../audioFilesize');
 
 function generateUploadSeed(levelString) {
     const chars = 50;
@@ -126,6 +134,16 @@ module.exports = {
         if (notify && unlisted !== 0) return res.send('-1');
         if (!utils.isURLBase64(levelString)) return res.send('-1');
         if (wt < 0 || wt2 < 0) return res.send('-1');
+
+        const songAudioIDs = [
+            ...parseAudioIDs(String(songID)),
+            ...parseAudioIDs(songIDs)
+        ];
+        const sfxAudioIDs = parseAudioIDs(sfxIDs);
+        if (songAudioIDs.length > MAX_SONG_IDS || sfxAudioIDs.length > MAX_SFX_IDS) return res.send('-1');
+        if (getTotalAudioFilesize(songAudioIDs, sfxAudioIDs) > config.maxAudioFilesize * BYTES_PER_MIB) {
+            return res.send('-1');
+        }
 
         const expectedSeed = generateUploadSeed(levelString);
         if (seed2 !== expectedSeed) return res.send('-1'); // seed2 implementation
