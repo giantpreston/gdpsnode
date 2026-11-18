@@ -1,6 +1,5 @@
 const { commonSecret } = require('../../middleware/secrets');
 const config = require('../../config');
-const utils = require('../../utils');
 const {
     BYTES_PER_MIB,
     MAX_SONG_IDS,
@@ -14,10 +13,13 @@ module.exports = {
     path: '/getGJAudioFilesize.php',
     middleware: [commonSecret],
     handler: (req, res) => {
-        const songIDs = parseAudioIDs(utils.numbercolon(req.body?.songIDs || ''));
-        const sfxIDs = parseAudioIDs(utils.numbercolon(req.body?.sfxIDs || ''));
+        const songIDs = parseAudioIDs(req.body?.songIDs ?? '');
+        const sfxIDs = parseAudioIDs(req.body?.sfxIDs ?? '');
 
-        if (songIDs.length > MAX_SONG_IDS || sfxIDs.length > MAX_SFX_IDS) return res.send('-1');
+        if (songIDs === null || sfxIDs === null
+            || songIDs.length > MAX_SONG_IDS || sfxIDs.length > MAX_SFX_IDS) {
+            return res.send('-1');
+        }
 
         const totalSize = getTotalAudioFilesize(songIDs, sfxIDs);
         const maximumSize = config.maxAudioFilesize * BYTES_PER_MIB;

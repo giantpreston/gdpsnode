@@ -12,6 +12,7 @@ const {
     MAX_SONG_IDS,
     MAX_SFX_IDS,
     getTotalAudioFilesize,
+    parseAudioID,
     parseAudioIDs
 } = require('../../audioFilesize');
 
@@ -68,7 +69,7 @@ module.exports = {
         const auto = parseInt(body.auto, 10);
         const original = parseInt(body.original, 10);
         const twoPlayer = parseInt(body.twoPlayer, 10);
-        const songID = parseInt(body.songID, 10);
+        const songID = parseAudioID(body.songID);
         const objects = parseInt(body.objects, 10);
         const coins = parseInt(body.coins, 10);
         const requestedStars = parseInt(body.requestedStars, 10);
@@ -104,8 +105,12 @@ module.exports = {
         }
         if (rawPassword && rawPassword.startsWith('1') && rawPassword !== '1' && rawPassword !== '0' && rawPassword.length !== 5 && rawPassword.length !== 7) return res.send('-1');
 
-        const songIDs = utils.numbercolon(body.songIDs?.trim() || '');
-        const sfxIDs = utils.numbercolon(body.sfxIDs?.trim() || '');
+        const rawSongIDs = body.songIDs ?? '';
+        const rawSfxIDs = body.sfxIDs ?? '';
+        const songIDs = utils.numbercolon(typeof rawSongIDs === 'string' ? rawSongIDs.trim() : '');
+        const sfxIDs = utils.numbercolon(typeof rawSfxIDs === 'string' ? rawSfxIDs.trim() : '');
+        const parsedSongIDs = parseAudioIDs(rawSongIDs);
+        const parsedSfxIDs = parseAudioIDs(rawSfxIDs);
 
         if (
             isNaN(gameVersion) || isNaN(accountID) || isNaN(levelID) || isNaN(levelVersion) ||
@@ -113,7 +118,7 @@ module.exports = {
             isNaN(original) || isNaN(twoPlayer) || isNaN(songID) || isNaN(objects) ||
             isNaN(coins) || isNaN(requestedStars) || isNaN(unlisted) || isNaN(wtValue) || isNaN(wt2Value) ||
             isNaN(ldm) || isNaN(tsValue) || isNaN(notify) || !gjp2 || !levelName || levelDesc === undefined || levelDesc === null ||
-            !levelString || !seed2
+            !levelString || !seed2 || parsedSongIDs === null || parsedSfxIDs === null
         ) return res.send('-1');
 
 
@@ -135,11 +140,8 @@ module.exports = {
         if (!utils.isURLBase64(levelString)) return res.send('-1');
         if (wt < 0 || wt2 < 0) return res.send('-1');
 
-        const songAudioIDs = [
-            ...parseAudioIDs(String(songID)),
-            ...parseAudioIDs(songIDs)
-        ];
-        const sfxAudioIDs = parseAudioIDs(sfxIDs);
+        const songAudioIDs = [songID, ...parsedSongIDs].filter(id => id !== 0);
+        const sfxAudioIDs = parsedSfxIDs;
         if (songAudioIDs.length > MAX_SONG_IDS || sfxAudioIDs.length > MAX_SFX_IDS) return res.send('-1');
         if (getTotalAudioFilesize(songAudioIDs, sfxAudioIDs) > config.maxAudioFilesize * BYTES_PER_MIB) {
             return res.send('-1');
