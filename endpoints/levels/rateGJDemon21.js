@@ -27,6 +27,10 @@ module.exports = {
         if (account.gjp2 !== gjp2) return res.send('-1');
         if (account.isDisabled === 1) return res.send('-1');
         if (level.starDemon !== 1) return res.send('-1'); // level isn't demon
+        if (mode === 1) {
+            const profile = db.prepare('SELECT modLevel FROM profiles WHERE accountID = ?').get(accountID);
+            if (!profile || profile.modLevel < 1) return res.send('-2'); // not lb mod, mod or adv
+        }
 
         const ratingMap = {
             1: 3,
